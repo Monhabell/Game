@@ -85,6 +85,10 @@ function create() {
         .setScale(1)
         .setCollideWorldBounds(true)
         .setGravityY(480);
+    // Recortar la imagen desde la parte superior
+    this.mascotaGesi.setCrop(0, 50, this.mascotaGesi.width, this.mascotaGesi.height - 50);
+
+    this.mascotaGesi.body.setSize(80, 115).setOffset(24, 14);
 
     // Crear un grupo de enemigos
     this.enemies = this.physics.add.group();
