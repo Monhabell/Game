@@ -3,7 +3,7 @@ let score = 0; // Variable global para la puntuación
 let vidas = 3;
 const config = {
     type: Phaser.AUTO,
-    width: 1200,
+    width: 600,
     height: 400,
     backgroundColor: '#049cd8',
     parent: 'game',
@@ -26,12 +26,18 @@ new Phaser.Game(config)
 function preload() {
     this.load.image('background', 'assets/fondo.jpg');
     this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png');
-    this.load.spritesheet('mascotaGesi', 'assets/mascotaGesi1.png', { frameWidth: 41.6, frameHeight: 56 });
+    //this.load.spritesheet('mascotaGesi', 'assets/mascotaGesi1.png', { frameWidth: 41.6, frameHeight: 56 });
+    this.load.spritesheet('mascotaGesi', 'assets/mascotaGesiFinal.png', { frameWidth: 128, frameHeight: 128 });
+    this.load.spritesheet('mascotaGesiload', 'assets/mascotaload.png', { frameWidth: 128, frameHeight: 128 });
+    this.load.spritesheet('saltar', 'assets/saltar.png', { frameWidth: 128, frameHeight: 128 });
+
+
+
     this.load.image('suelo', 'assets/scenery/overworld/floorbricks.png');
     this.load.audio('gameover', 'assets/sound/music/gameover.mp3');
 
     // cargar enemigos
-    this.load.spritesheet('malo', 'assets/entities/underground/goomba.png', { frameWidth: 16, frameHeight: 16 });
+    this.load.spritesheet('malo', 'assets/entities/underground/Run.png', { frameWidth: 128, frameHeight: 128 });
 
     // cargar monedas
     this.load.spritesheet('coins', 'assets/collectibles/coin.png', { frameWidth: 16, frameHeight: 16 });
@@ -65,27 +71,20 @@ function create() {
     this.piso4 = this.floor.create(990, config.height - 160, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
     this.piso4.setVisible(true);
 
-    this.piso5 = this.floor.create(780, config.height - 350, 'suelo').setOrigin(0, 0.5).setScale(1,2).refreshBody();
+    this.piso5 = this.floor.create(780, config.height - 350, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
     this.piso5.setVisible(true);
 
 
-    // this.piso6 = this.floor.create(20, config.height / 2, 'suelo').setOrigin(0, 0).setScale(2).refreshBody();;
+    this.piso6 = this.floor.create(610, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
+    this.piso6.setVisible(true);
 
-    // // Crear un tween para mover el elemento
-    // this.tweens.add({
-    //     targets: this.piso6,
-    //     x: 800, // Posición final en el eje X
-    //     duration: 6000, // Duración de la animación en ms
-    //     ease: 'Power1', // Tipo de easing para el movimiento
-    //     yoyo: true, // Hace que el tween se reproduzca hacia adelante y luego hacia atrás
-    //     repeat: -1 // Hace que el tween se repita infinitamente
-    // });
-    
+
+        
 
     this.mascotaGesi = this.physics.add.sprite(50, 100, 'mascotaGesi')
         .setScale(1)
         .setCollideWorldBounds(true)
-        .setGravityY(10);
+        .setGravityY(480);
 
     // Crear un grupo de enemigos
     this.enemies = this.physics.add.group();
@@ -95,11 +94,12 @@ function create() {
 
     for (let i = 0; i < numEnemies; i++) {
         // Crear un enemigo
-        let enemy = this.enemies.create(590 + i * 80, config.height - 250, 'malo').anims.play('enemy-walk', true)
+        let enemy = this.enemies.create(690 + i * 80, config.height - 250, 'malo').anims.play('enemy-walk', true)
             .setOrigin(0, 1)
             .setGravityY(300)
             .setVelocityX(-50)
-            .setScale(1.7);
+            .setScale(0.6);
+            enemy.flipX = true;
     }
 
     // Hacer que todos los enemigos colisionen con el suelo
@@ -118,7 +118,7 @@ function create() {
 
     // monedas    
     this.coins = this.physics.add.staticGroup();
-    this.coins.create(380, 190, 'coins').anims.play('coins-giro', true).setScale(1.5);
+    this.coins.create(580, 190, 'coins').anims.play('coins-giro', true).setScale(1.5);
     this.coins.create(610, 190, 'coins').anims.play('coins-giro', true).setScale(1.5);
     this.coins.create(460, 335, 'coins').anims.play('coins-giro', true).setScale(1.5);
     this.coins.create(960, 335, 'coins').anims.play('coins-giro', true).setScale(1.5);
@@ -130,7 +130,7 @@ function create() {
     this.physics.add.world.setBounds(0, 0, 4000, config.height);
 
     // camara
-    this.cameras.main.setBounds(0, 0, 4000, config.height);
+    this.cameras.main.setBounds(0, 0, 4000, config.height); // cambiar tamaño de mundo 
     this.cameras.main.startFollow(this.mascotaGesi);
 
     this.keys = this.input.keyboard.createCursorKeys();
@@ -208,11 +208,11 @@ function update() {
     }
 
     if (this.keys.up.isDown && this.mascotaGesi.body.touching.down) {
-        this.mascotaGesi.setVelocityY(-300);
+        this.mascotaGesi.setVelocityY(-480);
         this.mascotaGesi.anims.play('gesi-salto');
     }
 
-    const deathThreshold = 40;
+    const deathThreshold = 90;
 
     if (this.mascotaGesi.y >= config.height - deathThreshold) {
         killgesi(this);
@@ -226,11 +226,11 @@ function update() {
         this.vidasText.setText(`Vidas: ${vidas}`);
     }
 
-    if (this.mascotaGesi.x >= config.width - 920) { // Ajusta el valor según tu necesidad
+    if (this.mascotaGesi.x >= config.width - 330) { // Ajusta el valor según tu necesidad
         moveFloorPiece(this.piso2, 390);
     }
 
-    if (this.mascotaGesi.x >= config.width - 950 && this.mascotaGesi.y >= config.height - 180) { // Ajusta el valor según tu necesidad
+    if (this.mascotaGesi.x >= config.width - 330 && this.mascotaGesi.y >= config.height - 188) { // Ajusta el valor según tu necesidad
 
         if (!this.piso3.visible) {
             this.piso3.setVisible(true); // Mostrar el piso
@@ -252,7 +252,7 @@ function killgesi(game) {
     mascotaGesi.isDead = true;
     mascotaGesi.anims.play('gesi-muerto');
     mascotaGesi.setCollideWorldBounds(false);
-    sound.add('gameover', { volume: 0.2 }).play();
+    sound.add('gameover', { volume: 1 }).play();
 
     vidas -= 1; // Actualiza la puntuación
     game.vidasText.setText(`Vidas: ${vidas}`);
