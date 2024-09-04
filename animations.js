@@ -11,7 +11,7 @@ export const createAnimations = (game) => {
             { key: 'mascotaGesi', frame: 6 },
             
         ],
-        frameRate: 25,
+        frameRate: 13,
         repeat: -1
     })
 
@@ -23,10 +23,6 @@ export const createAnimations = (game) => {
             { key: 'mascotaGesiload', frame: 2 },
             { key: 'mascotaGesiload', frame: 3 },
             { key: 'mascotaGesiload', frame: 4 },
-            { key: 'mascotaGesiload', frame: 5 },
-            { key: 'mascotaGesiload', frame: 6 },
-            { key: 'mascotaGesiload', frame: 7 },
-            { key: 'mascotaGesiload', frame: 8 },
         ],
         frameRate: 8,
         repeat: -1
@@ -70,9 +66,11 @@ export const createAnimations = (game) => {
     game.anims.create({
         key: 'enemy-muerte',
         frames: [
-            { key: 'malo', frame: 2 },
+            { key: 'maloDead', frame: 0 },
+            { key: 'maloDead', frame: 1 },
+            { key: 'maloDead', frame: 2 },
         ],
-        frameRate: 15,
+        frameRate: 10,
     })
 
     game.anims.create({
@@ -85,6 +83,48 @@ export const createAnimations = (game) => {
 
         ],
         frameRate: 8,
+        repeat: -1
+    })
+
+    game.anims.create({
+        key: 'lava_quema',
+        frames: [
+            { key: 'lava', frame: 0 },
+            { key: 'lava', frame: 1 },
+        ],
+        frameRate: 3,
+        repeat: -1
+    })
+
+    game.anims.create({
+        key: 'lavacaer',
+        frames: [
+            { key: 'lava_falling', frame: 0},
+            { key: 'lava_falling', frame: 1 },
+        ],
+        frameRate: 1,
+        repeat: -1
+    })
+
+    game.anims.create({
+        key: 'lavacaergota',
+        frames: [
+            { key: 'lava_falling', frame: 4},
+            { key: 'lava_falling', frame: 4 },
+        ],
+        frameRate: 1,
+        repeat: -1
+    })
+
+    game.anims.create({
+        key: 'lavacaergotaSplash',
+        frames: [
+            { key: 'lava_falling', frame: 5},
+            { key: 'lava_falling', frame: 6 },
+            { key: 'lava_falling', frame: 7 },
+
+        ],
+        frameRate: 4,
         repeat: -1
     })
 }
