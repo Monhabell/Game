@@ -28,8 +28,6 @@ new Phaser.Game(config)
 function preload() {
 
     this.load.image('background', 'assets/fondo.png');
-
-
     this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png');
     //this.load.spritesheet('mascotaGesi', 'assets/mascotaGesi1.png', { frameWidth: 41.6, frameHeight: 56 });
     this.load.spritesheet('mascotaGesi', 'assets/mascotaGesiFinal.png', { frameWidth: 128, frameHeight: 128 });
@@ -58,19 +56,12 @@ function preload() {
     this.load.image('suelo3', 'assets/scenery/piso.png');
     this.load.image('door', 'assets/scenery/door.png');
 
-
-
-
     this.load.spritesheet('lava', 'assets/scenery/lava1.png', { frameWidth: 64, frameHeight: 64 });
 
-
     this.load.audio('gameover', 'assets/sound/music/gameover.mp3');
-
     // cargar enemigos
     this.load.spritesheet('malo', 'assets/entities/underground/Run.png', { frameWidth: 128, frameHeight: 128 });
     this.load.spritesheet('maloDead', 'assets/Dead.png', { frameWidth: 128, frameHeight: 128 });
-
-
     // cargar monedas
     this.load.spritesheet('coins', 'assets/collectibles/coin.png', { frameWidth: 16, frameHeight: 16 });
 
@@ -227,9 +218,8 @@ function create() {
     });
 
 
-
     this.time.addEvent({
-        delay: 4000,    // 2000 ms = 2 segundos
+        delay: 3000,    // 2000 ms = 2 segundos
         callback: crearzombis,
         callbackScope: this,
         loop: true
@@ -522,7 +512,7 @@ function update() {
 
     if (this.mascotaGesi.x >= 1610 && this.mascotaGesi.y <= 210) {
         this.piso8.setX(1550);
-        this.piso8.setSize(80, 60).setOffset(-58, 35);
+        this.piso8.setSize(80, 60).setOffset(-62, 35);
 
 
     }
