@@ -90,6 +90,7 @@ export function monedaTrampa(scene, moneda, api) {
     const e = api.crearEnemigo(scene, moneda.x, 0);
     e.x = moneda.x - (e.def.cuerpo[2] + e.def.cuerpo[0] / 2) * (e.def.escala ?? 1);
     api.mostrarMensaje(scene, '¡ERA UNA TRAMPA!', 1000);
+    scene.sound.play('trampa', { volume: 0.5 });
 }
 
 export function actualizarSorpresas(scene, api) {
@@ -126,6 +127,7 @@ export function actualizarSorpresas(scene, api) {
         if (e.hecha || gx < e.x - 25) return;
         e.hecha = true;
         api.mostrarMensaje(scene, '¡NO ERA UN PUNTO\nDE CONTROL!', 1200);
+        scene.sound.play('trampa', { volume: 0.5 });
         scene.sound.play('romper');
         scene.tweens.add({ targets: e.estatua, x: e.x + 3, yoyo: true, repeat: 4, duration: 40 });
         scene.tweens.add({ targets: [e.estatua, e.luz], alpha: 0, delay: 250, duration: 250, onComplete: () => { e.estatua.destroy(); e.luz.destroy(); } });
@@ -142,7 +144,7 @@ export function actualizarSorpresas(scene, api) {
         f.hecha = true;
         const v = scene.sound.add('victoria');
         v.play();
-        scene.time.delayedCall(450, () => v.stop());
+        scene.time.delayedCall(450, () => { v.stop(); scene.sound.play('trampa', { volume: 0.55 }); });
         api.mostrarMensaje(scene, '¡JA! ESA NO ERA\nLA META', 1500);
         scene.tweens.add({ targets: f.partes, x: '+=650', duration: 1800, ease: 'Quad.easeIn', onComplete: () => f.partes.forEach(p => p.destroy()) });
         scene.tweens.add({ targets: f.partes, y: '-=30', yoyo: true, repeat: 5, duration: 150 });
@@ -160,6 +162,7 @@ export function actualizarSorpresas(scene, api) {
         gigante.velBase = 150;
         gigante.anims.timeScale = 1.8;
         api.mostrarMensaje(scene, '¡CORRE!', 1200);
+        scene.sound.play('rugido', { volume: 0.7 });
         scene.cameras.main.shake(400, 0.006);
         scene.sound.play('romper');
     });

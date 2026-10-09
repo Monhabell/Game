@@ -11,6 +11,7 @@ import {
 } from "./mazmorra.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa } from "./sorpresas.js"
 import { aleatorizarNivel, iniciarCorazonesAlAzar, soltarCorazon } from "./azar.js"
+import { cargarSonidos, sonarCerca } from "./sonidos.js"
 import {
     cargarEscudo, crearAnimacionesEscudo, crearEscudo, actualizarEscudo, estaInvulnerable, romperEscudo, recuperarEscudo
 } from "./escudo.js"
@@ -149,6 +150,7 @@ function preload() {
     this.load.audio('romper', 'assets/sound/effects/break-block.wav');
     this.load.audio('aparece', 'assets/sound/effects/powerup-appears.mp3');
     cargarEscudo(this);
+    cargarSonidos(this);
 
     // bolas de fuego que saltan de la lava
     this.load.spritesheet('bola', 'assets/entities/fireball.png', { frameWidth: 8, frameHeight: 8 });
@@ -212,6 +214,13 @@ function create() {
     // corazones que aparecen al azar cuando te faltan vidas
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
     iniciarCorazonesAlAzar(this, () => vidas < VIDAS_INICIALES, nivel.ancho);
+
+    // con una sola vida se escucha un latido
+    this.time.addEvent({
+        delay: 1300, loop: true, callback: () => {
+            if (vidas === 1 && !this.mascotaGesi.isDead && !this.nivelTerminado) this.sound.play('latido', { volume: 0.45 });
+        }
+    });
 
     this.mascotaGesi = this.physics.add.sprite(checkpointX ?? 50, 100, `${this.pj.id}-idle`)
         .setScale(1)
@@ -380,6 +389,7 @@ function crearSeleccion() {
         this.add.text(x, 262, lineas.join('\n'), { ...estilo('11px'), lineSpacing: 6 }).setOrigin(0.5);
         panel.on('pointerdown', () => {
             if (this.indiceSel === i) empezarJuego(this);
+            else this.sound.play('menu_mover', { volume: 0.5 });
             this.indiceSel = i;
             marcarSeleccion(this);
         });
@@ -404,13 +414,14 @@ function marcarSeleccion(scene) {
 function actualizarSeleccion(time) {
     moverNieblaSeleccion(this, time);
     const k = this.teclasSel, JD = Phaser.Input.Keyboard.JustDown;
-    if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); }
-    if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); }
+    if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
+    if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.enter) || JD(k.espacio)) empezarJuego(this);
 }
 
 function empezarJuego(scene) {
     personajeId = PERSONAJES[scene.indiceSel].id;
+    scene.sound.play('menu_ok', { volume: 0.6 });
     reiniciarPartida();
     scene.scene.start('juego');
 }
@@ -680,6 +691,7 @@ function construirNivel(scene, nivel) {
             delay, loop: true, callback: () => {
                 bola.enableBody(true, x, 372, true, true);
                 bola.setVelocityY(-400);
+                sonarCerca(scene, 'fuego', x, { volume: 0.2, rate: 0.8 });
             }
         });
     });
@@ -736,7 +748,7 @@ function activarCheckpoint(scene, cp) {
     cp.activo = true;
     checkpointX = Math.max(checkpointX ?? 0, cp.x);
     encenderEstatua(scene, cp);
-    scene.sound.play('moneda');
+    scene.sound.play('punto_control', { volume: 0.6 });
     mostrarMensaje(scene, '¡PUNTO DE CONTROL!', 1200);
 }
 
@@ -819,6 +831,7 @@ function atacar(scene, enemy, alSoltar) {
 // golpe cuerpo a cuerpo de un enemigo (esqueleto, planta)
 function golpeDeEnemigo(scene, enemy) {
     const eb = enemy.body, alcance = enemy.def.alcance;
+    sonarCerca(scene, enemy.def.tipo === 'planta' ? 'latigo' : 'golpe_enemigo', eb.center.x, { volume: 0.5 });
     const x0 = enemy.flipX ? eb.left - alcance : eb.right;
     const zona = new Phaser.Geom.Rectangle(x0, eb.top - 10, alcance, eb.height + 10);
     const gb = scene.mascotaGesi.body;
@@ -844,7 +857,7 @@ function dispararEnemigo(scene, enemy) {
         laser.setVelocityX(dir * 320);
         scene.time.delayedCall(2500, () => laser.active && laser.destroy());
     }
-    scene.sound.play('disparo', { volume: 0.4 });
+    sonarCerca(scene, enemy.def.tipo === 'volador' ? 'fuego' : 'laser', eb.center.x, { volume: 0.4 });
 }
 
 function actualizarEnemigo(scene, enemy, time) {
@@ -1055,6 +1068,7 @@ function animar(scene, clave) {
 
 // ---------- Habilidades (ESPACIO, X, C) ----------
 function avisar(scene, texto) {
+    scene.sound.play('vacio', { volume: 0.5 });
     if (scene.avisoActivo) return;
     scene.avisoActivo = true;
     mostrarMensaje(scene, texto, 800);
@@ -1095,6 +1109,7 @@ function usarHabilidad(scene, tecla) {
 function ejecutarHabilidad(scene, h) {
     const g = scene.mascotaGesi, b = g.body;
     const dir = g.flipX ? -1 : 1;
+    if (h.sonido) scene.sound.play(h.sonido, { volume: 0.6, rate: h.rate || 1 });
 
     if (h.tipo === 'proyectil') {
         const p = scene.flechasGrupo.create(b.center.x + dir * 20, b.center.y - 8, h.textura);
@@ -1106,7 +1121,6 @@ function ejecutarHabilidad(scene, h) {
         p.body.setAllowGravity(false);
         p.setVelocityX(dir * h.vel);
         scene.time.delayedCall(h.vida, () => p.active && p.destroy());
-        scene.sound.play('disparo', { volume: 0.6 });
     } else if (h.tipo === 'golpe' || h.tipo === 'rayo') {
         // golpea a todos los enemigos en una franja delante del personaje
         const x0 = dir > 0 ? b.right : b.left - h.alcance;
@@ -1119,21 +1133,16 @@ function ejecutarHabilidad(scene, h) {
         if (h.tipo === 'rayo') {
             const rayo = scene.add.rectangle(x0 + h.alcance / 2, b.center.y - 6, h.alcance, 6, 0xffe066).setDepth(20);
             scene.tweens.add({ targets: rayo, scaleY: 3, alpha: 0, duration: 350, onComplete: () => rayo.destroy() });
-            scene.sound.play('disparo', { volume: 0.6 });
-        } else {
-            scene.sound.play('bump', { volume: 0.5 });
         }
     } else if (h.tipo === 'embestida') {
         scene.dashHasta = scene.time.now + h.duracion;
         scene.dashVel = dir * h.vel;
         b.setAllowGravity(false);
         g.setVelocityY(0);
-        scene.sound.play('disparo', { volume: 0.6 });
     } else if (h.tipo === 'escudo') {
         scene.escudoHasta = scene.time.now + h.duracion;
         if (scene.escudoFx) scene.escudoFx.destroy();
         scene.escudoFx = scene.add.circle(g.x, b.center.y, 46, 0x66ccff, 0.25).setStrokeStyle(3, 0x99ddff).setDepth(20);
-        scene.sound.play('bump', { volume: 0.5 });
     }
 }
 
@@ -1189,6 +1198,8 @@ function actualizarTrampas(scene) {
         if (p.oculto && !p.salio && g.right > p.x - 50 && g.left < p.x + 82) {
             p.salio = true;
             scene.tweens.add({ targets: p.img, y: SUELO_Y, duration: 70 });
+            if (scene.time.now - (scene.ultimoPincho || 0) > 200) scene.sound.play('pinchos', { volume: 0.5 });
+            scene.ultimoPincho = scene.time.now;
         }
         const arriba = p.img.y <= SUELO_Y + 4;
         if (arriba && g.right > p.x + 4 && g.left < p.x + 28 && g.bottom > SUELO_Y - 14) killgesi(scene);
@@ -1199,6 +1210,7 @@ function actualizarTrampas(scene) {
         if (!e.hecha && scene.mascotaGesi.x >= e.xAviso) {
             e.hecha = true;
             e.xs.forEach(x => crearEnemigo(scene, x, 0));
+            scene.sound.play('emboscada', { volume: 0.6 });
         }
     });
 }
@@ -1452,11 +1464,13 @@ function update(time, delta) {
     if (enSuelo) this.saltosAire = 0;
     if (this.keys.up.isDown && enSuelo) {
         g.setVelocityY(-this.pj.salto);
+        this.sound.play('salto', { volume: 0.3 });
         animar(this, 'jump');
     } else if (this.pj.dobleSalto && !enSuelo && this.saltosAire < 1 && JD(this.keys.up)) {
         // doble salto del mago
         this.saltosAire++;
         g.setVelocityY(-400);
+        this.sound.play('salto', { volume: 0.3, rate: 1.35 });
         g.anims.play(`${this.pj.id}-jump`, false);
     }
 
@@ -1519,6 +1533,7 @@ function killgesi(game, causa) {
     if (vidas <= 0) {
         // sin corazones: GAME OVER y se vuelve al inicio del juego
         mostrarMensaje(game, 'GAME OVER\nVuelves al inicio');
+        game.time.delayedCall(900, () => sound.play('game_over', { volume: 0.7 }));
         game.time.delayedCall(3500, () => {
             reiniciarPartida();
             scene.start('seleccion');

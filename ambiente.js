@@ -359,6 +359,7 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     if (nivel.nubes && !reducir) {
         const relampago = () => {
             scene.cameras.main.flash(110, 90, 105, 150);
+            scene.time.delayedCall(Phaser.Math.Between(250, 700), () => scene.sound.play('trueno', { volume: 0.55 }));
             scene.time.delayedCall(200, () => scene.cameras.main.flash(80, 60, 70, 110));
             scene.time.delayedCall(Phaser.Math.Between(8000, 16000), relampago);
         };
@@ -386,7 +387,10 @@ function cicloNiebla(scene, nivelIndice) {
 
         scene.estadoNiebla.nombre = siguiente;
         scene.tweens.add({ targets: scene.estadoNiebla, v: ESTADOS_NIEBLA[siguiente], duration: Phaser.Math.Between(3500, 5000), ease: 'Sine.inOut' });
-        if (siguiente === 'densa') scene.mostrarMensajeCorto?.('La niebla se espesa...');
+        if (siguiente === 'densa') {
+            scene.mostrarMensajeCorto?.('La niebla se espesa...');
+            scene.sound.play('viento', { volume: 0.4 });
+        }
         scene.time.delayedCall(Phaser.Math.Between(10000, 22000), cambiar);
     };
     scene.time.delayedCall(Phaser.Math.Between(8000, 14000), cambiar);
@@ -416,7 +420,10 @@ function cicloLuz(scene, nivelIndice, oscuridadNormal) {
             targets: scene.estadoLuz, ...ESTADOS[siguiente],
             duration: Phaser.Math.Between(3000, 4500), ease: 'Sine.inOut',
         });
-        if (siguiente === 'oscuro') scene.mostrarMensajeCorto?.('Se apagan las luces...');
+        if (siguiente === 'oscuro') {
+            scene.mostrarMensajeCorto?.('Se apagan las luces...');
+            scene.sound.play('apagon', { volume: 0.45 });
+        }
         scene.time.delayedCall(Phaser.Math.Between(9000, 18000), cambiar);
     };
     scene.time.delayedCall(Phaser.Math.Between(12000, 18000), cambiar);
