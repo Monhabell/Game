@@ -10,6 +10,9 @@
 // Lo lejano se ve más claro y del color de la niebla (perspectiva atmosférica),
 // lo cercano más oscuro y con más contraste.
 // Cada nivel puede tener 'oscuridad' (0 = nada, 1 = negro total fuera de la luz).
+//
+// La niebla cambia sola: a veces se despeja y luego se vuelve densa (ver cicloNiebla).
+// En los niveles más altos la niebla densa aparece más seguido.
 
 import { crearPaisaje, crearRuinas } from "./castillos.js"
 import { crearFondoCueva, moverFondoCueva } from "./mazmorra.js"
@@ -180,7 +183,7 @@ function crearTexturasAmbiente(scene) {
 function bandaNiebla(scene, y, alto, color, alpha, factor, vel) {
     const capa = scene.add.tileSprite(0, y, ANCHO, alto, 'niebla_banda')
         .setOrigin(0).setScrollFactor(0).setTint(color).setAlpha(alpha);
-    scene.capasNiebla.push({ capa, factor, vel });
+    scene.capasNiebla.push({ capa, factor, vel, base: alpha });
     return capa;
 }
 
@@ -271,8 +274,15 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     }).setScrollFactor(0).setDepth(32);
 
     // oscuridad del color de la noche, con luz alrededor del personaje
+    // pared de niebla que solo se ve cuando la niebla está densa
+    scene.nieblaDensa = scene.add.tileSprite(0, 0, ANCHO, ALTO, 'niebla')
+        .setOrigin(0).setScrollFactor(0).setDepth(33).setAlpha(0).setTint(p.niebla).setTileScale(1.6);
+
     scene.oscuridad = scene.add.image(0, 0, `oscuridad_${tipo}`)
         .setScrollFactor(0).setDepth(40).setAlpha(oscuridad);
+    scene.oscuridadBase = oscuridad;
+
+    cicloNiebla(scene, nivelIndice);
 
     // luz cálida de antorcha alrededor del personaje
     scene.luzCalida = scene.add.image(0, 0, 'brillo').setDepth(41).setScale(2.6)
@@ -297,9 +307,45 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     }
 }
 
+// ---------- Niebla que cambia: despejada, normal y densa ----------
+const ESTADOS_NIEBLA = { despejada: 0.25, normal: 1, densa: 2 };
+
+function cicloNiebla(scene, nivelIndice) {
+    scene.estadoNiebla = { v: 1, nombre: 'normal' };
+    const probDensa = Math.min(0.6, 0.3 + 0.06 * nivelIndice); // más niebla densa en niveles altos
+
+    const cambiar = () => {
+        if (!scene.sys.isActive()) return;
+        const actual = scene.estadoNiebla.nombre;
+        // nunca repite el mismo estado dos veces seguidas
+        let siguiente;
+        if (actual === 'densa') siguiente = Math.random() < 0.6 ? 'despejada' : 'normal';
+        else if (actual === 'despejada') siguiente = Math.random() < probDensa + 0.25 ? 'densa' : 'normal';
+        else siguiente = Math.random() < probDensa ? 'densa' : 'despejada';
+
+        scene.estadoNiebla.nombre = siguiente;
+        scene.tweens.add({ targets: scene.estadoNiebla, v: ESTADOS_NIEBLA[siguiente], duration: Phaser.Math.Between(3500, 5000), ease: 'Sine.inOut' });
+        if (siguiente === 'densa') scene.mostrarMensajeCorto?.('La niebla se espesa...');
+        scene.time.delayedCall(Phaser.Math.Between(10000, 22000), cambiar);
+    };
+    scene.time.delayedCall(Phaser.Math.Between(8000, 14000), cambiar);
+}
+
+function aplicarNiebla(scene) {
+    const v = scene.estadoNiebla ? scene.estadoNiebla.v : 1;
+    scene.capasNiebla.forEach(({ capa, base }) => capa.setAlpha(Math.min(0.75, base * v)));
+    scene.nieblaAlta.setAlpha(Math.min(0.55, 0.22 * v));
+    scene.nieblaBaja.setAlpha(Math.min(0.9, 0.6 * (0.4 + 0.6 * v)));
+    scene.nieblaDensa.setAlpha(Math.max(0, v - 1) * 0.42);
+    // con niebla densa todo se ve un poco más oscuro; despejada, un poco más claro
+    scene.oscuridad.setAlpha(Phaser.Math.Clamp(scene.oscuridadBase + (v - 1) * 0.06, 0, 0.95));
+}
+
 export function actualizarAmbiente(scene, time, objetivo) {
     if (!scene.oscuridad) return;
     const cam = scene.cameras.main;
+    aplicarNiebla(scene);
+    scene.nieblaDensa.tilePositionX = cam.scrollX * 0.7 + time * 0.02;
     scene.capasNiebla.forEach(({ capa, factor, vel }) => { capa.tilePositionX = cam.scrollX * factor + time * vel; });
     moverFondoCueva(scene, time);
     scene.nieblaAlta.tilePositionX = cam.scrollX * 0.5 + time * 0.012;
