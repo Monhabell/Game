@@ -266,6 +266,7 @@ function create() {
     this.vidaJefeInicial = vidaJefeGuardada && vidaJefeGuardada.nivel === nivelActual ? vidaJefeGuardada.vida : null;
     this.guardarVidaJefe = v => { vidaJefeGuardada = { nivel: nivelActual, vida: v }; };
     this.salud = SALUD_MAXIMA;
+    this.barraSalud = this.barraSaludFondo = this.textoSalud = null;
     this.mostrarBarraSalud = () => crearBarraSalud(this);
     this.soltarCorazonArena = (x, y) => soltarCorazon(this, x, y);
     this.faltaSalud = () => this.salud < SALUD_MAXIMA || vidas < VIDAS_INICIALES;
@@ -642,7 +643,7 @@ function crearBarraSalud(scene) {
 }
 
 function actualizarBarraSalud(scene) {
-    if (!scene.barraSalud) return;
+    if (!scene.barraSalud || !scene.barraSalud.active) return;
     const p = Phaser.Math.Clamp(scene.salud / SALUD_MAXIMA, 0, 1);
     scene.barraSalud.width = 120 * p;
     scene.barraSalud.setFillStyle(p > 0.5 ? 0x4ade80 : p > 0.25 ? 0xfacc15 : 0xef4444);
@@ -651,7 +652,7 @@ function actualizarBarraSalud(scene) {
 
 function recibirDaño(scene, daño) {
     const g = scene.mascotaGesi;
-    scene.salud = Math.max(0, scene.salud - daño);
+    scene.salud = Math.max(0, scene.salud - Math.round(daño * (scene.dañoJefe || 1)));
     actualizarBarraSalud(scene);
     scene.tweens.add({ targets: [scene.barraSalud, scene.barraSaludFondo], scaleY: 1.6, yoyo: true, duration: 90 });
     scene.cameras.main.shake(160, 0.006);
@@ -661,7 +662,7 @@ function recibirDaño(scene, daño) {
     g.setVelocity(lado * 230, -220);
     g.setTintFill(0xff4444);
     scene.time.delayedCall(100, () => g.clearTint());
-    scene.invulnerableHasta = scene.time.now + 900;
+    scene.invulnerableHasta = scene.time.now + 700;
     scene.tweens.add({ targets: g, alpha: 0.3, yoyo: true, repeat: 4, duration: 90, onComplete: () => g.setAlpha(1) });
     if (scene.salud <= 0) {
         scene.invulnerableHasta = 0;
@@ -1216,9 +1217,10 @@ function recogerPremio(_mascotaGesi, premio) {
     premio.disableBody(true, true);
     if (premio.tipoPremio === 'corazon' && this.peleaJefe && this.salud < SALUD_MAXIMA) {
         // en la pelea el corazón cura la barra de vida
-        this.salud = Math.min(SALUD_MAXIMA, this.salud + 45);
+        const cura = this.curacionArena || 45;
+        this.salud = Math.min(SALUD_MAXIMA, this.salud + cura);
         actualizarBarraSalud(this);
-        mostrarMensaje(this, '+45 VIDA', 800);
+        mostrarMensaje(this, `+${cura} VIDA`, 800);
         this.sound.play('aparece', { volume: 0.5 });
     } else if (premio.tipoPremio === 'corazon') {
         if (vidas < VIDAS_INICIALES) {
@@ -1720,9 +1722,15 @@ function killgesi(game, causa, daño = 20) {
     if (mascotaGesi.isDead || game.nivelTerminado) return;
     if (game.cinematica && causa !== 'caida') return;
     if (game.peleaJefe && causa !== 'caida' && causa !== 'sin_salud') {
-        if (protegido(game) || estaInvulnerable(game)) return;
-        if (game.tieneEscudo) { romperEscudo(game, texto => mostrarMensaje(game, texto, 900)); return; }
-        recibirDaño(game, daño);
+        // contra el jefe ninguna protección anula el golpe: solo lo reduce
+        if (estaInvulnerable(game)) return; // un instante después de cada golpe
+        let factor = 1;
+        if (game.tieneEscudo) {
+            romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
+            factor *= 0.5; // el escudo absorbe la mitad y se rompe
+        }
+        if (protegido(game)) factor *= 0.5; // escudo mágico del mago o embestida del espadachín
+        recibirDaño(game, Math.max(10, daño * factor));
         return;
     }
     // el escudo y la embestida protegen de todo menos de caer a la lava

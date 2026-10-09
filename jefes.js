@@ -16,7 +16,7 @@ export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para
 const ZOOM_ARENA = 1.55;          // zoom de la cámara durante la pelea (normal = 2)
 const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
 const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
-const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
+const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
 
 // un jefe por nivel (se repite si hay más niveles)
 export const JEFES = [
@@ -39,7 +39,9 @@ export function crearAnimacionesJefes(scene) {
     [1, 2, 3].forEach(k => Object.entries(ANIMS).forEach(([clave, [archivo, frames, frameRate, repeat]]) => {
         scene.anims.create({
             key: `troll${k}-${clave}`,
-            frames: scene.anims.generateFrameNumbers(`troll${k}_${archivo}`, { start: 0, end: frames - 1 }),
+            frames: scene.anims.generateFrameNumbers(`troll${k}_${archivo}`, {
+                start: 0, end: Math.min(frames, scene.textures.get(`troll${k}_${archivo}`).frameTotal - 1) - 1,
+            }),
             frameRate, repeat,
         });
     }));
@@ -48,6 +50,10 @@ export function crearAnimacionesJefes(scene) {
 // prepara la arena; el jefe aparece cuando el jugador entra
 export function prepararJefe(scene, nivel, indice) {
     const datos = JEFES[indice % JEFES.length];
+    // en niveles altos el troll pega más fuerte y aparecen menos ayudas
+    scene.dañoJefe = 1 + 0.2 * indice;              // nivel 1: x1  ...  nivel 6: x2
+    scene.esperaAyudas = 6000 + 2000 * indice;      // nivel 1: cada 6 s  ...  nivel 6: cada 16 s
+    scene.curacionArena = Math.max(20, 45 - 5 * indice);
     const meta = nivel.meta;
     scene.jefe = {
         datos, indice,
@@ -189,14 +195,14 @@ function empezarPelea(scene, api) {
     // en la arena aparecen más escudos y corazones para protegerse y curarse
     const sueltos = { escudo: null, corazon: null };
     scene.time.addEvent({
-        delay: 5000, loop: true, callback: () => {
+        delay: scene.esperaAyudas, loop: true, callback: () => {
             if (j.estado !== 'pelea' || scene.mascotaGesi.isDead || scene.cinematica) return;
-            const x = () => Phaser.Math.Between(j.arenaIni + 80, j.arenaFin - 80);
-            if (!scene.tieneEscudo && !(sueltos.escudo && sueltos.escudo.active)) {
-                sueltos.escudo = api.soltarEscudo(scene, x(), SUELO_Y - 30, 8000);
-            } else if (scene.faltaSalud?.() && !(sueltos.corazon && sueltos.corazon.active) && Math.random() < 0.6) {
-                sueltos.corazon = scene.soltarCorazonArena?.(x(), SUELO_Y - 30);
-            }
+            // solo una ayuda en la arena a la vez
+            if ((sueltos.escudo && sueltos.escudo.active) || (sueltos.corazon && sueltos.corazon.active)) return;
+            const x = Phaser.Math.Between(j.arenaIni + 80, j.arenaFin - 80);
+            const faltaEscudo = !scene.tieneEscudo, faltaSalud = scene.faltaSalud?.();
+            if (faltaEscudo && (!faltaSalud || Math.random() < 0.5)) sueltos.escudo = api.soltarEscudo(scene, x, SUELO_Y - 30, 7000);
+            else if (faltaSalud) sueltos.corazon = scene.soltarCorazonArena?.(x, SUELO_Y - 30);
         },
     });
 }
@@ -219,10 +225,7 @@ function contactoConJefe(scene, api) {
         if (j.pisotones.length >= limite) sacudirse(scene);
         return;
     }
-    if (scene.protegido?.()) {
-        dañarJefe(scene, 1, api);
-        return;
-    }
+    if (scene.protegido?.()) dañarJefe(scene, 1, api); // le pegas al chocar, pero igual te golpea
     api.killgesi(scene, 15);
 }
 
@@ -305,6 +308,13 @@ export function actualizarJefe(scene, time, api) {
     if (j.estado !== 'pelea') return;
 
     const s = j.sprite, b = s.body, d = j.datos;
+    const margen = 130 * d.escala / 0.6; // medio ancho del troll con su garrote
+    if (s.x < j.arenaIni + margen || s.x > j.arenaFin - margen) {
+        s.x = Phaser.Math.Clamp(s.x, j.arenaIni + margen, j.arenaFin - margen);
+        if (j.embistiendo) j.finEmbestida = 0; // la embestida termina contra el muro
+        j.huidaHasta = 0;
+        s.setVelocityX(0);
+    }
     const enSuelo = b.blocked.down || b.touching.down;
     const dx = g.body.center.x - b.center.x;
     const vel = d.vel * (j.furioso ? 1.45 : 1);
