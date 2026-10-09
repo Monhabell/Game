@@ -87,6 +87,24 @@ export const createAnimations = (game) => {
     })
 
     game.anims.create({
+        key: 'bola-giro',
+        frames: game.anims.generateFrameNumbers('bola', { start: 0, end: 3 }),
+        frameRate: 12,
+        repeat: -1
+    })
+
+    // bloques sorpresa
+    const bloquesSorpresa = ['misterio', 'misterio_cueva'];
+    bloquesSorpresa.forEach(key => {
+        game.anims.create({
+            key: `${key}-brillo`,
+            frames: game.anims.generateFrameNumbers(key, { start: 0, end: 2 }),
+            frameRate: 4,
+            repeat: -1
+        })
+    })
+
+    game.anims.create({
         key: 'lava_quema',
         frames: [
             { key: 'lava', frame: 0 },

@@ -96,6 +96,19 @@
             background: rgba(0, 100, 200, 0.8);
         }
         
+        .space-key {
+            width: 200px;
+            font-size: 14px;
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        .hint {
+            margin: 15px 0 0;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.6;
+        }
+
         .footer {
             margin-top: 30px;
             color: rgba(255, 255, 255, 0.7);
@@ -132,7 +145,11 @@
                     <div class="arrow-key" id="arrow-down">↓</div>
                     <div class="arrow-key" id="arrow-right">→</div>
                 </div>
+                <div class="arrow-row">
+                    <div class="arrow-key space-key" id="key-space">ESPACIO 🏹</div>
+                </div>
             </div>
+            <p class="hint">Flechas: moverse y saltar · ESPACIO o X: disparar el arco<br>Cuidado: no todo es lo que parece...</p>
         </div>
         
         <p class="footer">Use arrow keys to play | © 2024 Monhabell</p>
@@ -144,7 +161,8 @@
             'ArrowUp': document.getElementById('arrow-up'),
             'ArrowLeft': document.getElementById('arrow-left'),
             'ArrowDown': document.getElementById('arrow-down'),
-            'ArrowRight': document.getElementById('arrow-right')
+            'ArrowRight': document.getElementById('arrow-right'),
+            ' ': document.getElementById('key-space')
         };
         
         document.addEventListener('keydown', (e) => {

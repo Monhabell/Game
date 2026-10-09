@@ -1,7 +1,8 @@
-export const monedas = (game) => {
+export const monedas = (game, posiciones = []) => {
 
     game.coins = game.physics.add.staticGroup();
-    game.coins.create(280, 312, 'coins').anims.play('coins-giro', true).setScale(1.5);
-    
+    posiciones.forEach(([x, y]) => {
+        game.coins.create(x, y, 'coins').anims.play('coins-giro', true).setScale(1.5).refreshBody();
+    });
 
  }
