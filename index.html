@@ -43,10 +43,9 @@
             border: 3px solid #00ffff;
         }
 
-        /* pixel art nítido al agrandar */
+        /* el juego se dibuja al doble de resolución, así que se ve nítido sin forzar píxeles */
         #game canvas {
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
+            image-rendering: auto;
         }
 
         /* en pantalla completa sin bordes */

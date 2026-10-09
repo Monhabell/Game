@@ -17,6 +17,15 @@
 // mezcla: tipos de enemigos que caminan en el nivel (se van turnando); ver enemigos.js
 // plantas: x de plantas disfrazadas de arbusto (¡no las pises, tienen espinas!)
 // espiritus: [x, y] espíritus de fuego que vuelan y disparan
+//
+// Más trampas sorpresa (estilo Cat Mario):
+// carteles: [x, y, texto] letreros burlones (suelen mentir)
+// monedasTrampa: [x, y] parecen monedas, pero al tomarlas cae un enemigo del cielo
+// rocas: x  una roca/estalactita se desprende del techo cuando pasas por debajo
+// estatuasFalsas: x  parece un punto de control, pero se convierte en esqueleto
+// mordedoras: [x, y] plataforma que tiembla, se pone roja y muerde si no te bajas rápido
+// banderasFalsas: x  una meta falsa: la bandera sale huyendo y suelta enemigos
+// persecuciones: x  al pasar por ahí aparece un zombie gigante que te persigue
 // suelo / lava: rangos [xInicio, xFin]
 // enemigos: x (aparece en el suelo) o [x, y]
 // goteros: [x, cadaCuantosMs] (gotas de lava que caen del techo)
@@ -63,6 +72,9 @@ export const NIVELES = [
         carcajes: [[2550, 300]],
         corazones: [[4500, 160]],
         cristales: [[3065, 185]],
+        carteles: [[2965, 175, '¡SALTA AQUÍ!'], [3440, 255, 'ATAJO →']],
+        monedasTrampa: [[2850, 300], [4030, 300]],
+        rocas: [4390],
         escaleras: [[4450, 4]],
         enemigos: [2600, 2900, 3350, 3550, 4000, 4200, 4350],
         monedas: [
@@ -97,6 +109,11 @@ export const NIVELES = [
         carcajes: [[1200, 290], [3200, 270]],
         corazones: [[2398, 55]],
         cristales: [[2842, 200]],
+        carteles: [[2860, 150, '¡ATAJO SEGURO!'], [2200, 110, 'NO MIRES ARRIBA']],
+        monedasTrampa: [[1650, 300], [4796, 300]],
+        rocas: [520, 2230, 5150],
+        estatuasFalsas: [1080],
+        mordedoras: [[775, 285], [3875, 280]],
         lava: [[700, 850], [1400, 1540], [1800, 1950], [2600, 3100], [3800, 3950], [4500, 4650]],
         bloques: [
             [300, 232, 'B?B'],
@@ -143,11 +160,18 @@ export const NIVELES = [
         suelo: [[0, 600], [1100, 1700], [2300, 2700], [3400, 4000], [4700, 6300]],
         falsos: [[2700, 2800]],
         bolas: [[1000, 2400], [2000, 2100], [3330, 2200], [4300, 2000]],
-        pinchos: [[3820, 2, true]],
+        pinchos: [[3820, 2, true], [1450, 1, true]],
         emboscadas: [[5000, [5150, 5250]]],
         carcajes: [[1150, 290], [4750, 290]],
         corazones: [[5358, 35]],
         cristales: [[3700, 60]],
+        carteles: [[590, 185, 'SALTA AQUÍ ↓'], [5180, 120, '¡META!'], [1640, 200, 'TODO BIEN :)']],
+        monedasTrampa: [[282, 300], [1120, 300], [4780, 300]],
+        rocas: [1460, 3530, 4880],
+        estatuasFalsas: [4760],
+        mordedoras: [[1400, 316], [5480, 316]],
+        banderasFalsas: [5180],
+        persecuciones: [3470],
         lava: [[600, 1100], [1700, 2300], [2800, 3400], [4000, 4700]],
         moviles: [
             [694, 300, 'x', 312, 70],
@@ -159,6 +183,8 @@ export const NIVELES = [
         bloques: [
             [590, 232, 'H'],
             [1250, 232, 'B?B'],
+            [1690, 232, 'H'],
+            [3990, 232, 'H'],
             [2400, 232, '?BEB?'],
             [3140, 280, 'BBBB'],
             [3480, 232, 'BB'],
@@ -167,7 +193,7 @@ export const NIVELES = [
             [5000, 232, 'B?C?B'],
         ],
         escaleras: [[5600, 4]],
-        enemigos: [450, 1300, 1500, 2450, 2650, 3700, 3900, 4900, 5050, 5200, 5450],
+        enemigos: [450, 1180, 1300, 1500, 1650, 2450, 2500, 2650, 3600, 3700, 3800, 3900, 4850, 4900, 5050, 5200, 5250, 5450],
         monedas: [
             ...fila(150, 300, 4),
             ...fila(780, 230, 6),
@@ -198,6 +224,13 @@ export const NIVELES = [
         carcajes: [[700, 290], [4250, 280]],
         corazones: [[3150, 60]],
         cristales: [[2475, 200]],
+        carteles: [[480, 180, 'SALTA AQUÍ'], [2250, 150, 'PUNTO DE CONTROL →'], [5700, 120, '¡LLEGASTE!']],
+        monedasTrampa: [[1050, 300], [3300, 300], [4900, 300]],
+        rocas: [720, 2200, 4550],
+        estatuasFalsas: [2300, 5250],
+        mordedoras: [[2475, 280], [5075, 280]],
+        banderasFalsas: [5720],
+        persecuciones: [2900, 4300],
         lava: [[500, 640], [1300, 1900], [2400, 2550], [2700, 2850], [3500, 4200], [5000, 5150]],
         moviles: [
             [1394, 300, 'x', 412, 100],
@@ -264,7 +297,9 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         suelo: [], lava: [], bloques: [], escaleras: [], enemigos: [],
         monedas: [], goteros: [], moviles: [], checkpoints: [],
         falsos: [], pinchos: [], bolas: [], emboscadas: [], carcajes: [], corazones: [], cristales: [],
+        carteles: [], monedasTrampa: [], rocas: [], estatuasFalsas: [], mordedoras: [], banderasFalsas: [], persecuciones: [],
     };
+    const BURLAS_CARTEL = ['¡SALTA AQUÍ!', 'ATAJO →', 'TODO BIEN :)', 'NO HAY TRAMPAS', 'CONFÍA', '¡CASI LLEGAS!'];
     const intervaloGota = () => Math.round(2200 - 800 * d);
     let x = 0;
 
@@ -279,6 +314,10 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         }
         if (trampas && largo >= 500) {
             if (r() < 0.4 + 0.4 * d) n.pinchos.push([x + largo - 120, d > 0.6 ? 2 : 1, true]);
+            if (r() < 0.4 + 0.4 * d) n.monedasTrampa.push([x + entre(160, largo - 160), 300]);
+            if (r() < 0.3 + 0.4 * d) n.rocas.push(x + entre(200, largo - 200));
+            if (r() < 0.25 * d) n.mordedoras.push([x + Math.round(largo / 2), 316]);
+            if (r() < 0.3) n.carteles.push([x + entre(120, largo - 120), 150, BURLAS_CARTEL[entre(0, BURLAS_CARTEL.length - 1)]]);
             if (r() < 0.5 * d) n.emboscadas.push([x + 100, [x + 300, x + 450]]);
             if (r() < 0.25) n.carcajes.push([x + Math.round(largo / 2), 290]);
             if (r() < 0.3 + 0.3 * d) n.plantas.push(x + entre(220, largo - 160));
@@ -310,7 +349,12 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         n.lava.push([x, x + g]);
         n.monedas.push(...arco(Math.round(x + g / 2 - 30), 230));
         if (r() < 0.25) n.cristales.push([Math.round(x + g / 2), 185]); // cristal sobre la lava
-        if (r() < 0.6 * d) n.bloques.push([x - 12, 232, 'H']); // bloque invisible en el borde
+        if (r() < 0.6 * d) {
+            n.bloques.push([x - 12, 232, 'H']); // bloque invisible en el borde
+            if (r() < 0.5) n.carteles.push([x - 30, 175, '¡SALTA AQUÍ!']);
+        }
+        // plataforma tentadora en medio de la lava (el hueco se puede saltar sin ella)
+        if (g >= 120 && r() < 0.4 * d) n.mordedoras.push([Math.round(x + g / 2), 284]);
         if (r() < 0.5 * d) n.bolas.push([Math.round(x + g / 2), entre(1800, 2600)]);
         else if (r() < 0.3 * d) n.espiritus.push([Math.round(x + g / 2), 170]);
         if (r() < 0.3 + 0.6 * d) n.goteros.push([Math.round(x + g / 2 - 31), intervaloGota()]);
@@ -354,10 +398,21 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
     for (let i = 0; i < tramos; i++) {
         obstaculos[entre(0, obstaculos.length - 1)]();
         if (i === Math.floor(tramos / 3) || i === Math.floor((2 * tramos) / 3)) {
+            if (r() < d) n.estatuasFalsas.push(x + 30); // una estatua falsa justo antes de la real
             n.checkpoints.push(x + 60);
+            if (r() < d) n.persecuciones.push(x + 120); // y después, un gigante
             n.corazones.push([x + 110, 290]); // un corazón junto a cada punto de control
         }
         llano(entre(450, 800));
+    }
+
+    // meta falsa antes de la verdadera
+    llano(700, { enemigos: false, bloques: false, trampas: false });
+    n.banderasFalsas.push(x - 350);
+    n.carteles.push([x - 350, 120, '¡META!']);
+    if (d >= 1) {
+        n.persecuciones.push(x - 600);
+        llano(600);
     }
 
     // final: escalera, bandera y castillo

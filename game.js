@@ -9,6 +9,11 @@ import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, crearLava, moverLava,
     decorarNivel, crearEstatua, encenderEstatua
 } from "./mazmorra.js"
+import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa } from "./sorpresas.js"
+import { aleatorizarNivel, iniciarCorazonesAlAzar, soltarCorazon } from "./azar.js"
+
+// funciones que usan las trampas sorpresa (sorpresas.js)
+const apiSorpresas = { killgesi: (scene) => killgesi(scene), crearEnemigo: (...a) => crearEnemigo(...a), mostrarMensaje: (...a) => mostrarMensaje(...a) };
 
 let score = 0; // Variable global para la puntuación
 const VIDAS_INICIALES = 4;
@@ -20,18 +25,29 @@ let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
+// El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja al doble
+// (1580x760) con la cámara en zoom x2: así se ve nítido aunque la pantalla sea grande.
+const ZOOM = 2;
+const VISTA = { width: 790, height: 380 };
+
+// los textos se dibujan con la misma resolución para que no se vean borrosos
+const fabricaTexto = Phaser.GameObjects.GameObjectFactory.prototype.text;
+Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, texto, estilo) {
+    return fabricaTexto.call(this, x, y, texto, { resolution: ZOOM, ...estilo });
+};
+
 const config = {
     type: Phaser.AUTO,
-    width: 790,
-    height: 380,
+    width: VISTA.width * ZOOM,
+    height: VISTA.height * ZOOM,
     backgroundColor: '#05070f',
     parent: 'game',
     // el juego se escala para llenar su contenedor sin deformarse (botón agrandar y pantalla completa)
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        width: 790,
-        height: 380,
+        width: VISTA.width * ZOOM,
+        height: VISTA.height * ZOOM,
     },
     physics: {
         default: 'arcade',
@@ -133,6 +149,7 @@ function preload() {
     this.load.audio('disparo', 'assets/sound/effects/kick.mp3');
     this.load.audio('bump', 'assets/sound/effects/block-bump.wav');
     this.load.audio('romper', 'assets/sound/effects/break-block.wav');
+    this.load.audio('aparece', 'assets/sound/effects/powerup-appears.mp3');
 
     // bolas de fuego que saltan de la lava
     this.load.spritesheet('bola', 'assets/entities/fireball.png', { frameWidth: 8, frameHeight: 8 });
@@ -141,7 +158,9 @@ function preload() {
 }
 
 function create() {
-    const nivel = NIVELES[nivelActual];
+    // las trampas se reparten al azar en cada intento (no se pueden memorizar);
+    // en el nivel 1 la primera parte hecha a mano no se toca
+    const nivel = aleatorizarNivel(NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : []);
     prepararAnimaciones(this);
     this.nivelTerminado = false;
     this.pj = PERSONAJES.find(pj => pj.id === personajeId);
@@ -186,6 +205,13 @@ function create() {
 
     // monedas
     monedas(this, nivel.monedas);
+
+    // carteles, monedas trampa, rocas, estatuas falsas, plataformas que muerden, banderas falsas y gigantes
+    crearSorpresas(this, nivel, checkpointX ?? 0);
+
+    // corazones que aparecen al azar cuando te faltan vidas
+    this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
+    iniciarCorazonesAlAzar(this, () => vidas < VIDAS_INICIALES, nivel.ancho);
 
     this.mascotaGesi = this.physics.add.sprite(checkpointX ?? 50, 100, `${this.pj.id}-idle`)
         .setScale(1)
@@ -255,11 +281,12 @@ function create() {
     this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (f, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
 
-    this.physics.world.setBounds(0, 0, nivel.ancho, config.height);
+    this.physics.world.setBounds(0, 0, nivel.ancho, VISTA.height);
 
     // camara
-    this.cameras.main.setBounds(0, 0, nivel.ancho, config.height); // cambiar tamaño de mundo
-    this.cameras.main.startFollow(this.mascotaGesi);
+    this.anchoNivel = nivel.ancho;
+    this.cameras.main.setOrigin(0).setZoom(ZOOM);
+    moverCamara(this);
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
     crearAmbiente(this, nivel, nivelActual, nivelActual === 0 ? [[1350, 2310]] : []);
@@ -278,7 +305,7 @@ function create() {
     this.recursoText = this.add.text(370, 15, '', estiloHud)
         .setScrollFactor(0).setDepth(50);
     actualizarRecurso(this);
-    this.nivelText = this.add.text(config.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
+    this.nivelText = this.add.text(VISTA.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
     mostrarMensaje(this, `NIVEL ${nivelActual + 1}\n${nivel.nombre}`, 2000);
@@ -292,7 +319,25 @@ function create() {
     this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C' });
 }
 
+// la cámara sigue a Gesi sin mostrar nada fuera del nivel
+function moverCamara(scene) {
+    const g = scene.mascotaGesi;
+    if (g.isDead) return;
+    const cam = scene.cameras.main;
+    cam.scrollX = Phaser.Math.Clamp(g.x - VISTA.width / 2, 0, Math.max(0, scene.anchoNivel - VISTA.width));
+    cam.scrollY = 0;
+}
+
+// pixel art nítido: cada píxel se dibuja como un bloque limpio, sin desenfoque
+const PIXEL_ART = /^(arquera|espadachin|mago|esqueleto|planta|espiritu|bola|mz_|coins|misterio|vacio|ladrillo|bloque_duro|flecha_pj|onda|magia|mastil|bandera|suelo|piso|door|arbol|arbusto|indicacion|lava|malo|cloud)/;
+function pixelArtNitido(scene) {
+    scene.textures.getTextureKeys().forEach(k => {
+        if (PIXEL_ART.test(k) && !k.startsWith('mz_fondo')) scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    });
+}
+
 function prepararAnimaciones(scene) {
+    pixelArtNitido(scene);
     if (!scene.anims.exists('enemy-walk')) createAnimations(scene);
     crearAnimacionesPersonajes(scene);
     crearAnimacionesEnemigos(scene);
@@ -303,11 +348,12 @@ function prepararAnimaciones(scene) {
 // ---------- Pantalla de selección de personaje ----------
 function crearSeleccion() {
     prepararAnimaciones(this);
+    this.cameras.main.setOrigin(0).setZoom(ZOOM);
     crearNieblaSeleccion(this);
-    this.add.image(config.width / 2, config.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(1.25).setTint(0x2c3140);
+    this.add.image(VISTA.width / 2, VISTA.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(0.625).setTint(0x2c3140);
     this.nieblaAlta.setDepth(1);
 
-    this.add.text(config.width / 2, 22, 'ELIGE TU PERSONAJE', {
+    this.add.text(VISTA.width / 2, 22, 'ELIGE TU PERSONAJE', {
         fontFamily: '"Press Start 2P", monospace', fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 5
     }).setOrigin(0.5);
 
@@ -336,7 +382,7 @@ function crearSeleccion() {
         return { panel, sprite, pj };
     });
 
-    this.add.text(config.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar   ·   F pantalla completa', estilo('12px', '#ffe066')).setOrigin(0.5);
+    this.add.text(VISTA.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar   ·   F pantalla completa', estilo('12px', '#ffe066')).setOrigin(0.5);
     this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE' });
     marcarSeleccion(this);
 }
@@ -462,16 +508,16 @@ function construirNivel1(scene) {
     arbusto2.setFlipX(false);
 
     // Crear las piezas del piso
-    scene.piso1 = scene.floor.create(0, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
+    scene.piso1 = scene.floor.create(0, VISTA.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
 
-    scene.piso2 = scene.floor.create(250, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2);
-    scene.piso3 = scene.floor.create(250, config.height - 160, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
+    scene.piso2 = scene.floor.create(250, VISTA.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2);
+    scene.piso3 = scene.floor.create(250, VISTA.height - 160, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
     scene.piso3.setVisible(false);
-    scene.piso4 = scene.floor.create(600, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
-    scene.piso5 = scene.floor.create(850, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
+    scene.piso4 = scene.floor.create(600, VISTA.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
+    scene.piso5 = scene.floor.create(850, VISTA.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
 
     // Crear el muro con rotación y ajustar el tamaño del cuerpo de colisión
-    scene.muro = scene.floor.create(1300, config.height - 218, 'suelo')
+    scene.muro = scene.floor.create(1300, VISTA.height - 218, 'suelo')
         .setOrigin(0, 0.5)
         .setScale(4, 3)
         .setAngle(90) // Rota el sprite 90 grados
@@ -482,7 +528,7 @@ function construirNivel1(scene) {
         scene.floor.create(x, 280, 'mz_bloque').setOrigin(0, 0.5).refreshBody();
     });
 
-    scene.piso6 = scene.floor.create(1090, config.height - 155, 'suelo').setOrigin(0, 0.5).setScale(0.9, 2).refreshBody();
+    scene.piso6 = scene.floor.create(1090, VISTA.height - 155, 'suelo').setOrigin(0, 0.5).setScale(0.9, 2).refreshBody();
 
     // el piso de ladrillos se viste con roca de la mazmorra
     vestirSuelo(scene, scene.piso1, { izq: true });
@@ -494,10 +540,10 @@ function construirNivel1(scene) {
     vestirSuelo(scene, scene.piso6, { izq: true, der: true, flotante: true });
     vestirMuro(scene, scene.muro);
 
-    scene.piso7 = scene.floor.create(1450, config.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
-    scene.piso8 = scene.floor.create(1640, config.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
-    scene.piso9 = scene.floor.create(1840, config.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
-    scene.piso10 = scene.floor.create(2050, config.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
+    scene.piso7 = scene.floor.create(1450, VISTA.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
+    scene.piso8 = scene.floor.create(1640, VISTA.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
+    scene.piso9 = scene.floor.create(1840, VISTA.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
+    scene.piso10 = scene.floor.create(2050, VISTA.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
 
     let cantidadLava = 10;
 
@@ -509,7 +555,7 @@ function construirNivel1(scene) {
 
     for (let i = 0; i < cantidadLava; i++) {
         // Crear cada bloque de lava en una posición consecutiva
-        scene.lavaes.create(posicionXInicial + (i * anchoLava), config.height - 200, 'lava').anims.play('lava_quema', true)
+        scene.lavaes.create(posicionXInicial + (i * anchoLava), VISTA.height - 200, 'lava').anims.play('lava_quema', true)
             .setOrigin(0, 0.5)
             .setScale(1.5)
             .setSize(60, 40).setOffset(1, 22)
@@ -518,7 +564,7 @@ function construirNivel1(scene) {
     // goteros del techo (solo decoración, las gotas se crean con los timers)
     // las gotas caen en los huecos entre plataformas (golpean en x + 31)
     [1579, 1979].forEach(x => {
-        const gotero = scene.floor.create(x, config.height - 370, 'lava_falling').setOrigin(0, 0.5).anims.play('lavacaer', true)
+        const gotero = scene.floor.create(x, VISTA.height - 370, 'lava_falling').setOrigin(0, 0.5).anims.play('lavacaer', true)
             .setScale(0.5).refreshBody()
             .setSize(20, 60).setOffset(55, 1);
         gotero.esGotero = true;
@@ -540,7 +586,7 @@ function construirNivel1(scene) {
     let anchopiso3 = 64;
 
     for (let i = 0; i < cantidadpiso3; i++) {
-        scene.floor.create(posicionInicialPiso3 + (i * anchopiso3), config.height - 10, 'suelo3').setOrigin(0, 0.5).setScale(1).refreshBody()
+        scene.floor.create(posicionInicialPiso3 + (i * anchopiso3), VISTA.height - 10, 'suelo3').setOrigin(0, 0.5).setScale(1).refreshBody()
             .setSize(64, 40).setOffset(0, 18);
     }
 
@@ -548,7 +594,7 @@ function construirNivel1(scene) {
     const numEnemies = 3; // Cambia este valor según lo que necesites
 
     for (let i = 0; i < numEnemies; i++) {
-        crearEnemigo(scene, 690 + i * 80, config.height - 250);
+        crearEnemigo(scene, 690 + i * 80, VISTA.height - 250);
     }
 }
 
@@ -631,7 +677,7 @@ function construirNivel(scene, nivel) {
     (nivel.espiritus || []).forEach(([x, y]) => crearEnemigo(scene, x, y, 'espiritu'));
 
     (nivel.goteros || []).forEach(([x, delay]) => {
-        scene.add.sprite(x, config.height - 370, 'lava_falling').setOrigin(0, 0.5).setScale(0.5).anims.play('lavacaer', true);
+        scene.add.sprite(x, VISTA.height - 370, 'lava_falling').setOrigin(0, 0.5).setScale(0.5).anims.play('lavacaer', true);
         scene.time.addEvent({ delay, callback: () => crearGota(scene, x), loop: true });
     });
 
@@ -687,7 +733,7 @@ function crearSuelo(scene, x0, x1, textura) {
     const ancho = (x1 - x0) / piezas;
     const tiles = [];
     for (let i = 0; i < piezas; i++) {
-        const pieza = scene.floor.create(x0 + i * ancho, config.height - 16, textura)
+        const pieza = scene.floor.create(x0 + i * ancho, VISTA.height - 16, textura)
             .setOrigin(0, 0.5).setScale(ancho / 128, 2).refreshBody();
         vestirSuelo(scene, pieza, { izq: i === 0, der: i === piezas - 1 });
         tiles.push(pieza);
@@ -711,7 +757,7 @@ function crearEnemigo(scene, x, y, tipo) {
     const enemy = scene.enemies.create(x, y, `${tipo}-${inicial}`).anims.play(`${tipo}-${inicial}`, true)
         .setOrigin(0, 1)
         .setGravityY(300)
-        .setScale(1);
+        .setScale(def.escala ?? 1);
     const [w, h, ox, oy] = def.cuerpo;
     enemy.body.setSize(w, h).setOffset(ox, oy);
     enemy.tipoId = tipo;
@@ -815,6 +861,16 @@ function actualizarEnemigo(scene, enemy, time) {
     if (!def) return;
     const g = scene.mascotaGesi, gb = g.body, eb = enemy.body;
     const dx = gb.center.x - eb.center.x, dy = gb.center.y - eb.center.y;
+
+    // el zombie gigante solo persigue a Gesi (y salta las paredes)
+    if (enemy.gigante) {
+        if (time < enemy.atacandoHasta) return;
+        const dir = Math.sign(dx) || 1;
+        enemy.setVelocityX(dir * enemy.velBase);
+        enemy.flipX = dir < 0;
+        if ((eb.blocked.left || eb.blocked.right) && eb.blocked.down) enemy.setVelocityY(-430);
+        return;
+    }
     const gesiVivo = !g.isDead && !scene.nivelTerminado;
     const atacando = time < enemy.atacandoHasta;
 
@@ -870,8 +926,8 @@ function actualizarEnemigo(scene, enemy, time) {
 
 // el enemigo está dentro de la pantalla (no disparan desde fuera de la cámara)
 function enSu(scene, enemy) {
-    const cam = scene.cameras.main.worldView;
-    return enemy.x > cam.left - 40 && enemy.x < cam.right;
+    const izq = scene.cameras.main.scrollX;
+    return enemy.x > izq - 40 && enemy.x < izq + VISTA.width;
 }
 
 function onlavagotasgesi(mascotaGesi, lavaesgota) {
@@ -888,7 +944,7 @@ function salpicar(gota) {
 }
 
 function crearGota(scene, x) {
-    scene.lavaesgota.create(x, config.height - 342, 'lava_falling')
+    scene.lavaesgota.create(x, VISTA.height - 342, 'lava_falling')
         .setOrigin(0, 0.5)
         .anims.play('lavacaergota', true)
         .setScale(0.5)
@@ -907,6 +963,8 @@ function crearzombis() {
 
 function golpearBloque(mascotaGesi, pieza) {
     const cuerpo = mascotaGesi.body;
+
+    if (pieza.muerde) pisarMordedora(this, pieza, apiSorpresas);
 
     // suelo falso: tiembla y se cae
     if (pieza.esFalso && !pieza.cayendo && cuerpo.touching.down) {
@@ -1098,6 +1156,11 @@ function matarEnemigo(scene, enemy) {
     enemy.anims.play(enemy.tipoId ? `${enemy.tipoId}-dead` : 'enemy-muerte', true);
     scene.sound.play('matar');
     addToScore(enemy.def ? 100 + 50 * enemy.def.vida : 150, enemy, scene);
+    // a veces el enemigo suelta un corazón (más a menudo los más fuertes)
+    const prob = 0.06 + 0.03 * ((enemy.def?.vida ?? 1) - 1);
+    if (vidas < VIDAS_INICIALES && Math.random() < prob && enemy.body) {
+        soltarCorazon(scene, enemy.body.center.x, Math.min(enemy.body.center.y, SUELO_Y - 28));
+    }
     enemy.setVelocity(0, 0);
     // sin cuerpo para que no estorbe; queda tirado un momento y desaparece
     enemy.body.checkCollision.none = true;
@@ -1151,6 +1214,10 @@ function actualizarTrampas(scene) {
 
 function collectCoin(mascotaGesi, coin) {
     coin.disableBody(true, true);
+    if (coin.trampa) {
+        monedaTrampa(this, coin, apiSorpresas);
+        return;
+    }
     this.sound.play('moneda');
     addToScore(100, coin, this);
 }
@@ -1164,7 +1231,7 @@ function addToScore(scoreToAdd, origin, game) {
         origin.x,
         origin.y,
         scoreToAdd, {
-        fontSize: config.width / 40
+        fontSize: VISTA.width / 40
     }
     );
 
@@ -1250,7 +1317,7 @@ function completarNivel(mascotaGesi) {
 function mostrarMensaje(scene, texto, duracion) {
     // un mensaje nuevo reemplaza al anterior para que no se encimen
     if (scene.mensajeActual && scene.mensajeActual.active) scene.mensajeActual.destroy();
-    const mensaje = scene.mensajeActual = scene.add.text(config.width / 2, config.height / 2 - 40, texto, {
+    const mensaje = scene.mensajeActual = scene.add.text(VISTA.width / 2, VISTA.height / 2 - 40, texto, {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '20px',
         fill: '#fff',
@@ -1282,7 +1349,7 @@ function actualizarMundo(scene) {
     // enemigos: cada tipo tiene su comportamiento; desaparecen si caen
     const ahora = scene.time.now;
     scene.enemies.getChildren().slice().forEach(enemy => {
-        if (enemy.y > config.height + 150 || enemy.x < -200) {
+        if (enemy.y > VISTA.height + 150 || enemy.x < -200) {
             enemy.destroy();
             return;
         }
@@ -1299,7 +1366,7 @@ function actualizarMundo(scene) {
     });
 
     scene.lavaesgota.getChildren().slice().forEach(gota => {
-        if (gota.y > config.height + 50) gota.destroy();
+        if (gota.y > VISTA.height + 50) gota.destroy();
     });
 
     scene.bolas.getChildren().forEach(bola => {
@@ -1310,7 +1377,7 @@ function actualizarMundo(scene) {
 }
 
 function trampasNivel1(scene) {
-    if (scene.mascotaGesi.x >= config.width - 400 && scene.piso2.active) { // Ajusta el valor según tu necesidad
+    if (scene.mascotaGesi.x >= VISTA.width - 400 && scene.piso2.active) { // Ajusta el valor según tu necesidad
         moveFloorPiece(scene.piso2, 390);
     }
 
@@ -1335,6 +1402,7 @@ function trampasNivel1(scene) {
 }
 
 function update(time, delta) {
+    moverCamara(this);
     actualizarMundo(this);
     actualizarAmbiente(this, time, this.mascotaGesi);
     moverLava(this, time);
@@ -1408,6 +1476,7 @@ function update(time, delta) {
 
     if (nivelActual === 0) trampasNivel1(this);
     actualizarTrampas(this);
+    actualizarSorpresas(this, apiSorpresas);
 
     // puntos de control
     this.checkpoints.forEach(cp => {
@@ -1436,9 +1505,9 @@ function killgesi(game, causa) {
     game.musica.stop();
     sound.add('gameover', { volume: 1 }).play();
 
-    vidas -= 1;
+    vidas = Math.max(0, vidas - 1);
     actualizarCorazones(game);
-    game.tweens.add({ targets: game.corazones[vidas], scale: 2.2, yoyo: true, duration: 150 });
+    if (game.corazones[vidas]) game.tweens.add({ targets: game.corazones[vidas], scale: 1.3, yoyo: true, duration: 150 });
     score = scoreInicioNivel;
 
     mascotaGesi.body.checkCollision.none = true;

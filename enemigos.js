@@ -1,6 +1,7 @@
 // Enemigos del juego.
 // - esqueleto, planta y espiritu: CraftPix "Free Fantasy Enemies" (pixel art, frames 128x128)
-// - zombies y aliens: CraftPix "Zombie" y "Alien" sprite packs, convertidos a tiras de 192x128
+// - zombies y aliens: CraftPix "Zombie" y "Alien" sprite packs, convertidos a tiras de 384x256
+//   (el doble de detalle; se dibujan a escala 0.5)
 //
 // tipo de comportamiento:
 //   'caminante'  camina y da la vuelta en las paredes
@@ -9,24 +10,25 @@
 //   'volador'    flota, persigue y lanza bolas de fuego
 //   'tirador'    camina y dispara con su pistola láser
 // hojas: clave -> [archivo, frames, frameRate, repeat]
-// cuerpo: [ancho, alto, offsetX, offsetY] del cuerpo de colisión dentro del frame
+// cuerpo: [ancho, alto, offsetX, offsetY] del cuerpo de colisión dentro del frame (en píxeles de la imagen)
+// escala: tamaño con que se dibuja (0.5 para las imágenes de doble resolución)
 // soltar: frame del ataque en el que sale el golpe o el disparo
 
 const zombie = (n, ataque) => ({
-    carpeta: `assets/enemigos/zombie${n}`, ancho: 192,
+    carpeta: `assets/enemigos/zombie${n}`, ancho: 384, alto: 256, escala: 0.5,
     hojas: {
         walk: ['Walk', 6, 8, -1], dead: ['Dead', 8, 12, 0], hurt: ['Hurt', 5, 14, 0], attack: ['Attack', ataque, 12, 0],
     },
-    cuerpo: [26, 70, 83, 56], vida: 1, vel: 0.8, tipo: 'caminante',
+    cuerpo: [52, 140, 166, 112], vida: 1, vel: 0.8, tipo: 'caminante',
 });
 
 const alien = (color, extra = {}) => ({
-    carpeta: `assets/enemigos/alien_${color}`, ancho: 192,
+    carpeta: `assets/enemigos/alien_${color}`, ancho: 384, alto: 256, escala: 0.5,
     hojas: {
         walk: ['Walk', 6, 10, -1], run: ['Run', 6, 14, -1], dead: ['Dead', 5, 10, 0], hurt: ['Hurt', 4, 12, 0],
         attack: ['Fire', color === 'armor' ? 10 : 11, 16, 0],
     },
-    cuerpo: [26, 72, 83, 56], vida: 1, vel: 1, tipo: 'tirador', soltar: 6, cadencia: 2600, alcance: 330,
+    cuerpo: [52, 144, 166, 112], vida: 1, vel: 1, tipo: 'tirador', soltar: 6, cadencia: 2600, alcance: 330,
     ...extra,
 });
 
@@ -68,7 +70,7 @@ export const ENEMIGOS = {
 export function cargarEnemigos(scene) {
     Object.entries(ENEMIGOS).forEach(([id, def]) => {
         Object.entries(def.hojas).forEach(([clave, [archivo]]) => {
-            scene.load.spritesheet(`${id}-${clave}`, `${def.carpeta}/${archivo}.png`, { frameWidth: def.ancho, frameHeight: 128 });
+            scene.load.spritesheet(`${id}-${clave}`, `${def.carpeta}/${archivo}.png`, { frameWidth: def.ancho, frameHeight: def.alto ?? 128 });
         });
     });
     // bola de fuego del espíritu

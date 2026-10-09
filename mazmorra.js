@@ -42,8 +42,10 @@ export function crearAnimacionesMazmorra(scene) {
 export function vestirSuelo(scene, pieza, { izq = false, der = false, flotante = false } = {}) {
     const b = pieza.getBounds();
     const tex = flotante ? 'mz_plat' : 'mz_suelo';
-    const visual = scene.add.tileSprite(b.x, b.y - BORDE, b.width, 64, tex).setOrigin(0);
-    visual.tilePositionX = b.x; // continuidad entre piezas vecinas
+    // posiciones enteras y 1 px de solape para que no se vean rayas entre piezas
+    const x0 = Math.floor(b.x), ancho = Math.ceil(b.right) - x0 + 1;
+    const visual = scene.add.tileSprite(x0, Math.round(b.y) - BORDE, ancho, 64, tex).setOrigin(0);
+    visual.tilePositionX = x0; // continuidad entre piezas vecinas
     const partes = [visual];
     if (izq) partes.push(scene.add.image(b.x - 11, b.y - BORDE, flotante ? 'mz_plat_izq' : 'mz_suelo_izq').setOrigin(0));
     if (der) partes.push(scene.add.image(b.x + b.width - 53, b.y - BORDE, flotante ? 'mz_plat_der' : 'mz_suelo_der').setOrigin(0));

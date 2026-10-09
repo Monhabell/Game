@@ -39,7 +39,7 @@ export function crearPaisaje(scene, nivel, tinte) {
         ctx.fillRect(0, 0, fuente.width, fuente.height);
         t.refresh();
     }
-    const escala = 0.7, ancho = 1024 * escala, factor = 0.15;
+    const escala = 0.7 * 1024 / 1920, ancho = 1920 * escala, factor = 0.15; // imagen en alta resolución
     const cuantos = Math.ceil((nivel.ancho * factor + 790) / ancho) + 1;
     for (let i = 0; i < cuantos; i++) {
         scene.add.image(i * ancho, 215, 'paisaje_noche').setOrigin(0, 0.5).setScale(escala)
@@ -59,7 +59,7 @@ export function crearRuinas(scene, nivel, indice, tinte, { factor = 0.55, escala
         const lista = esTorre ? TORRES : MUROS;
         const n = lista[Math.floor(azar() * lista.length)];
         scene.add.image(x, SUELO_Y + base, `${esTorre ? 'torre' : 'muro'}_${estilo}_${n}`)
-            .setOrigin(0.5, 1).setScale(escala[0] + azar() * (escala[1] - escala[0])).setScrollFactor(factor)
+            .setOrigin(0.5, 1).setScale((escala[0] + azar() * (escala[1] - escala[0])) / 2).setScrollFactor(factor) // imágenes al doble
             .setFlipX(azar() < 0.5).setTint(tinte).setAlpha(alpha);
     }
 }
@@ -67,5 +67,5 @@ export function crearRuinas(scene, nivel, indice, tinte, { factor = 0.55, escala
 // castillo al final del nivel, detrás de la bandera
 export function crearCastilloMeta(scene, x, indice, tinte) {
     const n = CASTILLO_META[indice % CASTILLO_META.length];
-    return scene.add.image(x, SUELO_Y + 6, `castillo_${n}`).setOrigin(0, 1).setScale(220 / 260).setTint(tinte);
+    return scene.add.image(x, SUELO_Y + 6, `castillo_${n}`).setOrigin(0, 1).setScale(220 / 520).setTint(tinte);
 }
