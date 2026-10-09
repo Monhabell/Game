@@ -146,10 +146,12 @@
                     <div class="arrow-key" id="arrow-right">→</div>
                 </div>
                 <div class="arrow-row">
-                    <div class="arrow-key space-key" id="key-space">ESPACIO 🏹</div>
+                    <div class="arrow-key space-key" id="key-space">ESPACIO</div>
+                    <div class="arrow-key" id="key-x">X</div>
+                    <div class="arrow-key" id="key-c">C</div>
                 </div>
             </div>
-            <p class="hint">Flechas: moverse y saltar · ESPACIO o X: disparar el arco<br>Cuidado: no todo es lo que parece...</p>
+            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
         </div>
         
         <p class="footer">Use arrow keys to play | © 2024 Monhabell</p>
@@ -162,18 +164,20 @@
             'ArrowLeft': document.getElementById('arrow-left'),
             'ArrowDown': document.getElementById('arrow-down'),
             'ArrowRight': document.getElementById('arrow-right'),
-            ' ': document.getElementById('key-space')
+            ' ': document.getElementById('key-space'),
+            'x': document.getElementById('key-x'),
+            'c': document.getElementById('key-c')
         };
         
         document.addEventListener('keydown', (e) => {
-            if (arrowKeys[e.key]) {
-                arrowKeys[e.key].classList.add('active');
+            if (arrowKeys[e.key.length === 1 ? e.key.toLowerCase() : e.key]) {
+                arrowKeys[e.key.length === 1 ? e.key.toLowerCase() : e.key].classList.add('active');
             }
         });
         
         document.addEventListener('keyup', (e) => {
-            if (arrowKeys[e.key]) {
-                arrowKeys[e.key].classList.remove('active');
+            if (arrowKeys[e.key.length === 1 ? e.key.toLowerCase() : e.key]) {
+                arrowKeys[e.key.length === 1 ? e.key.toLowerCase() : e.key].classList.remove('active');
             }
         });
         

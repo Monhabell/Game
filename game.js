@@ -1,6 +1,7 @@
 import { createAnimations } from "./animations.js"
 import { monedas } from "./monedas.js"
 import { NIVELES, SUELO_Y } from "./niveles.js"
+import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes } from "./personajes.js"
 
 let score = 0; // Variable global para la puntuación
 const VIDAS_INICIALES = 4;
@@ -8,6 +9,7 @@ let vidas = VIDAS_INICIALES; // se muestran como corazones; al acabarse se vuelv
 let scoreInicioNivel = 0; // al morir el puntaje vuelve a este valor
 const FLECHAS_INICIALES = 10;
 let flechas = FLECHAS_INICIALES;
+let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
@@ -24,11 +26,11 @@ const config = {
             debug: false
         }
     },
-    scene: {
-        preload, // se ejecuta para precargar recursos
-        create, // se ejecuta cuando el juego comienza
-        update // se ejecuta en cada frame
-    }
+    scene: [
+        // primero la pantalla para elegir personaje (también carga todos los recursos)
+        { key: 'seleccion', preload, create: crearSeleccion, update: actualizarSeleccion },
+        { key: 'juego', create, update }
+    ]
 }
 
 new Phaser.Game(config)
@@ -37,10 +39,8 @@ function preload() {
 
     this.load.image('background', 'assets/fondo.png');
     this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png');
-    //this.load.spritesheet('mascotaGesi', 'assets/mascotaGesi1.png', { frameWidth: 41.6, frameHeight: 56 });
-    this.load.spritesheet('mascotaGesi', 'assets/mascotaGesiFinal.png', { frameWidth: 128, frameHeight: 128 });
-    this.load.spritesheet('mascotaGesiload', 'assets/mascotaload.png', { frameWidth: 128, frameHeight: 128 });
-    this.load.spritesheet('saltar', 'assets/saltar.png', { frameWidth: 128, frameHeight: 128 });
+    // personajes jugables (arquera, espadachín y mago)
+    cargarPersonajes(this);
     this.load.spritesheet('arbol', 'assets/scenery/arbol1.png', { frameWidth: 208, frameHeight: 191 });
     this.load.spritesheet('arbol2', 'assets/scenery/arbol2.png', { frameWidth: 208, frameHeight: 191 });
 
@@ -101,10 +101,16 @@ function preload() {
 
 function create() {
     const nivel = NIVELES[nivelActual];
-    if (!this.anims.exists('gesi-walk')) createAnimations(this);
-    crearTexturas(this);
+    prepararAnimaciones(this);
     this.nivelTerminado = false;
+    this.pj = PERSONAJES.find(pj => pj.id === personajeId);
     flechas = FLECHAS_INICIALES;
+    this.mana = MANA_MAXIMO;
+    this.enfriamientos = {};
+    this.atacando = false;
+    this.dashHasta = 0;
+    this.escudoHasta = 0;
+    this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = nivel.velEnemigos ?? 50;
 
@@ -131,7 +137,7 @@ function create() {
     // monedas
     monedas(this, nivel.monedas);
 
-    this.mascotaGesi = this.physics.add.sprite(checkpointX ?? 50, 100, 'mascotaGesi')
+    this.mascotaGesi = this.physics.add.sprite(checkpointX ?? 50, 100, `${this.pj.id}-idle`)
         .setScale(1)
         .setCollideWorldBounds(true)// asegura que no salga de los limites del juego
         .setGravityY(480); // aplicar garvedad vertical
@@ -181,7 +187,7 @@ function create() {
     // flechas
     this.physics.add.overlap(this.flechasGrupo, this.enemies, (flecha, enemy) => {
         if (enemy.isDead) return;
-        flecha.destroy();
+        if (!flecha.perfora) flecha.destroy();
         matarEnemigo(this, enemy);
     });
     this.physics.add.collider(this.flechasGrupo, this.floor, flecha => flecha.destroy());
@@ -206,8 +212,9 @@ function create() {
     actualizarCorazones(this);
     this.scoreText = this.add.text(180, 15, `Puntaje: ${score}`, estiloHud)
         .setScrollFactor(0).setDepth(50);
-    this.flechasText = this.add.text(370, 15, `Flechas: ${flechas}`, estiloHud)
+    this.recursoText = this.add.text(370, 15, '', estiloHud)
         .setScrollFactor(0).setDepth(50);
+    actualizarRecurso(this);
     this.nivelText = this.add.text(config.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
@@ -219,7 +226,83 @@ function create() {
     this.events.once('shutdown', () => this.musica.destroy());
 
     this.keys = this.input.keyboard.createCursorKeys();
-    this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X' });
+    this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C' });
+}
+
+function prepararAnimaciones(scene) {
+    if (!scene.anims.exists('enemy-walk')) createAnimations(scene);
+    crearAnimacionesPersonajes(scene);
+    crearTexturas(scene);
+}
+
+// ---------- Pantalla de selección de personaje ----------
+function crearSeleccion() {
+    prepararAnimaciones(this);
+    this.add.image(config.width / 2, config.height / 2, 'background').setTint(0x555577);
+
+    this.add.text(config.width / 2, 22, 'ELIGE TU PERSONAJE', {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 5
+    }).setOrigin(0.5);
+
+    const estilo = (tam, color = '#fff') => ({ fontFamily: 'monospace', fontSize: tam, fill: color, stroke: '#000', strokeThickness: 3, align: 'center' });
+    this.indiceSel = Math.max(0, PERSONAJES.findIndex(pj => pj.id === personajeId));
+    this.tarjetas = PERSONAJES.map((pj, i) => {
+        const x = 135 + i * 260;
+        const panel = this.add.rectangle(x, 205, 240, 300, 0x000000, 0.55).setStrokeStyle(3, 0x666666)
+            .setInteractive({ useHandCursor: true });
+        const sprite = this.add.sprite(x - 2, 82, `${pj.id}-idle`).anims.play(`${pj.id}-idle`).setScale(1.3);
+        this.add.text(x, 178, pj.nombre, { ...estilo('16px', '#' + pj.color.toString(16).padStart(6, '0')), fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(x, 197, pj.titulo, estilo('12px', '#ddd')).setOrigin(0.5);
+        const h = pj.habilidades;
+        const lineas = [
+            `ESPACIO: ${h.espacio.nombre}`,
+            `X: ${h.x.nombre}`,
+            `C: ${h.c.nombre}`,
+            `★ ${pj.pasiva}`,
+        ];
+        this.add.text(x, 262, lineas.join('\n'), { ...estilo('11px'), lineSpacing: 6 }).setOrigin(0.5);
+        panel.on('pointerdown', () => {
+            if (this.indiceSel === i) empezarJuego(this);
+            this.indiceSel = i;
+            marcarSeleccion(this);
+        });
+        return { panel, sprite, pj };
+    });
+
+    this.add.text(config.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar', estilo('12px', '#ffe066')).setOrigin(0.5);
+    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE' });
+    marcarSeleccion(this);
+}
+
+function marcarSeleccion(scene) {
+    scene.tarjetas.forEach((t, i) => {
+        const elegido = i === scene.indiceSel;
+        t.panel.setStrokeStyle(elegido ? 4 : 2, elegido ? t.pj.color : 0x666666);
+        t.panel.setFillStyle(0x000000, elegido ? 0.75 : 0.45);
+        t.sprite.setAlpha(elegido ? 1 : 0.6);
+        t.sprite.anims.play(`${t.pj.id}-${elegido ? 'run' : 'idle'}`, true);
+    });
+}
+
+function actualizarSeleccion() {
+    const k = this.teclasSel, JD = Phaser.Input.Keyboard.JustDown;
+    if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); }
+    if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); }
+    if (JD(k.enter) || JD(k.espacio)) empezarJuego(this);
+}
+
+function empezarJuego(scene) {
+    personajeId = PERSONAJES[scene.indiceSel].id;
+    reiniciarPartida();
+    scene.scene.start('juego');
+}
+
+function reiniciarPartida() {
+    vidas = VIDAS_INICIALES;
+    nivelActual = 0;
+    score = 0;
+    scoreInicioNivel = 0;
+    checkpointX = null;
 }
 
 // texturas dibujadas con código (no hay imágenes para estas)
@@ -634,34 +717,117 @@ function revelarBloque(mascotaGesi, bloque) {
 
 function recogerCarcaj(mascotaGesi, carcaj) {
     carcaj.disableBody(true, true);
-    flechas += 5;
-    this.flechasText.setText(`Flechas: ${flechas}`);
     this.sound.play('moneda');
-    mostrarMensaje(this, '+5 FLECHAS', 900);
+    if (this.pj.recurso === 'flechas') {
+        flechas += 5;
+        mostrarMensaje(this, '+5 FLECHAS', 900);
+    } else if (this.pj.recurso === 'mana') {
+        this.mana = MANA_MAXIMO;
+        mostrarMensaje(this, '¡MANÁ LLENO!', 900);
+    } else {
+        addToScore(300, carcaj, this);
+    }
+    actualizarRecurso(this);
 }
 
-function disparar(scene) {
-    if (scene.time.now < (scene.proximoDisparo || 0)) return;
-    if (flechas <= 0) {
-        if (!scene.avisoSinFlechas) {
-            scene.avisoSinFlechas = true;
-            mostrarMensaje(scene, '¡SIN FLECHAS!', 900);
-            scene.time.delayedCall(1200, () => { scene.avisoSinFlechas = false; });
-        }
-        return;
+function actualizarRecurso(scene) {
+    const texto = scene.pj.recurso === 'flechas' ? `Flechas: ${flechas}`
+        : scene.pj.recurso === 'mana' ? `Maná: ${Math.floor(scene.mana)}`
+            : 'Espada: ∞';
+    if (scene.recursoText.text !== texto) scene.recursoText.setText(texto);
+}
+
+function animar(scene, clave) {
+    if (scene.atacando) return; // no cortar la animación de ataque
+    scene.mascotaGesi.anims.play(`${scene.pj.id}-${clave}`, true);
+}
+
+// ---------- Habilidades (ESPACIO, X, C) ----------
+function avisar(scene, texto) {
+    if (scene.avisoActivo) return;
+    scene.avisoActivo = true;
+    mostrarMensaje(scene, texto, 800);
+    scene.time.delayedCall(1100, () => { scene.avisoActivo = false; });
+}
+
+function pagarCosto(scene, costo) {
+    if (!costo) return true;
+    if (scene.pj.recurso === 'flechas') {
+        if (flechas < costo) { avisar(scene, '¡SIN FLECHAS!'); return false; }
+        flechas -= costo;
+    } else if (scene.pj.recurso === 'mana') {
+        if (scene.mana < costo) { avisar(scene, '¡SIN MANÁ!'); return false; }
+        scene.mana -= costo;
     }
-    scene.proximoDisparo = scene.time.now + 350;
-    flechas--;
-    scene.flechasText.setText(`Flechas: ${flechas}`);
+    actualizarRecurso(scene);
+    return true;
+}
+
+function usarHabilidad(scene, tecla) {
+    const h = scene.pj.habilidades[tecla];
+    if (!h || scene.atacando || scene.time.now < (scene.enfriamientos[tecla] || 0)) return;
+    if (!pagarCosto(scene, h.costo)) return;
+    scene.enfriamientos[tecla] = scene.time.now + h.enfriamiento;
 
     const g = scene.mascotaGesi;
+    const clave = `${scene.pj.id}-${h.anim}`;
+    const anim = scene.anims.get(clave);
+    scene.atacando = true;
+    g.anims.play(clave, true);
+    const duracion = anim.frames.length / anim.frameRate * 1000;
+    scene.time.delayedCall(duracion, () => { scene.atacando = false; });
+    scene.time.delayedCall(h.soltar / anim.frameRate * 1000, () => {
+        if (!g.isDead && !scene.nivelTerminado) ejecutarHabilidad(scene, h);
+    });
+}
+
+function ejecutarHabilidad(scene, h) {
+    const g = scene.mascotaGesi, b = g.body;
     const dir = g.flipX ? -1 : 1;
-    const flecha = scene.flechasGrupo.create(g.body.center.x + dir * 18, g.body.center.y - 8, 'flecha');
-    flecha.setFlipX(dir < 0);
-    flecha.body.setAllowGravity(false);
-    flecha.setVelocityX(dir * 520);
-    scene.time.delayedCall(1400, () => flecha.active && flecha.destroy());
-    scene.sound.play('disparo', { volume: 0.6 });
+
+    if (h.tipo === 'proyectil') {
+        const p = scene.flechasGrupo.create(b.center.x + dir * 20, b.center.y - 8, h.textura);
+        p.setScale(h.escala || 1).setFlipX(dir < 0);
+        if (h.textura === 'flecha_pj') p.body.setSize(40, 6).setOffset(4, 21);
+        if (h.animProyectil) p.anims.play(h.animProyectil, true);
+        if (h.tinte) p.setTint(h.tinte);
+        p.perfora = !!h.perfora;
+        p.body.setAllowGravity(false);
+        p.setVelocityX(dir * h.vel);
+        scene.time.delayedCall(h.vida, () => p.active && p.destroy());
+        scene.sound.play('disparo', { volume: 0.6 });
+    } else if (h.tipo === 'golpe' || h.tipo === 'rayo') {
+        // golpea a todos los enemigos en una franja delante del personaje
+        const x0 = dir > 0 ? b.right : b.left - h.alcance;
+        const zona = new Phaser.Geom.Rectangle(x0, b.top - 10, h.alcance, b.height + 10);
+        scene.enemies.getChildren().slice().forEach(e => {
+            if (e.isDead || !e.body) return;
+            const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
+            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) matarEnemigo(scene, e);
+        });
+        if (h.tipo === 'rayo') {
+            const rayo = scene.add.rectangle(x0 + h.alcance / 2, b.center.y - 6, h.alcance, 6, 0xffe066).setDepth(20);
+            scene.tweens.add({ targets: rayo, scaleY: 3, alpha: 0, duration: 350, onComplete: () => rayo.destroy() });
+            scene.sound.play('disparo', { volume: 0.6 });
+        } else {
+            scene.sound.play('bump', { volume: 0.5 });
+        }
+    } else if (h.tipo === 'embestida') {
+        scene.dashHasta = scene.time.now + h.duracion;
+        scene.dashVel = dir * h.vel;
+        b.setAllowGravity(false);
+        g.setVelocityY(0);
+        scene.sound.play('disparo', { volume: 0.6 });
+    } else if (h.tipo === 'escudo') {
+        scene.escudoHasta = scene.time.now + h.duracion;
+        if (scene.escudoFx) scene.escudoFx.destroy();
+        scene.escudoFx = scene.add.circle(g.x, b.center.y, 46, 0x66ccff, 0.25).setStrokeStyle(3, 0x99ddff).setDepth(20);
+        scene.sound.play('bump', { volume: 0.5 });
+    }
+}
+
+function protegido(scene) {
+    return scene.time.now < scene.escudoHasta || scene.time.now < scene.dashHasta;
 }
 
 function matarEnemigo(scene, enemy) {
@@ -758,6 +924,12 @@ function onHitEnemy(mascotaGesi, enemy) {
     // Verificar si el enemigo ya está muerto
     if (enemy.isDead || this.nivelTerminado) return;
 
+    // con el escudo o durante la embestida, los enemigos mueren al tocarlos
+    if (protegido(this)) {
+        matarEnemigo(this, enemy);
+        return;
+    }
+
     if (mascotaGesi.body.touching.down && enemy.body.touching.up) {
         matarEnemigo(this, enemy);
         mascotaGesi.setVelocityY(-250); // rebote al pisar al enemigo
@@ -769,7 +941,7 @@ function onHitEnemy(mascotaGesi, enemy) {
 function onlava(mascotaGesi, lava) {
 
     if (mascotaGesi.body.touching.down && lava.body.touching.up) {
-        killgesi(this);
+        killgesi(this, 'caida');
     }
 
 }
@@ -779,7 +951,8 @@ function completarNivel(mascotaGesi) {
     this.nivelTerminado = true;
 
     mascotaGesi.setVelocityX(0);
-    mascotaGesi.anims.play('gesi-idle', true);
+    this.atacando = false;
+    animar(this, 'idle');
     this.musica.stop();
     this.sound.play('victoria');
     this.tweens.add({ targets: this.bandera, y: SUELO_Y - 40, duration: 1200 });
@@ -792,12 +965,12 @@ function completarNivel(mascotaGesi) {
 
     this.time.delayedCall(ultimo ? 6000 : 3500, () => {
         if (ultimo) {
-            nivelActual = 0;
-            score = 0;
-            vidas = VIDAS_INICIALES;
-        } else {
-            nivelActual++;
+            // juego terminado: volver a elegir personaje
+            reiniciarPartida();
+            this.scene.start('seleccion');
+            return;
         }
+        nivelActual++;
         scoreInicioNivel = score;
         checkpointX = null;
         this.scene.restart();
@@ -887,7 +1060,7 @@ function trampasNivel1(scene) {
     }
 }
 
-function update() {
+function update(time, delta) {
     actualizarMundo(this);
 
     if (this.mascotaGesi.isDead) return;
@@ -897,34 +1070,64 @@ function update() {
         return;
     }
 
-    if (this.keys.left.isDown) {
-        this.mascotaGesi.body.touching.down && this.mascotaGesi.anims.play('gesi-walk', true);
-        this.mascotaGesi.x -= 2;
-        this.mascotaGesi.setVelocityX(-100);
-        this.mascotaGesi.flipX = true;
-    } else if (this.keys.right.isDown) {
-        this.mascotaGesi.body.touching.down && this.mascotaGesi.anims.play('gesi-walk', true);
-        this.mascotaGesi.x += 2;
-        this.mascotaGesi.setVelocityX(100);
-        this.mascotaGesi.flipX = false;
-    } else if (this.mascotaGesi.body.touching.down) {
-        this.mascotaGesi.anims.play('gesi-idle', true);
-        this.mascotaGesi.setVelocityX(0);
+    const g = this.mascotaGesi;
+    const enSuelo = g.body.touching.down || g.body.blocked.down;
+    const v = this.pj.velocidad;
+
+    // maná del mago se recupera poco a poco
+    if (this.pj.recurso === 'mana' && this.mana < MANA_MAXIMO) {
+        this.mana = Math.min(MANA_MAXIMO, this.mana + delta * 0.012);
+        actualizarRecurso(this);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.teclasDisparo.espacio) || Phaser.Input.Keyboard.JustDown(this.teclasDisparo.x)) {
-        disparar(this);
+    // escudo mágico
+    if (this.escudoFx) {
+        if (time < this.escudoHasta) this.escudoFx.setPosition(g.x, g.body.center.y);
+        else { this.escudoFx.destroy(); this.escudoFx = null; }
     }
 
-    if (this.keys.up.isDown && this.mascotaGesi.body.touching.down) {
-        this.mascotaGesi.setVelocityY(-480);
-        this.mascotaGesi.anims.play('gesi-salto');
+    if (time < this.dashHasta) {
+        // embestida: avanza rápido en línea recta
+        g.setVelocity(this.dashVel, 0);
+    } else {
+        if (!g.body.allowGravity) g.body.setAllowGravity(true);
+
+        if (this.keys.left.isDown) {
+            enSuelo && animar(this, 'run');
+            g.x -= 2 * v;
+            g.setVelocityX(-100 * v);
+            g.flipX = true;
+        } else if (this.keys.right.isDown) {
+            enSuelo && animar(this, 'run');
+            g.x += 2 * v;
+            g.setVelocityX(100 * v);
+            g.flipX = false;
+        } else if (enSuelo) {
+            animar(this, 'idle');
+            g.setVelocityX(0);
+        }
+    }
+
+    const JD = Phaser.Input.Keyboard.JustDown, t = this.teclasDisparo;
+    if (JD(t.espacio)) usarHabilidad(this, 'espacio');
+    if (JD(t.x)) usarHabilidad(this, 'x');
+    if (JD(t.c)) usarHabilidad(this, 'c');
+
+    if (enSuelo) this.saltosAire = 0;
+    if (this.keys.up.isDown && enSuelo) {
+        g.setVelocityY(-this.pj.salto);
+        animar(this, 'jump');
+    } else if (this.pj.dobleSalto && !enSuelo && this.saltosAire < 1 && JD(this.keys.up)) {
+        // doble salto del mago
+        this.saltosAire++;
+        g.setVelocityY(-400);
+        g.anims.play(`${this.pj.id}-jump`, false);
     }
 
     const deathThreshold = 90;
 
-    if (this.mascotaGesi.y >= 390 - deathThreshold) { // linea para matar si cae por fuera de el area de jeugo
-        killgesi(this);
+    if (g.y >= 390 - deathThreshold) { // linea para matar si cae por fuera de el area de jeugo
+        killgesi(this, 'caida');
     }
 
     if (nivelActual === 0) trampasNivel1(this);
@@ -942,11 +1145,16 @@ function moveFloorPiece(floorPiece, newX) {
     floorPiece.setX(newX);
 }
 
-function killgesi(game) {
+function killgesi(game, causa) {
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
+    // el escudo y la embestida protegen de todo menos de caer a la lava
+    if (causa !== 'caida' && protegido(game)) return;
     mascotaGesi.isDead = true;
-    mascotaGesi.anims.play('gesi-muerto');
+    game.atacando = false;
+    game.dashHasta = 0;
+    mascotaGesi.body.setAllowGravity(true);
+    mascotaGesi.anims.play(`${game.pj.id}-dead`);
     mascotaGesi.setCollideWorldBounds(false);
     game.musica.stop();
     sound.add('gameover', { volume: 1 }).play();
@@ -965,12 +1173,8 @@ function killgesi(game) {
         // sin corazones: GAME OVER y se vuelve al inicio del juego
         mostrarMensaje(game, 'GAME OVER\nVuelves al inicio');
         game.time.delayedCall(3500, () => {
-            vidas = VIDAS_INICIALES;
-            nivelActual = 0;
-            score = 0;
-            scoreInicioNivel = 0;
-            checkpointX = null;
-            scene.restart();
+            reiniciarPartida();
+            scene.start('seleccion');
         });
         return;
     }

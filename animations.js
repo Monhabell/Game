@@ -1,50 +1,5 @@
 export const createAnimations = (game) => {
-    game.anims.create({ // crear animacion
-        key: 'gesi-walk',
-        frames: [
-            { key: 'mascotaGesi', frame: 0 },
-            { key: 'mascotaGesi', frame: 1 },
-            { key: 'mascotaGesi', frame: 2 },
-            { key: 'mascotaGesi', frame: 3 },
-            { key: 'mascotaGesi', frame: 4 },
-            { key: 'mascotaGesi', frame: 5 },
-            { key: 'mascotaGesi', frame: 6 },
-            
-        ],
-        frameRate: 13,
-        repeat: -1
-    })
-
-    game.anims.create({
-        key: 'gesi-idle',
-        frames: [
-            { key: 'mascotaGesiload', frame: 0 },
-            { key: 'mascotaGesiload', frame: 1 },
-            { key: 'mascotaGesiload', frame: 2 },
-            { key: 'mascotaGesiload', frame: 3 },
-            { key: 'mascotaGesiload', frame: 4 },
-        ],
-        frameRate: 8,
-        repeat: -1
-    })
-
-    game.anims.create({
-        key: 'gesi-salto',
-        frames: [
-            { key: 'saltar', frame: 0 },
-            { key: 'saltar', frame: 1 },
-            { key: 'saltar', frame: 2 },
-        ],
-        frameRate: 3,
-        repeat: -1
-    })
-
-    game.anims.create({
-        key: 'gesi-muerto',
-        frames: [{
-            key: 'mascotaGesi', frame: 0
-        }]
-    })
+    // las animaciones de los personajes jugables están en personajes.js
 
     // animaciones para enemigos
 
