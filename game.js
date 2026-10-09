@@ -11,6 +11,9 @@ import {
 } from "./mazmorra.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa } from "./sorpresas.js"
 import { aleatorizarNivel, iniciarCorazonesAlAzar, soltarCorazon } from "./azar.js"
+import {
+    cargarEscudo, crearAnimacionesEscudo, crearEscudo, actualizarEscudo, estaInvulnerable, romperEscudo, recuperarEscudo
+} from "./escudo.js"
 
 // funciones que usan las trampas sorpresa (sorpresas.js)
 const apiSorpresas = { killgesi: (scene) => killgesi(scene), crearEnemigo: (...a) => crearEnemigo(...a), mostrarMensaje: (...a) => mostrarMensaje(...a) };
@@ -98,12 +101,8 @@ function preload() {
     cargarEnemigos(this);
     cargarCastillos(this);
     cargarMazmorra(this);
-    this.load.spritesheet('arbol', 'assets/scenery/arbol1.png', { frameWidth: 208, frameHeight: 191 });
-    this.load.spritesheet('arbol2', 'assets/scenery/arbol2.png', { frameWidth: 208, frameHeight: 191 });
 
-    this.load.spritesheet('indicacion', 'assets/scenery/1.png', { frameWidth: 208, frameHeight: 191 });
 
-    this.load.spritesheet('arbusto', 'assets/scenery/arbusto.png', { frameWidth: 208, frameHeight: 191 });
 
     this.load.spritesheet('lava_falling', 'assets/scenery/lava_callendo.png', {
         frameWidth: 126,  // Ajusta según el ancho de cada frame en la hoja de sprites
@@ -114,7 +113,6 @@ function preload() {
     this.load.image('suelo_cueva', 'assets/scenery/underground/floorbricks.png');
     this.load.image('suelo2', 'assets/scenery/trap2.png');
     this.load.image('suelo3', 'assets/scenery/piso.png');
-    this.load.image('door', 'assets/scenery/door.png');
 
     // bloques
     this.load.image('ladrillo', 'assets/blocks/overworld/block.png');
@@ -150,6 +148,7 @@ function preload() {
     this.load.audio('bump', 'assets/sound/effects/block-bump.wav');
     this.load.audio('romper', 'assets/sound/effects/break-block.wav');
     this.load.audio('aparece', 'assets/sound/effects/powerup-appears.mp3');
+    cargarEscudo(this);
 
     // bolas de fuego que saltan de la lava
     this.load.spritesheet('bola', 'assets/entities/fireball.png', { frameWidth: 8, frameHeight: 8 });
@@ -170,6 +169,7 @@ function create() {
     this.atacando = false;
     this.dashHasta = 0;
     this.escudoHasta = 0;
+    this.tieneEscudo = true; // cada vida empieza con escudo (aguanta un golpe)
     this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = nivel.velEnemigos ?? 50;
@@ -222,6 +222,8 @@ function create() {
     this.mascotaGesi.setCrop(0, 57, this.mascotaGesi.width, this.mascotaGesi.height - 50);
 
     this.mascotaGesi.body.setSize(20, 69).setOffset(55, 57); // recirde de secmenbto de colicion
+    // el personaje se dibuja delante de la niebla (capas 30-33) pero detrás de la oscuridad (40)
+    this.mascotaGesi.setDepth(34);
 
     // Hacer que todos los enemigos colisionen con el suelo
     this.physics.add.collider(this.enemies, this.floor);
@@ -300,6 +302,7 @@ function create() {
             .setScrollFactor(0).setDepth(50)); // Mantener fijo en la pantalla
     }
     actualizarCorazones(this);
+    crearEscudo(this);
     this.scoreText = this.add.text(180, 15, `Puntaje: ${score}`, estiloHud)
         .setScrollFactor(0).setDepth(50);
     this.recursoText = this.add.text(370, 15, '', estiloHud)
@@ -342,6 +345,7 @@ function prepararAnimaciones(scene) {
     crearAnimacionesPersonajes(scene);
     crearAnimacionesEnemigos(scene);
     crearAnimacionesMazmorra(scene);
+    crearAnimacionesEscudo(scene);
     crearTexturas(scene);
 }
 
@@ -477,35 +481,22 @@ function crearFondo(scene, nivel) {
 
 // Primera parte del nivel 1, hecha a mano
 function construirNivel1(scene) {
-    let arbol = scene.add.sprite(150, 200, 'arbol');
-    arbol.setFrame(0);
-    arbol.setScale(2);
-    arbol.setFlipX(true);
-
-    let door = scene.add.sprite(1150, 150, 'door');
-    door.setFrame(0);
-    door.setScale(1);
-    door.setFlipX(false);
-
-    let arbol2 = scene.add.sprite(850, 200, 'arbol2');
-    arbol2.setFrame(0);
-    arbol2.setScale(2);
-    arbol2.setFlipX(false);
-
-    let indicacion = scene.add.sprite(150, 320, 'indicacion');
-    indicacion.setFrame(0);
-    indicacion.setScale(3);
-    indicacion.setFlipX(false);
-
-    let arbusto = scene.add.sprite(750, 310, 'arbusto');
-    arbusto.setFrame(0);
-    arbusto.setScale(2);
-    arbusto.setFlipX(false);
-
-    let arbusto2 = scene.add.sprite(850, 310, 'arbusto');
-    arbusto2.setFrame(0);
-    arbusto2.setScale(2);
-    arbusto2.setFlipX(false);
+    // entrada en ruinas: torres y muros rotos, hongos que brillan y un cartel burlón
+    const ruina = (x, clave, escala, voltear = false) =>
+        scene.add.image(x, SUELO_Y + 8, clave).setOrigin(0.5, 1).setScale(escala).setFlipX(voltear).setTint(0x8a8798);
+    ruina(215, 'torre_1_26', 0.42);
+    ruina(330, 'muro_1_35', 0.5, true);
+    ruina(720, 'muro_1_34', 0.5);
+    ruina(905, 'torre_1_31', 0.4, true);
+    [[560, 6], [610, 3], [980, 7], [1040, 4]].forEach(([x, n]) => {
+        scene.add.image(x, SUELO_Y + 2, `mz_mushrum${n}`).setOrigin(0.5, 1).setScale(0.6).setTint(0xd8c9a0);
+        scene.add.image(x, SUELO_Y - 14, 'brillo').setDepth(41).setScale(0.6).setTint(0xffd27a).setAlpha(0.2).setBlendMode('ADD');
+    });
+    scene.add.rectangle(150, 266, 4, 132, 0x4a3420);
+    scene.add.text(150, 200, '¡BIENVENIDO! :)', {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '9px', color: '#ffe9a8',
+        backgroundColor: '#3b2a1a', padding: { x: 6, y: 5 },
+    }).setOrigin(0.5).setDepth(42);
 
     // Crear las piezas del piso
     scene.piso1 = scene.floor.create(0, VISTA.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
@@ -1024,7 +1015,7 @@ function recogerPremio(mascotaGesi, premio) {
             actualizarCorazones(this);
             this.tweens.add({ targets: this.corazones[vidas - 1], scale: 1.3, yoyo: true, duration: 180 });
             mostrarMensaje(this, '+1 VIDA', 900);
-        } else {
+        } else if (!recuperarEscudo(this, texto => mostrarMensaje(this, texto, 900))) {
             addToScore(300, premio, this);
         }
         this.sound.play('victoria', { volume: 0.4 });
@@ -1403,6 +1394,7 @@ function trampasNivel1(scene) {
 
 function update(time, delta) {
     moverCamara(this);
+    actualizarEscudo(this);
     actualizarMundo(this);
     actualizarAmbiente(this, time, this.mascotaGesi);
     moverLava(this, time);
@@ -1496,6 +1488,15 @@ function killgesi(game, causa) {
     if (mascotaGesi.isDead || game.nivelTerminado) return;
     // el escudo y la embestida protegen de todo menos de caer a la lava
     if (causa !== 'caida' && protegido(game)) return;
+    if (causa !== 'caida') {
+        // recién roto el escudo: unos instantes sin recibir daño
+        if (estaInvulnerable(game)) return;
+        // el primer golpe solo rompe el escudo
+        if (game.tieneEscudo) {
+            romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
+            return;
+        }
+    }
     mascotaGesi.isDead = true;
     game.atacando = false;
     game.dashHasta = 0;

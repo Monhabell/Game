@@ -50,6 +50,7 @@ export const NIVELES = [
         nombre: 'El Bosque de Gesi',
         ancho: 5200,
         nubes: true,
+        fondo: 'montanas', // montañas en silueta con árboles secos (en vez del paisaje)
         velEnemigos: 40,
         checkpoints: [2400],
         mezcla: ['zombie1', 'zombie2', 'zombie3', 'esqueleto'],

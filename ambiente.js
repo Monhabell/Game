@@ -12,6 +12,7 @@
 // Cada nivel puede tener 'oscuridad' (0 = nada, 1 = negro total fuera de la luz).
 //
 // La niebla cambia sola: a veces se despeja y luego se vuelve densa (ver cicloNiebla).
+// La luz también: a veces todo se ilumina y otras se oscurece casi por completo (ver cicloLuz).
 // En los niveles más altos la niebla densa aparece más seguido.
 
 import { crearPaisaje, crearRuinas } from "./castillos.js"
@@ -74,8 +75,9 @@ function crearTexturasAmbiente(scene) {
 
     // niebla: manchas suaves que se repiten sin cortes de lado a lado
     lienzo(scene, 'niebla', 512, 256, (ctx, w, h) => {
-        for (let i = 0; i < 70; i++) {
-            const x = azar() * w, y = azar() * h, r = 30 + azar() * 70, a = 0.05 + azar() * 0.12;
+        // muchas manchas grandes y bastante opacas: la niebla se nota de verdad
+        for (let i = 0; i < 150; i++) {
+            const x = azar() * w, y = azar() * h, r = 40 + azar() * 80, a = 0.1 + azar() * 0.16;
             for (const dx of [-w, 0, w]) {
                 const gr = ctx.createRadialGradient(x + dx, y, 0, x + dx, y, r);
                 gr.addColorStop(0, `rgba(255,255,255,${a})`);
@@ -103,7 +105,8 @@ function crearTexturasAmbiente(scene) {
     // oscuridad: color de noche con un agujero de luz en el centro (doble del tamaño de la pantalla)
     for (const [tipo, p] of Object.entries(PALETAS)) {
         const [r, g, b] = p.oscuridad;
-        lienzo(scene, `oscuridad_${tipo}`, ANCHO * 2, ALTO * 2, (ctx, w, h) => {
+        // 4 veces la pantalla: así cubre todo aunque el círculo de luz se achique (modo oscuro)
+        lienzo(scene, `oscuridad_${tipo}`, ANCHO * 4, ALTO * 4, (ctx, w, h) => {
             const gr = ctx.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, 430);
             gr.addColorStop(0, `rgba(${r},${g},${b},0)`);
             gr.addColorStop(0.22, `rgba(${r},${g},${b},0.04)`);
@@ -137,6 +140,53 @@ function crearTexturasAmbiente(scene) {
         ctx.fillStyle = gr;
         ctx.fillRect(0, 0, 8, 8);
     });
+
+    // montañas en silueta (se repiten sin cortes) con árboles secos en la capa cercana
+    const montanas = (clave, alto, picos, rugosidad, colorArriba, colorAbajo, arboles) => lienzo(scene, clave, 1024, alto, (ctx, w, h) => {
+        // cresta con desplazamiento del punto medio; el primer y último punto coinciden
+        let alturas = [h * 0.45, h * 0.45];
+        let amp = h * 0.35;
+        for (let n = 0; n < picos; n++) {
+            const nuevas = [];
+            for (let i = 0; i < alturas.length - 1; i++) {
+                nuevas.push(alturas[i], (alturas[i] + alturas[i + 1]) / 2 + (azar() - 0.5) * amp);
+            }
+            nuevas.push(alturas[alturas.length - 1]);
+            alturas = nuevas;
+            amp *= rugosidad;
+        }
+        const paso = w / (alturas.length - 1);
+        const gr = ctx.createLinearGradient(0, 0, 0, h);
+        gr.addColorStop(0, colorArriba);
+        gr.addColorStop(1, colorAbajo);
+        ctx.fillStyle = gr;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        alturas.forEach((y, i) => ctx.lineTo(i * paso, Math.max(4, Math.min(h - 10, y))));
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fill();
+        // árboles secos y retorcidos sobre la cresta
+        for (let k = 0; k < arboles; k++) {
+            const x = 30 + azar() * (w - 60);
+            const i = Math.round(x / paso);
+            const base = Math.max(4, Math.min(h - 10, alturas[i])) + 4;
+            const alto = 30 + azar() * 45;
+            ctx.strokeStyle = colorAbajo;
+            ctx.lineCap = 'round';
+            const rama = (x0, y0, largo, ang, grosor) => {
+                if (grosor < 0.8 || largo < 4) return;
+                const x1 = x0 + Math.cos(ang) * largo, y1 = y0 + Math.sin(ang) * largo;
+                ctx.lineWidth = grosor;
+                ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+                rama(x1, y1, largo * 0.68, ang - 0.45 - azar() * 0.35, grosor * 0.62);
+                rama(x1, y1, largo * 0.62, ang + 0.35 + azar() * 0.4, grosor * 0.6);
+            };
+            rama(x, base, alto * 0.45, -Math.PI / 2 + (azar() - 0.5) * 0.3, 4 + azar() * 2);
+        }
+    });
+    montanas('montanas_lejos', 220, 7, 0.55, '#2a3550', '#141c30', 0);
+    montanas('montanas_cerca', 200, 7, 0.6, '#151b2a', '#06080f', 14);
 
     // luna con cráteres
     lienzo(scene, 'luna', 64, 64, (ctx) => {
@@ -221,8 +271,16 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
     });
 
     if (tipo === 'afuera') {
-        // montañas lejanas, casi del color de la niebla
-        crearPaisaje(scene, nivel, mezclar(oscurecer(0x7f8fc4, 0.3 * luz), p.niebla, 0.18));
+        if (nivel.fondo === 'montanas') {
+            // montañas en silueta: las lejanas azuladas y las cercanas casi negras con árboles secos
+            scene.capasMontanas = [
+                { capa: scene.add.tileSprite(0, 125, ANCHO, 220, 'montanas_lejos').setOrigin(0).setScrollFactor(0), factor: 0.08 },
+                { capa: scene.add.tileSprite(0, 175, ANCHO, 200, 'montanas_cerca').setOrigin(0).setScrollFactor(0), factor: 0.16 },
+            ];
+        } else {
+            // montañas lejanas, casi del color de la niebla
+            crearPaisaje(scene, nivel, mezclar(oscurecer(0x7f8fc4, 0.3 * luz), p.niebla, 0.18));
+        }
         // nubes oscuras lejanas
         for (let x = 200, i = 0; x < nivel.ancho * 0.25 + 900; x += 420, i++) {
             scene.add.image(x, i % 2 ? 95 : 55, 'cloud1').setScale(0.3 + (i % 3) * 0.06).setScrollFactor(0.2)
@@ -283,6 +341,7 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     scene.oscuridadBase = oscuridad;
 
     cicloNiebla(scene, nivelIndice);
+    cicloLuz(scene, nivelIndice, oscuridad);
 
     // luz cálida de antorcha alrededor del personaje
     scene.luzCalida = scene.add.image(0, 0, 'brillo').setDepth(41).setScale(2.6)
@@ -308,11 +367,12 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
 }
 
 // ---------- Niebla que cambia: despejada, normal y densa ----------
-// despejada = sin nada de niebla; cada nivel (y cada intento) empieza con niebla
+// despejada = sin nada de niebla; cada nivel (y cada intento) empieza despejado
 const ESTADOS_NIEBLA = { despejada: 0, normal: 1, densa: 2 };
 
 function cicloNiebla(scene, nivelIndice) {
-    scene.estadoNiebla = { v: 1, nombre: 'normal', primerCambio: true };
+    // cada nivel (y cada intento) empieza despejado, sin niebla; la niebla llega después
+    scene.estadoNiebla = { v: 0, nombre: 'despejada' };
     const probDensa = Math.min(0.6, 0.3 + 0.06 * nivelIndice); // más niebla densa en niveles altos
 
     const cambiar = () => {
@@ -320,11 +380,7 @@ function cicloNiebla(scene, nivelIndice) {
         const actual = scene.estadoNiebla.nombre;
         // nunca repite el mismo estado dos veces seguidas
         let siguiente;
-        if (scene.estadoNiebla.primerCambio) {
-            // el primer cambio nunca despeja: el comienzo del nivel siempre tiene niebla
-            scene.estadoNiebla.primerCambio = false;
-            siguiente = 'densa';
-        } else if (actual === 'densa') siguiente = Math.random() < 0.6 ? 'despejada' : 'normal';
+        if (actual === 'densa') siguiente = Math.random() < 0.6 ? 'despejada' : 'normal';
         else if (actual === 'despejada') siguiente = Math.random() < probDensa + 0.25 ? 'densa' : 'normal';
         else siguiente = Math.random() < probDensa ? 'densa' : 'despejada';
 
@@ -336,14 +392,48 @@ function cicloNiebla(scene, nivelIndice) {
     scene.time.delayedCall(Phaser.Math.Between(8000, 14000), cambiar);
 }
 
+// ---------- Luz que cambia: iluminado, normal y oscuro ----------
+// alpha: qué tan oscuro está lejos del personaje; radio: tamaño del círculo de luz
+function cicloLuz(scene, nivelIndice, oscuridadNormal) {
+    const ESTADOS = {
+        iluminado: { alpha: 0.12, radio: 2.3 },
+        normal: { alpha: oscuridadNormal, radio: 1 },
+        oscuro: { alpha: 0.97, radio: 0.55 },
+    };
+    scene.estadoLuz = { ...ESTADOS.normal, nombre: 'normal' };
+    const probOscuro = Math.min(0.6, 0.3 + 0.06 * nivelIndice); // más oscuridad en niveles altos
+
+    const cambiar = () => {
+        if (!scene.sys.isActive()) return;
+        const actual = scene.estadoLuz.nombre;
+        let siguiente;
+        if (actual === 'oscuro') siguiente = Math.random() < 0.6 ? 'iluminado' : 'normal';
+        else if (actual === 'iluminado') siguiente = Math.random() < probOscuro + 0.25 ? 'oscuro' : 'normal';
+        else siguiente = Math.random() < probOscuro ? 'oscuro' : 'iluminado';
+
+        scene.estadoLuz.nombre = siguiente;
+        scene.tweens.add({
+            targets: scene.estadoLuz, ...ESTADOS[siguiente],
+            duration: Phaser.Math.Between(3000, 4500), ease: 'Sine.inOut',
+        });
+        if (siguiente === 'oscuro') scene.mostrarMensajeCorto?.('Se apagan las luces...');
+        scene.time.delayedCall(Phaser.Math.Between(9000, 18000), cambiar);
+    };
+    scene.time.delayedCall(Phaser.Math.Between(12000, 18000), cambiar);
+}
+
+// cuánto se ve cada capa según la intensidad v (0 = despejada, 1 = normal, 2 = densa)
+const subir = (v, normal, densa) => v <= 1 ? normal * v : normal + (densa - normal) * Math.min(1, v - 1);
+
 function aplicarNiebla(scene) {
     const v = scene.estadoNiebla ? scene.estadoNiebla.v : 1;
-    scene.capasNiebla.forEach(({ capa, base }) => capa.setAlpha(Math.min(0.75, base * v)));
-    scene.nieblaAlta.setAlpha(Math.min(0.55, 0.22 * v));
-    scene.nieblaBaja.setAlpha(Math.min(0.9, 0.6 * v));
-    scene.nieblaDensa.setAlpha(Math.max(0, v - 1) * 0.42);
+    scene.capasNiebla.forEach(({ capa, base }) => capa.setAlpha(Math.min(0.9, base * v)));
+    scene.nieblaAlta.setAlpha(subir(v, 0.25, 0.5));
+    scene.nieblaBaja.setAlpha(subir(v, 0.55, 0.85));
+    scene.nieblaDensa.setAlpha(subir(v, 0.2, 0.6));
     // con niebla densa todo se ve un poco más oscuro; despejada, un poco más claro
-    scene.oscuridad.setAlpha(Phaser.Math.Clamp(scene.oscuridadBase + (v - 1) * 0.06, 0, 0.95));
+    const luz = scene.estadoLuz;
+    scene.oscuridad.setAlpha(Phaser.Math.Clamp(luz.alpha + (v - 1) * 0.06, 0, 0.97));
 }
 
 export function actualizarAmbiente(scene, time, objetivo) {
@@ -352,6 +442,7 @@ export function actualizarAmbiente(scene, time, objetivo) {
     aplicarNiebla(scene);
     scene.nieblaDensa.tilePositionX = cam.scrollX * 0.7 + time * 0.02;
     scene.capasNiebla.forEach(({ capa, factor, vel }) => { capa.tilePositionX = cam.scrollX * factor + time * vel; });
+    (scene.capasMontanas || []).forEach(({ capa, factor }) => { capa.tilePositionX = cam.scrollX * factor; });
     moverFondoCueva(scene, time);
     scene.nieblaAlta.tilePositionX = cam.scrollX * 0.5 + time * 0.012;
     scene.nieblaBaja.tilePositionX = cam.scrollX * 1.1 + time * 0.03;
@@ -359,8 +450,9 @@ export function actualizarAmbiente(scene, time, objetivo) {
 
     // la luz sigue al personaje (con un leve parpadeo, como una antorcha)
     const parpadeo = 1 + Math.sin(time / 90) * 0.012 + Math.sin(time / 37) * 0.008;
-    scene.oscuridad.setPosition(objetivo.x - cam.scrollX, objetivo.y - cam.scrollY + 10).setScale(parpadeo);
-    scene.luzCalida.setPosition(objetivo.x, objetivo.y + 8).setScale(2.6 * parpadeo);
+    const radio = scene.estadoLuz.radio;
+    scene.oscuridad.setPosition(objetivo.x - cam.scrollX, objetivo.y - cam.scrollY + 10).setScale(parpadeo * radio);
+    scene.luzCalida.setPosition(objetivo.x, objetivo.y + 8).setScale(2.6 * parpadeo * Math.sqrt(radio));
 }
 
 // ---------- Pantalla de selección de personaje ----------
