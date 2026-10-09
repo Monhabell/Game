@@ -22,28 +22,45 @@ export function cargarCastillos(scene) {
 
 // paisaje nocturno para los niveles al aire libre
 export function crearPaisaje(scene, nivel, tinte) {
-    const escala = 0.7, ancho = 1024 * escala, factor = 0.3;
+    // se quita el cielo de día del paisaje: la parte de arriba se desvanece
+    // para que las montañas se fundan con el cielo de noche (luna y estrellas)
+    if (!scene.textures.exists('paisaje_noche')) {
+        const fuente = scene.textures.get('paisaje').getSourceImage();
+        const t = scene.textures.createCanvas('paisaje_noche', fuente.width, fuente.height);
+        const ctx = t.getContext();
+        ctx.drawImage(fuente, 0, 0);
+        ctx.globalCompositeOperation = 'destination-in';
+        const m = ctx.createLinearGradient(0, 0, 0, fuente.height);
+        m.addColorStop(0, 'rgba(0,0,0,0)');
+        m.addColorStop(0.2, 'rgba(0,0,0,0)');
+        m.addColorStop(0.42, 'rgba(0,0,0,1)');
+        m.addColorStop(1, 'rgba(0,0,0,1)');
+        ctx.fillStyle = m;
+        ctx.fillRect(0, 0, fuente.width, fuente.height);
+        t.refresh();
+    }
+    const escala = 0.7, ancho = 1024 * escala, factor = 0.15;
     const cuantos = Math.ceil((nivel.ancho * factor + 790) / ancho) + 1;
     for (let i = 0; i < cuantos; i++) {
-        scene.add.image(i * ancho, 190, 'paisaje').setOrigin(0, 0.5).setScale(escala)
+        scene.add.image(i * ancho, 215, 'paisaje_noche').setOrigin(0, 0.5).setScale(escala)
             .setScrollFactor(factor).setTint(tinte);
     }
 }
 
-// ruinas de castillo al fondo (torres y murallas rotas), con efecto de profundidad
-export function crearRuinas(scene, nivel, indice, tinte) {
+// ruinas de castillo al fondo (torres y murallas rotas), con efecto de profundidad.
+// factor: cuánto se mueven con la cámara (más bajo = más lejos); escala: [mínima, máxima]
+export function crearRuinas(scene, nivel, indice, tinte, { factor = 0.55, escala = [0.55, 0.9], semilla = 0, paso = [260, 560], base = 12, alpha = 0.9 } = {}) {
     const estilo = ESTILO_RUINAS[indice % ESTILO_RUINAS.length];
-    let semilla = 1234 + indice * 977;
-    const azar = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
-    const factor = 0.55;
+    let s = 1234 + indice * 977 + semilla * 7919;
+    const azar = () => (s = (s * 16807) % 2147483647) / 2147483647;
     const hasta = nivel.ancho * factor + 800;
-    for (let x = 80; x < hasta; x += 260 + azar() * 300) {
+    for (let x = 80 + azar() * 200; x < hasta; x += paso[0] + azar() * (paso[1] - paso[0])) {
         const esTorre = azar() < 0.55;
         const lista = esTorre ? TORRES : MUROS;
         const n = lista[Math.floor(azar() * lista.length)];
-        scene.add.image(x, SUELO_Y + 12, `${esTorre ? 'torre' : 'muro'}_${estilo}_${n}`)
-            .setOrigin(0.5, 1).setScale(0.55 + azar() * 0.35).setScrollFactor(factor)
-            .setFlipX(azar() < 0.5).setTint(tinte).setAlpha(0.9);
+        scene.add.image(x, SUELO_Y + base, `${esTorre ? 'torre' : 'muro'}_${estilo}_${n}`)
+            .setOrigin(0.5, 1).setScale(escala[0] + azar() * (escala[1] - escala[0])).setScrollFactor(factor)
+            .setFlipX(azar() < 0.5).setTint(tinte).setAlpha(alpha);
     }
 }
 

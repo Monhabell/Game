@@ -3,8 +3,12 @@ import { monedas } from "./monedas.js"
 import { NIVELES, SUELO_Y } from "./niveles.js"
 import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes } from "./personajes.js"
 import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos } from "./enemigos.js"
-import { crearAmbiente, actualizarAmbiente, tinteOscuro, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
-import { cargarCastillos, crearPaisaje, crearRuinas, crearCastilloMeta } from "./castillos.js"
+import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
+import { cargarCastillos, crearCastilloMeta } from "./castillos.js"
+import {
+    cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, crearLava, moverLava,
+    decorarNivel, crearEstatua, encenderEstatua
+} from "./mazmorra.js"
 
 let score = 0; // Variable global para la puntuación
 const VIDAS_INICIALES = 4;
@@ -20,8 +24,15 @@ const config = {
     type: Phaser.AUTO,
     width: 790,
     height: 380,
-    backgroundColor: '#049cd8',
+    backgroundColor: '#05070f',
     parent: 'game',
+    // el juego se escala para llenar su contenedor sin deformarse (botón agrandar y pantalla completa)
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 790,
+        height: 380,
+    },
     physics: {
         default: 'arcade',
         arcade: {
@@ -36,7 +47,31 @@ const config = {
     ]
 }
 
-new Phaser.Game(config)
+const juego = new Phaser.Game(config)
+
+// botones de la página: agrandar (tecla G) y pantalla completa (tecla F); Esc sale
+const botonAgrandar = document.getElementById('btn-agrandar');
+function agrandar(activar) {
+    const activo = document.body.classList.toggle('modo-grande', activar);
+    botonAgrandar?.setAttribute('aria-pressed', String(activo));
+    if (botonAgrandar) botonAgrandar.textContent = activo ? '⤡ Achicar' : '⤢ Agrandar';
+}
+// cada vez que cambia el tamaño del contenedor, el juego se reajusta para llenarlo
+if (window.ResizeObserver) {
+    new ResizeObserver(() => {
+        juego.scale.getParentBounds(); // vuelve a medir el contenedor
+        juego.scale.refresh();
+    }).observe(document.getElementById('game'));
+}
+botonAgrandar?.addEventListener('click', () => agrandar());
+document.getElementById('btn-pantalla-completa')?.addEventListener('click', () => juego.scale.toggleFullscreen());
+document.addEventListener('keydown', e => {
+    if (e.repeat) return;
+    const tecla = e.key.toLowerCase();
+    if (tecla === 'f') juego.scale.toggleFullscreen();
+    else if (tecla === 'g') agrandar();
+    else if (e.key === 'Escape' && document.body.classList.contains('modo-grande')) agrandar(false);
+});
 
 function preload() {
 
@@ -46,6 +81,7 @@ function preload() {
     cargarPersonajes(this);
     cargarEnemigos(this);
     cargarCastillos(this);
+    cargarMazmorra(this);
     this.load.spritesheet('arbol', 'assets/scenery/arbol1.png', { frameWidth: 208, frameHeight: 191 });
     this.load.spritesheet('arbol2', 'assets/scenery/arbol2.png', { frameWidth: 208, frameHeight: 191 });
 
@@ -89,7 +125,7 @@ function preload() {
     this.load.spritesheet('malo', 'assets/entities/underground/Run.png', { frameWidth: 128, frameHeight: 128 });
     this.load.spritesheet('maloDead', 'assets/Dead.png', { frameWidth: 128, frameHeight: 128 });
     // cargar monedas
-    this.load.spritesheet('coins', 'assets/collectibles/coin.png', { frameWidth: 16, frameHeight: 16 });
+    // (las monedas se cargan en cargarMazmorra)
 
     // sonido de matar
     this.load.audio('matar', 'assets/sound/effects/matar.wav');
@@ -124,6 +160,10 @@ function create() {
 
     crearFondo(this, nivel);
 
+    // estalactitas, hongos, antorchas y la puerta de entrada (detrás de todo lo jugable)
+    const rangosSuelo = [...(nivel.suelo || []), ...(nivelActual === 0 ? [[0, 1106]] : [])];
+    decorarNivel(this, nivel, nivelActual, x => rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
+
     this.floor = this.physics.add.staticGroup();
     this.enemies = this.physics.add.group();
     this.lavaes = this.physics.add.group();
@@ -134,6 +174,7 @@ function create() {
     this.invisibles = this.physics.add.staticGroup(); // bloques invisibles
     this.bolas = this.physics.add.group();
     this.carcajes = this.physics.add.staticGroup();
+    this.premios = this.physics.add.staticGroup();
     this.flechasGrupo = this.physics.add.group({ allowGravity: false });
     this.balasEnemigas = this.physics.add.group({ allowGravity: false });
     this.cayentes = []; // ladrillos que caen
@@ -193,6 +234,7 @@ function create() {
     this.physics.add.collider(this.enemies, this.invisibles, null, (e, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.bolas, () => killgesi(this));
     this.physics.add.overlap(this.mascotaGesi, this.carcajes, recogerCarcaj, null, this);
+    this.physics.add.overlap(this.mascotaGesi, this.premios, recogerPremio, null, this);
 
     // flechas
     this.physics.add.overlap(this.flechasGrupo, this.enemies, (flecha, enemy) => {
@@ -220,14 +262,14 @@ function create() {
     this.cameras.main.startFollow(this.mascotaGesi);
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
-    crearAmbiente(this, nivel, nivelActual);
+    crearAmbiente(this, nivel, nivelActual, nivelActual === 0 ? [[1350, 2310]] : []);
 
     // HUD
     const estiloHud = { fontSize: '16px', fill: '#fff', stroke: '#000', strokeThickness: 3 };
     // corazones de vida (los perdidos se ven grises)
     this.corazones = [];
     for (let i = 0; i < VIDAS_INICIALES; i++) {
-        this.corazones.push(this.add.image(28 + i * 26, 24, 'corazon').setScale(1.4)
+        this.corazones.push(this.add.image(28 + i * 26, 24, 'mz_corazon', 9).setScale(0.75)
             .setScrollFactor(0).setDepth(50)); // Mantener fijo en la pantalla
     }
     actualizarCorazones(this);
@@ -254,15 +296,16 @@ function prepararAnimaciones(scene) {
     if (!scene.anims.exists('enemy-walk')) createAnimations(scene);
     crearAnimacionesPersonajes(scene);
     crearAnimacionesEnemigos(scene);
+    crearAnimacionesMazmorra(scene);
     crearTexturas(scene);
 }
 
 // ---------- Pantalla de selección de personaje ----------
 function crearSeleccion() {
     prepararAnimaciones(this);
-    this.add.image(config.width / 2, config.height / 2, 'background').setTint(0x3a3a4e);
-    this.add.image(config.width / 2, config.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(1.25).setTint(0x34343f);
     crearNieblaSeleccion(this);
+    this.add.image(config.width / 2, config.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(1.25).setTint(0x2c3140);
+    this.nieblaAlta.setDepth(1);
 
     this.add.text(config.width / 2, 22, 'ELIGE TU PERSONAJE', {
         fontFamily: '"Press Start 2P", monospace', fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 5
@@ -293,7 +336,7 @@ function crearSeleccion() {
         return { panel, sprite, pj };
     });
 
-    this.add.text(config.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar', estilo('12px', '#ffe066')).setOrigin(0.5);
+    this.add.text(config.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar   ·   F pantalla completa', estilo('12px', '#ffe066')).setOrigin(0.5);
     this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE' });
     marcarSeleccion(this);
 }
@@ -382,25 +425,8 @@ function actualizarCorazones(scene) {
 }
 
 function crearFondo(scene, nivel) {
-    const anchofondo = 960;
-    const cantidad_fondo = Math.ceil(nivel.ancho / anchofondo) + 1;
-    if (nivel.nubes) {
-        // niveles al aire libre: paisaje de noche
-        crearPaisaje(scene, nivel, tinteOscuro(0x8899cc, nivelActual));
-    } else {
-        for (let i = 0; i < cantidad_fondo; i++) {
-            scene.add.image(450 + (i * anchofondo), 200, 'background').setTint(tinteOscuro(nivel.tinte, nivelActual));
-        }
-    }
-
-    if (nivel.nubes) {
-        for (let x = 200, i = 0; x < nivel.ancho; x += 550, i++) {
-            scene.add.image(x, i % 2 ? 90 : 50, 'cloud1').setScale(0.35).setScrollFactor(0.6).setAlpha(0.7).setTint(0x555566);
-        }
-    }
-
-    // ruinas de castillos al fondo
-    crearRuinas(scene, nivel, nivelActual, tinteOscuro(0x9a9aae, nivelActual + 1));
+    // cielo, luna, montañas, ruinas y niebla en capas (ver ambiente.js)
+    crearFondoAtmosferico(scene, nivel, nivelActual);
 }
 
 // Primera parte del nivel 1, hecha a mano
@@ -436,7 +462,7 @@ function construirNivel1(scene) {
     arbusto2.setFlipX(false);
 
     // Crear las piezas del piso
-    scene.floor.create(0, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
+    scene.piso1 = scene.floor.create(0, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
 
     scene.piso2 = scene.floor.create(250, config.height - 16, 'suelo').setOrigin(0, 0.5).setScale(2);
     scene.piso3 = scene.floor.create(250, config.height - 160, 'suelo').setOrigin(0, 0.5).setScale(2).refreshBody();
@@ -453,10 +479,20 @@ function construirNivel1(scene) {
 
     // escalones para alcanzar la plataforma escondida (piso3) y piso6 sin hacer un salto perfecto
     [170, 202, 1000, 1032].forEach(x => {
-        scene.floor.create(x, 280, 'ladrillo').setOrigin(0, 0.5).setScale(2).refreshBody();
+        scene.floor.create(x, 280, 'mz_bloque').setOrigin(0, 0.5).refreshBody();
     });
 
     scene.piso6 = scene.floor.create(1090, config.height - 155, 'suelo').setOrigin(0, 0.5).setScale(0.9, 2).refreshBody();
+
+    // el piso de ladrillos se viste con roca de la mazmorra
+    vestirSuelo(scene, scene.piso1, { izq: true });
+    vestirSuelo(scene, scene.piso2, { der: true });
+    vestirSuelo(scene, scene.piso3, { izq: true, der: true, flotante: true });
+    scene.piso3.visuales.forEach(v => v.setVisible(false)); // plataforma escondida
+    vestirSuelo(scene, scene.piso4, { izq: true });
+    vestirSuelo(scene, scene.piso5, { der: true });
+    vestirSuelo(scene, scene.piso6, { izq: true, der: true, flotante: true });
+    vestirMuro(scene, scene.muro);
 
     scene.piso7 = scene.floor.create(1450, config.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
     scene.piso8 = scene.floor.create(1640, config.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
@@ -521,11 +557,7 @@ function construirNivel(scene, nivel) {
     const s = scene.sufijo;
 
     // lava en los huecos (se dibuja antes que el suelo para quedar detrás)
-    (nivel.lava || []).forEach(([x0, x1]) => {
-        for (let x = x0; x < x1; x += 64) {
-            scene.add.sprite(x, SUELO_Y + 20, 'lava').setOrigin(0, 0.5).anims.play('lava_quema', true);
-        }
-    });
+    (nivel.lava || []).forEach(([x0, x1]) => crearLava(scene, x0, x1));
 
     // pinchos (los ocultos empiezan escondidos bajo el suelo)
     (nivel.pinchos || []).forEach(([x, n, oculto]) => {
@@ -537,9 +569,7 @@ function construirNivel(scene, nivel) {
 
     // suelo falso: igual al normal pero se derrumba al pisarlo (con lava debajo)
     (nivel.falsos || []).forEach(([x0, x1]) => {
-        for (let x = x0; x < x1; x += 64) {
-            scene.add.sprite(x, SUELO_Y + 20, 'lava').setOrigin(0, 0.5).anims.play('lava_quema', true);
-        }
+        crearLava(scene, x0, x1);
         crearSuelo(scene, x0, x1, 'suelo' + s).forEach(t => { t.esFalso = true; });
     });
 
@@ -554,16 +584,16 @@ function construirNivel(scene, nivel) {
                 bloque.esMisterio = true;
                 bloque.sueltaEnemigo = tipo === 'E'; // '?' falso: sale un enemigo
             } else if (tipo === 'B') {
-                scene.floor.create(bx, y, 'ladrillo' + s).setOrigin(0, 0.5).setScale(2).refreshBody();
+                scene.floor.create(bx, y, 'mz_bloque').setOrigin(0, 0.5).refreshBody();
             } else if (tipo === 'C') {
                 // ladrillo que cae cuando Gesi pasa por debajo
-                scene.cayentes.push(scene.floor.create(bx, y, 'ladrillo' + s).setOrigin(0, 0.5).setScale(2).refreshBody());
+                scene.cayentes.push(scene.floor.create(bx, y, 'mz_bloque').setOrigin(0, 0.5).refreshBody());
             } else if (tipo === 'H') {
                 // bloque invisible
                 scene.invisibles.create(bx, y, 'vacio' + s).setOrigin(0, 0.5).setScale(2).refreshBody().setVisible(false);
             } else if (tipo === 'F') {
                 // ladrillo falso: se ve pero no tiene piso
-                scene.add.image(bx, y, 'ladrillo' + s).setOrigin(0, 0.5).setScale(2);
+                scene.add.image(bx, y, 'mz_bloque').setOrigin(0, 0.5);
             }
         });
     });
@@ -571,14 +601,14 @@ function construirNivel(scene, nivel) {
     (nivel.escaleras || []).forEach(([x, altura]) => {
         for (let col = 0; col < altura; col++) {
             for (let f = 0; f <= col; f++) {
-                scene.floor.create(x + col * 32, SUELO_Y - 16 - f * 32, 'bloque_duro' + s)
-                    .setOrigin(0, 0.5).setScale(2).refreshBody();
+                scene.floor.create(x + col * 32, SUELO_Y - 16 - f * 32, 'mz_escalon')
+                    .setOrigin(0, 0.5).refreshBody();
             }
         }
     });
 
     (nivel.moviles || []).forEach(([x, y, eje, recorrido, vel]) => {
-        const plataforma = scene.moviles.create(x, y, 'suelo' + s);
+        const plataforma = scene.moviles.create(x, y, 'mz_plataforma');
         plataforma.eje = eje;
         plataforma.vel = vel;
         if (eje === 'x') {
@@ -627,11 +657,20 @@ function construirNivel(scene, nivel) {
 
     // puntos de control: un mástil pequeño con bandera
     scene.checkpoints = (nivel.checkpoints || []).map(x => {
-        const mastil = scene.add.image(x, SUELO_Y, 'mastil').setOrigin(0.5, 1).setScale(1, 0.5);
-        const bandera = scene.add.image(x - 4, SUELO_Y - 80, 'bandera').setOrigin(1, 0).setScale(1.5).setTint(0x888888);
-        const cp = { x, mastil, bandera, activo: checkpointX !== null && x <= checkpointX };
-        if (cp.activo) bandera.clearTint();
-        return cp;
+        const activo = checkpointX !== null && x <= checkpointX;
+        return { x, activo, ...crearEstatua(scene, x, activo) };
+    });
+
+    // corazones (recuperan una vida) y cristales (tesoro de 500 puntos)
+    (nivel.corazones || []).forEach(([x, y]) => {
+        const c = scene.premios.create(x, y, 'mz_corazon').anims.play('mz_corazon', true).refreshBody();
+        c.tipoPremio = 'corazon';
+        scene.add.image(x, y, 'brillo').setDepth(41).setScale(0.8).setTint(0xff4d6d).setAlpha(0.35).setBlendMode('ADD');
+    });
+    (nivel.cristales || []).forEach(([x, y]) => {
+        const c = scene.premios.create(x, y, 'mz_cristal').anims.play('mz_cristal', true).refreshBody();
+        c.tipoPremio = 'cristal';
+        scene.add.image(x, y, 'brillo').setDepth(41).setScale(0.8).setTint(0xc77dff).setAlpha(0.35).setBlendMode('ADD');
     });
 
     // meta: mástil, bandera y castillo
@@ -648,8 +687,10 @@ function crearSuelo(scene, x0, x1, textura) {
     const ancho = (x1 - x0) / piezas;
     const tiles = [];
     for (let i = 0; i < piezas; i++) {
-        tiles.push(scene.floor.create(x0 + i * ancho, config.height - 16, textura)
-            .setOrigin(0, 0.5).setScale(ancho / 128, 2).refreshBody());
+        const pieza = scene.floor.create(x0 + i * ancho, config.height - 16, textura)
+            .setOrigin(0, 0.5).setScale(ancho / 128, 2).refreshBody();
+        vestirSuelo(scene, pieza, { izq: i === 0, der: i === piezas - 1 });
+        tiles.push(pieza);
     }
     return tiles;
 }
@@ -657,8 +698,7 @@ function crearSuelo(scene, x0, x1, textura) {
 function activarCheckpoint(scene, cp) {
     cp.activo = true;
     checkpointX = Math.max(checkpointX ?? 0, cp.x);
-    cp.bandera.clearTint();
-    scene.tweens.add({ targets: cp.bandera, scale: 2.2, yoyo: true, duration: 200 });
+    encenderEstatua(scene, cp);
     scene.sound.play('moneda');
     mostrarMensaje(scene, '¡PUNTO DE CONTROL!', 1200);
 }
@@ -871,11 +911,12 @@ function golpearBloque(mascotaGesi, pieza) {
     // suelo falso: tiembla y se cae
     if (pieza.esFalso && !pieza.cayendo && cuerpo.touching.down) {
         pieza.cayendo = true;
-        this.tweens.add({ targets: pieza, x: pieza.x + 3, yoyo: true, repeat: 2, duration: 40 });
+        const partes = [pieza, ...(pieza.visuales || [])];
+        this.tweens.add({ targets: partes, x: '+=3', yoyo: true, repeat: 2, duration: 40 });
         this.time.delayedCall(180, () => {
             pieza.body.enable = false;
             this.sound.play('romper');
-            this.tweens.add({ targets: pieza, y: pieza.y + 300, angle: 15, duration: 700 });
+            this.tweens.add({ targets: partes, y: '+=300', alpha: 0, duration: 700 });
         });
     }
 
@@ -903,7 +944,7 @@ function golpearBloque(mascotaGesi, pieza) {
         return;
     }
 
-    const moneda = this.add.sprite(bloque.x + 16, bloque.y - 24, 'coins').setScale(1.5).anims.play('coins-giro', true);
+    const moneda = this.add.sprite(bloque.x + 16, bloque.y - 24, 'coins').setScale(0.75).anims.play('coins-giro', true);
     this.tweens.add({ targets: moneda, y: moneda.y - 40, alpha: 0, duration: 500, onComplete: () => moneda.destroy() });
     this.sound.play('moneda');
     addToScore(100, bloque, this);
@@ -915,6 +956,25 @@ function revelarBloque(mascotaGesi, bloque) {
     bloque.setVisible(true);
     this.sound.play('bump');
     this.tweens.add({ targets: bloque, y: bloque.y - 8, yoyo: true, duration: 80 });
+}
+
+function recogerPremio(mascotaGesi, premio) {
+    premio.disableBody(true, true);
+    if (premio.tipoPremio === 'corazon') {
+        if (vidas < VIDAS_INICIALES) {
+            vidas++;
+            actualizarCorazones(this);
+            this.tweens.add({ targets: this.corazones[vidas - 1], scale: 1.3, yoyo: true, duration: 180 });
+            mostrarMensaje(this, '+1 VIDA', 900);
+        } else {
+            addToScore(300, premio, this);
+        }
+        this.sound.play('victoria', { volume: 0.4 });
+    } else {
+        addToScore(500, premio, this);
+        this.sound.play('moneda');
+        mostrarMensaje(this, '¡CRISTAL! +500', 900);
+    }
 }
 
 function recogerCarcaj(mascotaGesi, carcaj) {
@@ -1255,8 +1315,9 @@ function trampasNivel1(scene) {
     }
 
     if (scene.mascotaGesi.x >= 190 && scene.mascotaGesi.y <= 210) {
-        if (!scene.piso3.visible) {
-            scene.piso3.setVisible(true); // Mostrar el piso
+        if (!scene.piso3.mostrado) {
+            scene.piso3.mostrado = true; // Mostrar el piso
+            scene.piso3.visuales.forEach(v => v.setVisible(true));
         }
     }
 
@@ -1276,6 +1337,7 @@ function trampasNivel1(scene) {
 function update(time, delta) {
     actualizarMundo(this);
     actualizarAmbiente(this, time, this.mascotaGesi);
+    moverLava(this, time);
 
     if (this.mascotaGesi.isDead) return;
 
@@ -1355,6 +1417,7 @@ function update(time, delta) {
 
 
 function moveFloorPiece(floorPiece, newX) {
+    (floorPiece.visuales || []).forEach(v => v.destroy());
     floorPiece.destroy();
     floorPiece.setX(newX);
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,17 +24,101 @@
         
         .game-container {
             position: relative;
-            width: 90%;
-            max-width: 800px;
+            width: 96%;
+            max-width: 1100px;
             margin: 20px auto;
             text-align: center;
         }
-        
+
+        /* el juego mantiene su proporción (790x380) y crece hasta donde quepa en la pantalla */
         #game {
+            width: min(100%, calc((100vh - 230px) * 2.079));
+            min-width: 320px;
+            aspect-ratio: 790 / 380;
+            margin: 0 auto;
+            background: #05070f;
             border-radius: 15px;
             box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
             overflow: hidden;
             border: 3px solid #00ffff;
+        }
+
+        /* pixel art nítido al agrandar */
+        #game canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* en pantalla completa sin bordes */
+        #game:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            border-radius: 0;
+        }
+
+        .barra-juego {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .boton-juego {
+            min-height: 44px;
+            padding: 10px 18px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 11px;
+            color: #e8fbff;
+            background: rgba(0, 50, 100, 0.85);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 0 #005588;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+        }
+
+        .boton-juego:hover {
+            background: rgba(0, 90, 160, 0.9);
+        }
+
+        .boton-juego:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #005588;
+        }
+
+        .boton-juego:focus-visible {
+            outline: 3px solid #ffe066;
+            outline-offset: 3px;
+        }
+
+        .boton-juego[aria-pressed="true"] {
+            background: rgba(0, 120, 90, 0.9);
+            border-color: #7dffc8;
+        }
+
+        /* modo grande: el juego ocupa toda la ventana del navegador */
+        body.modo-grande .title,
+        body.modo-grande .controls,
+        body.modo-grande .footer {
+            display: none;
+        }
+
+        body.modo-grande .game-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+
+        body.modo-grande #game {
+            width: min(100vw, calc((100vh - 70px) * 2.079));
+            border-radius: 0;
+            border-width: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .boton-juego, .arrow-key { transition: none; }
         }
         
         .title {
@@ -133,6 +217,12 @@
     <div class="game-container">
         <h1 class="title">MONHABELL AVENTURA</h1>
         <div id="game"></div>
+        <div class="barra-juego">
+            <button type="button" class="boton-juego" id="btn-agrandar" aria-pressed="false"
+                title="Agranda el juego para que ocupe toda la ventana (tecla G)">⤢ Agrandar</button>
+            <button type="button" class="boton-juego" id="btn-pantalla-completa"
+                title="Juega en pantalla completa (tecla F, sales con Esc)">⛶ Pantalla completa</button>
+        </div>
         
         <div class="controls">
             <h2>CONTROLES</h2>
@@ -151,10 +241,10 @@
                     <div class="arrow-key" id="key-c">C</div>
                 </div>
             </div>
-            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
+            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>G: agrandar · F: pantalla completa · Esc: salir<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
         </div>
         
-        <p class="footer">Use arrow keys to play | © 2024 Monhabell</p>
+        <p class="footer">Juega con las flechas del teclado | © 2024 Monhabell</p>
     </div>
 
     <script>

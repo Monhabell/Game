@@ -30,16 +30,12 @@ export const createAnimations = (game) => {
 
     game.anims.create({
         key: 'coins-giro',
-        frames: [
-            { key: 'coins', frame: 0 },
-            { key: 'coins', frame: 1 },
-            { key: 'coins', frame: 2 },
-            { key: 'coins', frame: 3 },
-
-        ],
-        frameRate: 8,
-        repeat: -1
+        frames: game.anims.generateFrameNumbers('coins', { start: 0, end: 9 }),
+        frameRate: 14,
+        repeat: -1,
+        yoyo: true
     })
+
 
     game.anims.create({
         key: 'bola-giro',
