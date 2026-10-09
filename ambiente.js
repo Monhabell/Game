@@ -308,10 +308,11 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
 }
 
 // ---------- Niebla que cambia: despejada, normal y densa ----------
-const ESTADOS_NIEBLA = { despejada: 0.25, normal: 1, densa: 2 };
+// despejada = sin nada de niebla; cada nivel (y cada intento) empieza con niebla
+const ESTADOS_NIEBLA = { despejada: 0, normal: 1, densa: 2 };
 
 function cicloNiebla(scene, nivelIndice) {
-    scene.estadoNiebla = { v: 1, nombre: 'normal' };
+    scene.estadoNiebla = { v: 1, nombre: 'normal', primerCambio: true };
     const probDensa = Math.min(0.6, 0.3 + 0.06 * nivelIndice); // más niebla densa en niveles altos
 
     const cambiar = () => {
@@ -319,7 +320,11 @@ function cicloNiebla(scene, nivelIndice) {
         const actual = scene.estadoNiebla.nombre;
         // nunca repite el mismo estado dos veces seguidas
         let siguiente;
-        if (actual === 'densa') siguiente = Math.random() < 0.6 ? 'despejada' : 'normal';
+        if (scene.estadoNiebla.primerCambio) {
+            // el primer cambio nunca despeja: el comienzo del nivel siempre tiene niebla
+            scene.estadoNiebla.primerCambio = false;
+            siguiente = 'densa';
+        } else if (actual === 'densa') siguiente = Math.random() < 0.6 ? 'despejada' : 'normal';
         else if (actual === 'despejada') siguiente = Math.random() < probDensa + 0.25 ? 'densa' : 'normal';
         else siguiente = Math.random() < probDensa ? 'densa' : 'despejada';
 
@@ -335,7 +340,7 @@ function aplicarNiebla(scene) {
     const v = scene.estadoNiebla ? scene.estadoNiebla.v : 1;
     scene.capasNiebla.forEach(({ capa, base }) => capa.setAlpha(Math.min(0.75, base * v)));
     scene.nieblaAlta.setAlpha(Math.min(0.55, 0.22 * v));
-    scene.nieblaBaja.setAlpha(Math.min(0.9, 0.6 * (0.4 + 0.6 * v)));
+    scene.nieblaBaja.setAlpha(Math.min(0.9, 0.6 * v));
     scene.nieblaDensa.setAlpha(Math.max(0, v - 1) * 0.42);
     // con niebla densa todo se ve un poco más oscuro; despejada, un poco más claro
     scene.oscuridad.setAlpha(Phaser.Math.Clamp(scene.oscuridadBase + (v - 1) * 0.06, 0, 0.95));
