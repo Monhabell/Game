@@ -400,7 +400,7 @@ function caenRocas(scene, cuantas, api, cercaDeGesi = false) {
 
 const ESPECIALES = {
     // salto hacia el jugador y onda expansiva al caer
-    salto(scene, api, dx) {
+    salto(scene, _api, dx) {
         const j = scene.jefe, s = j.sprite;
         aviso(scene, s, '#ffd27a');
         s.anims.play(`troll${j.datos.troll}-jump`, true);
@@ -410,7 +410,7 @@ const ESPECIALES = {
     },
 
     // embestida: carga corriendo de lado a lado (hay que saltarlo)
-    embestida(scene, api, dx) {
+    embestida(scene, _api, dx) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
         aviso(scene, s);
         s.setVelocityX(0);
@@ -428,7 +428,7 @@ const ESPECIALES = {
     },
 
     // lanza una roca en arco hacia el jugador
-    roca(scene, api, dx) {
+    roca(scene, _api, dx) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
         aviso(scene, s, '#ffd27a');
         s.setVelocityX(0);
@@ -460,7 +460,7 @@ const ESPECIALES = {
     },
 
     // terremoto (solo furioso): tres saltitos seguidos, cada uno con onda
-    terremoto(scene, api, dx) {
+    terremoto(scene, _api, _dx) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
         aviso(scene, s);
         j.ocupadoHasta = scene.time.now + 2600;

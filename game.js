@@ -304,7 +304,7 @@ function create() {
     this.physics.add.collider(this.mascotaGesi, this.lavaes, onlava, null, this);// muere con lava
 
     this.physics.add.collider(this.lavaesgota, this.lavaes, salpicar, null, this);
-    this.physics.add.collider(this.lavaesgota, this.floor, salpicar, (gota, piso) => !piso.esGotero, this);
+    this.physics.add.collider(this.lavaesgota, this.floor, salpicar, (_gota, piso) => !piso.esGotero, this);
     this.physics.add.collider(this.lavaesgota, this.moviles, salpicar, null, this);
 
     this.physics.add.collider(this.mascotaGesi, this.lavaesgota, onlavagotasgesi, null, this);// muere con lava
@@ -314,7 +314,7 @@ function create() {
     // bloques invisibles: solo chocan si Gesi los golpea desde abajo (o si ya aparecieron)
     this.physics.add.collider(this.mascotaGesi, this.invisibles, revelarBloque,
         (g, b) => b.revelado || (g.body.velocity.y < 0 && g.body.top >= b.body.bottom - 12), this);
-    this.physics.add.collider(this.enemies, this.invisibles, null, (e, b) => b.revelado);
+    this.physics.add.collider(this.enemies, this.invisibles, null, (_e, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.bolas, () => killgesi(this));
     this.physics.add.overlap(this.mascotaGesi, this.carcajes, recogerCarcaj, null, this);
     this.physics.add.overlap(this.mascotaGesi, this.premios, recogerPremio, null, this);
@@ -328,14 +328,14 @@ function create() {
     this.physics.add.collider(this.flechasGrupo, this.floor, flecha => flecha.destroy());
 
     // disparos de los enemigos
-    this.physics.add.overlap(this.mascotaGesi, this.balasEnemigas, (g, bala) => {
+    this.physics.add.overlap(this.mascotaGesi, this.balasEnemigas, (_g, bala) => {
         if (protegido(this)) { bala.destroy(); return; }
         bala.destroy();
         killgesi(this);
     });
     this.physics.add.collider(this.balasEnemigas, this.floor, bala => bala.destroy());
     this.physics.add.collider(this.flechasGrupo, this.moviles, flecha => flecha.destroy());
-    this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (f, b) => b.revelado);
+    this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (_f, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
 
     this.physics.world.setBounds(0, 0, nivel.ancho, VISTA.height);
@@ -550,19 +550,19 @@ const CLAVE_GUARDADO = 'monhabell-aventura-partida';
 function guardarPartida() {
     try {
         localStorage.setItem(CLAVE_GUARDADO, JSON.stringify({ nivel: nivelActual, score: scoreInicioNivel, personaje: personajeId }));
-    } catch (e) { /* sin almacenamiento disponible: se juega igual, sin guardar */ }
+    } catch (_e) { /* sin almacenamiento disponible: se juega igual, sin guardar */ }
 }
 
 function leerPartida() {
     try {
         const p = JSON.parse(localStorage.getItem(CLAVE_GUARDADO));
         if (p && Number.isInteger(p.nivel) && p.nivel >= 0 && p.nivel < NIVELES.length) return p;
-    } catch (e) { /* guardado dañado o no disponible */ }
+    } catch (_e) { /* guardado dañado o no disponible */ }
     return null;
 }
 
 function borrarPartida() {
-    try { localStorage.removeItem(CLAVE_GUARDADO); } catch (e) { /* nada que borrar */ }
+    try { localStorage.removeItem(CLAVE_GUARDADO); } catch (_e) { /* nada que borrar */ }
 }
 
 // sigue desde el comienzo del nivel guardado, con las vidas llenas
@@ -687,13 +687,13 @@ function construirNivel1(scene) {
     scene.piso9 = scene.floor.create(1840, VISTA.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
     scene.piso10 = scene.floor.create(2050, VISTA.height - 155, 'suelo2').setOrigin(0, 0.5).setScale(1).refreshBody().setSize(80, 60).setOffset(25, 35);
 
-    let cantidadLava = 10;
+    const cantidadLava = 10;
 
     // Define la posición inicial de la primera lava
-    let posicionXInicial = 1350;//1350
+    const posicionXInicial = 1350;//1350
 
     // El ancho de cada bloque de lava (ajusta según tu imagen)
-    let anchoLava = 94; // Por ejemplo, si cada imagen de lava mide 64 píxeles de ancho
+    const anchoLava = 94; // Por ejemplo, si cada imagen de lava mide 64 píxeles de ancho
 
     for (let i = 0; i < cantidadLava; i++) {
         // Crear cada bloque de lava en una posición consecutiva
@@ -723,9 +723,9 @@ function construirNivel1(scene) {
     });
 
     // piso para lava
-    let cantidadpiso3 = 15;
-    let posicionInicialPiso3 = 1350;
-    let anchopiso3 = 64;
+    const cantidadpiso3 = 15;
+    const posicionInicialPiso3 = 1350;
+    const anchopiso3 = 64;
 
     for (let i = 0; i < cantidadpiso3; i++) {
         scene.floor.create(posicionInicialPiso3 + (i * anchopiso3), VISTA.height - 10, 'suelo3').setOrigin(0, 0.5).setScale(1).refreshBody()
@@ -1075,7 +1075,7 @@ function enSu(scene, enemy) {
     return enemy.x > izq - 40 && enemy.x < izq + VISTA.width;
 }
 
-function onlavagotasgesi(mascotaGesi, lavaesgota) {
+function onlavagotasgesi(_mascotaGesi, _lavaesgota) {
     killgesi(this);
 }
 
@@ -1153,7 +1153,7 @@ function golpearBloque(mascotaGesi, pieza) {
     addToScore(100, bloque, this);
 }
 
-function revelarBloque(mascotaGesi, bloque) {
+function revelarBloque(_mascotaGesi, bloque) {
     if (bloque.revelado) return;
     bloque.revelado = true;
     bloque.setVisible(true);
@@ -1161,7 +1161,7 @@ function revelarBloque(mascotaGesi, bloque) {
     this.tweens.add({ targets: bloque, y: bloque.y - 8, yoyo: true, duration: 80 });
 }
 
-function recogerPremio(mascotaGesi, premio) {
+function recogerPremio(_mascotaGesi, premio) {
     premio.disableBody(true, true);
     if (premio.tipoPremio === 'corazon') {
         if (vidas < VIDAS_INICIALES) {
@@ -1185,7 +1185,7 @@ function recogerPremio(mascotaGesi, premio) {
     }
 }
 
-function recogerCarcaj(mascotaGesi, carcaj) {
+function recogerCarcaj(_mascotaGesi, carcaj) {
     carcaj.disableBody(true, true);
     this.sound.play('moneda');
     if (this.pj.recurso === 'flechas') {
@@ -1362,7 +1362,7 @@ function actualizarTrampas(scene) {
     });
 }
 
-function collectCoin(mascotaGesi, coin) {
+function collectCoin(_mascotaGesi, coin) {
     coin.disableBody(true, true);
     if (coin.trampa) {
         monedaTrampa(this, coin, apiSorpresas);

@@ -413,7 +413,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
     n.carteles.push([x - 350, 120, '¡META!']);
     if (d >= 1) {
         n.persecuciones.push(x - 600);
-        llano(600);
+        llano(600, { bloques: false, trampas: false }); // tramo de la arena del jefe: sin suelo falso
     }
 
     // final: escalera, bandera y castillo
