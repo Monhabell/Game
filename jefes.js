@@ -52,7 +52,8 @@ export function prepararJefe(scene, nivel, indice) {
     scene.jefe = {
         datos, indice,
         arenaIni: meta - ANCHO_ARENA - 50, arenaFin: meta - 50,
-        estado: 'esperando', vida: datos.vida, vidaMax: datos.vida,
+        estado: 'esperando', vida: scene.vidaJefeInicial ?? datos.vida, vidaMax: datos.vida,
+        reintento: scene.vidaJefeInicial != null,
         derrotado: false, sprite: null, muros: [],
     };
 }
@@ -70,15 +71,30 @@ function crearMuro(scene, x) {
 
 function empezarPelea(scene, api) {
     const j = scene.jefe, d = j.datos;
+    const ahora = scene.time.now;
+    const corta = j.reintento; // al volver después de morir, la entrada es más corta
+    const DURACION = corta ? 1600 : 3600;
     j.estado = 'pelea';
     scene.peleaJefe = true;
     scene.limiteDerecho = j.arenaFin - 40;
+    scene.cinematica = true;
+    scene.salud = scene.salud ?? 100;
 
     // si muere, vuelve a la entrada de la arena
     scene.reaparecerEnArena?.(j.arenaIni + 40);
     scene.recargarParaJefe?.();
 
+    // la música del nivel se apaga
+    if (scene.musica) scene.tweens.add({ targets: scene.musica, volume: 0, duration: 600, onComplete: () => scene.musica?.pause() });
+
+    // barras negras de cine
+    const barraArriba = scene.add.rectangle(0, -45, 790, 45, 0x000000).setOrigin(0).setScrollFactor(0).setDepth(70);
+    const barraAbajo = scene.add.rectangle(0, 380, 790, 45, 0x000000).setOrigin(0).setScrollFactor(0).setDepth(70);
+    scene.tweens.add({ targets: barraArriba, y: 0, duration: 400 });
+    scene.tweens.add({ targets: barraAbajo, y: 335, duration: 400 });
+
     j.muros = [crearMuro(scene, j.arenaIni), crearMuro(scene, j.arenaFin)];
+    scene.sound.play('romper', { volume: 0.6 });
 
     // la cámara se aleja para ver toda la arena
     scene.camaraArena = (j.arenaIni + j.arenaFin) / 2;
@@ -105,11 +121,12 @@ function empezarPelea(scene, api) {
     s.flipX = true;
     s.anims.play(`troll${d.troll}-jump`);
     j.sprite = s;
-    j.proxAtaque = scene.time.now + 1500;
-    j.proxEspecial = scene.time.now + 3500;
+    j.proxAtaque = ahora + DURACION + 800;
+    j.proxEspecial = ahora + DURACION + 2500;
     j.invulHasta = 0;
-    j.ocupadoHasta = scene.time.now + 900;
+    j.ocupadoHasta = ahora + DURACION;
     j.enAire = true;
+    if (j.vida <= j.vidaMax / 2) { j.furioso = true; s.setTint(0xff8a8a); }
 
     scene.physics.add.collider(s, scene.floor);
     j.muros.forEach(m => scene.physics.add.collider(s, m.cuerpo));
@@ -120,30 +137,66 @@ function empezarPelea(scene, api) {
         dañarJefe(scene, 1, api);
     });
 
-    // barra de vida
+    // rugido cuando cae
+    scene.time.delayedCall(corta ? 500 : 900, () => {
+        scene.sound.play('rugido', { volume: 0.9 });
+        scene.cameras.main.shake(600, 0.012);
+        scene.cameras.main.flash(200, 120, 20, 20);
+    });
+
+    // cartel con el nombre del jefe
+    if (!corta) {
+        const franja = scene.add.rectangle(395, 190, 790, 70, 0x5a0b14, 0.85).setScrollFactor(0).setDepth(71).setScale(0, 1);
+        const nombre = scene.add.text(395, 178, d.nombre, {
+            fontFamily: '"Press Start 2P", monospace', fontSize: '20px', color: '#ffe9a8', stroke: '#000', strokeThickness: 6,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(72).setAlpha(0).setScale(1.6);
+        const sub = scene.add.text(395, 208, '— ¡DERRÓTALO PARA SEGUIR! —', {
+            fontFamily: 'monospace', fontSize: '11px', color: '#ffb4b4', stroke: '#000', strokeThickness: 3,
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(72).setAlpha(0);
+        scene.tweens.add({ targets: franja, scaleX: 1, delay: 1100, duration: 350, ease: 'Cubic.out' });
+        scene.tweens.add({ targets: nombre, alpha: 1, scale: 1, delay: 1300, duration: 350, ease: 'Back.out' });
+        scene.tweens.add({ targets: sub, alpha: 1, delay: 1600, duration: 300 });
+        scene.tweens.add({ targets: [franja, nombre, sub], alpha: 0, delay: DURACION - 500, duration: 400, onComplete: () => [franja, nombre, sub].forEach(o => o.destroy()) });
+    } else {
+        api.mostrarMensaje(scene, '¡OTRA VEZ!', 1200);
+    }
+
+    // barra de vida del jefe (se llena hasta la vida que le queda)
     const x0 = 395 - 140;
     j.barraFondo = scene.add.rectangle(395, 62, 284, 14, 0x000000, 0.7).setStrokeStyle(2, 0xffe9a8).setScrollFactor(0).setDepth(50);
     j.barra = scene.add.rectangle(x0, 62, 280, 10, 0xd62839).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
+    j.barra.width = 0;
     j.nombre = scene.add.text(395, 44, d.nombre, {
         fontFamily: '"Press Start 2P", monospace', fontSize: '10px', color: '#ffe9a8', stroke: '#000', strokeThickness: 4,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(51);
+    scene.tweens.add({ targets: j.barra, width: 280 * j.vida / j.vidaMax, delay: corta ? 300 : 1800, duration: 900, ease: 'Cubic.out' });
 
-    scene.sound.play('rugido', { volume: 0.8 });
-    scene.sound.play('emboscada', { volume: 0.5 });
-    // cambia la música a la de batalla
-    scene.musica?.pause();
-    scene.musicaBatalla = scene.sound.add('musica_batalla', { loop: true, volume: 0.3 });
-    scene.musicaBatalla.play();
+    // barra de vida del jugador
+    scene.mostrarBarraSalud?.();
+
+    // fin de la cinemática: empieza la pelea con su música
+    scene.time.delayedCall(DURACION, () => {
+        scene.cinematica = false;
+        scene.tweens.add({ targets: barraArriba, y: -45, duration: 400, onComplete: () => barraArriba.destroy() });
+        scene.tweens.add({ targets: barraAbajo, y: 380, duration: 400, onComplete: () => barraAbajo.destroy() });
+        if (j.estado !== 'pelea') return;
+        scene.musicaBatalla = scene.sound.add('musica_batalla', { loop: true, volume: 0.3 });
+        scene.musicaBatalla.play();
+        if (!corta) api.mostrarMensaje(scene, '¡PELEA!', 900);
+    });
     scene.events.once('shutdown', () => scene.musicaBatalla?.destroy());
-    scene.cameras.main.shake(500, 0.008);
-    api.mostrarMensaje(scene, `¡${d.nombre}!`, 1500);
 
-    // durante la pelea solo aparecen cargas de escudo
+    // en la arena aparecen más escudos y corazones para protegerse y curarse
+    const sueltos = { escudo: null, corazon: null };
     scene.time.addEvent({
-        delay: 9000, loop: true, callback: () => {
-            if (j.estado !== 'pelea' || scene.tieneEscudo || scene.mascotaGesi.isDead) return;
-            const x = Phaser.Math.Between(j.arenaIni + 80, j.arenaFin - 80);
-            api.soltarEscudo(scene, x, SUELO_Y - 30);
+        delay: 5000, loop: true, callback: () => {
+            if (j.estado !== 'pelea' || scene.mascotaGesi.isDead || scene.cinematica) return;
+            const x = () => Phaser.Math.Between(j.arenaIni + 80, j.arenaFin - 80);
+            if (!scene.tieneEscudo && !(sueltos.escudo && sueltos.escudo.active)) {
+                sueltos.escudo = api.soltarEscudo(scene, x(), SUELO_Y - 30, 8000);
+            } else if (scene.faltaSalud?.() && !(sueltos.corazon && sueltos.corazon.active) && Math.random() < 0.6) {
+                sueltos.corazon = scene.soltarCorazonArena?.(x(), SUELO_Y - 30);
+            }
         },
     });
 }
@@ -170,13 +223,14 @@ function contactoConJefe(scene, api) {
         dañarJefe(scene, 1, api);
         return;
     }
-    api.killgesi(scene);
+    api.killgesi(scene, 15);
 }
 
 export function dañarJefe(scene, cantidad, api) {
     const j = scene.jefe;
     if (!j || j.estado !== 'pelea' || scene.time.now < j.invulHasta) return false;
     j.vida = Math.max(0, j.vida - cantidad);
+    scene.guardarVidaJefe?.(j.vida);
     j.invulHasta = scene.time.now + 250;
     j.barra.width = 280 * j.vida / j.vidaMax;
     const s = j.sprite;
@@ -212,7 +266,7 @@ function derrotar(scene, api) {
     scene.sound.play('rugido', { volume: 0.8, rate: 0.7 });
     scene.sound.play('matar');
     // termina la música de batalla y vuelve la del nivel
-    scene.tweens.add({ targets: scene.musicaBatalla, volume: 0, duration: 1200, onComplete: () => { scene.musicaBatalla?.stop(); scene.musica?.resume(); } });
+    scene.tweens.add({ targets: scene.musicaBatalla, volume: 0, duration: 1200, onComplete: () => { scene.musicaBatalla?.stop(); if (scene.musica) { scene.musica.setVolume(0.25); scene.musica.resume(); } } });
     scene.cameras.main.flash(300, 255, 230, 180);
     scene.cameras.main.shake(600, 0.01);
     api.addToScore(2000, s, scene);
@@ -236,6 +290,15 @@ export function actualizarJefe(scene, time, api) {
     const g = scene.mascotaGesi;
 
     if (j.estado === 'esperando') {
+        if (!j.avisado && !g.isDead && g.x > j.arenaIni - 380) {
+            // se acerca el jefe: la tierra tiembla y se escucha a lo lejos
+            j.avisado = true;
+            if (!j.reintento) {
+                scene.cameras.main.shake(900, 0.004);
+                scene.sound.play('rugido', { volume: 0.35, rate: 0.75 });
+                api.mostrarMensaje(scene, 'Algo enorme se acerca...', 1600);
+            }
+        }
         if (!g.isDead && g.x > j.arenaIni + 60) empezarPelea(scene, api);
         return;
     }
@@ -359,7 +422,7 @@ function garrotazo(scene, api, retraso) {
             const dir = s.flipX ? -1 : 1;
             const zona = new Phaser.Geom.Rectangle(dir > 0 ? b.right - 10 : b.left - 120, b.top, 130, b.height);
             const gb = scene.mascotaGesi.body;
-            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) api.killgesi(scene);
+            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) api.killgesi(scene, 25);
         });
     });
 }
@@ -396,7 +459,7 @@ function caenRocas(scene, cuantas, api, cercaDeGesi = false) {
                 onComplete: () => {
                     scene.sound.play('romper', { volume: 0.4 });
                     const gb = scene.mascotaGesi.body;
-                    if (Math.abs(gb.center.x - x) < 30 && gb.bottom > SUELO_Y - 80) api.killgesi(scene);
+                    if (Math.abs(gb.center.x - x) < 30 && gb.bottom > SUELO_Y - 80) api.killgesi(scene, 20);
                     sombra.destroy();
                     scene.tweens.add({ targets: roca, alpha: 0, duration: 300, onComplete: () => roca.destroy() });
                 },
@@ -488,7 +551,7 @@ function ondaExpansiva(scene, x, api) {
     // golpea si el jugador está en el suelo cerca (saltando se esquiva)
     const g = scene.mascotaGesi.body;
     const enSuelo = g.blocked.down || g.touching.down;
-    if (enSuelo && Math.abs(g.center.x - x) < 170) api.killgesi(scene);
+    if (enSuelo && Math.abs(g.center.x - x) < 170) api.killgesi(scene, 20);
 }
 
 // el jefe también recibe los golpes cuerpo a cuerpo y el rayo

@@ -20,7 +20,7 @@ import {
 
 // funciones que usa el jefe (jefes.js)
 const apiJefe = {
-    killgesi: (scene) => killgesi(scene),
+    killgesi: (scene, daño) => killgesi(scene, undefined, daño),
     mostrarMensaje: (...a) => mostrarMensaje(...a),
     addToScore: (...a) => addToScore(...a),
     soltarEscudo: (...a) => soltarEscudo(...a),
@@ -39,6 +39,8 @@ let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
+let vidaJefeGuardada = null; // { nivel, vida }: el daño hecho al jefe se mantiene si mueres con vidas
+const SALUD_MAXIMA = 100; // barra de vida del jugador durante la pelea con el jefe
 // El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja al doble
 // (1580x760) con la cámara en zoom x2: así se ve nítido aunque la pantalla sea grande.
 const ZOOM = 2;
@@ -261,6 +263,12 @@ function create() {
         this.mana = MANA_MAXIMO;
         actualizarRecurso(this);
     };
+    this.vidaJefeInicial = vidaJefeGuardada && vidaJefeGuardada.nivel === nivelActual ? vidaJefeGuardada.vida : null;
+    this.guardarVidaJefe = v => { vidaJefeGuardada = { nivel: nivelActual, vida: v }; };
+    this.salud = SALUD_MAXIMA;
+    this.mostrarBarraSalud = () => crearBarraSalud(this);
+    this.soltarCorazonArena = (x, y) => soltarCorazon(this, x, y);
+    this.faltaSalud = () => this.salud < SALUD_MAXIMA || vidas < VIDAS_INICIALES;
     prepararJefe(this, nivel, nivelActual);
 
     // con una sola vida se escucha un latido
@@ -333,7 +341,7 @@ function create() {
     this.physics.add.overlap(this.mascotaGesi, this.balasEnemigas, (_g, bala) => {
         if (protegido(this)) { bala.destroy(); return; }
         bala.destroy();
-        killgesi(this);
+        killgesi(this, undefined, 20);
     });
     this.physics.add.collider(this.balasEnemigas, this.floor, bala => bala.destroy());
     this.physics.add.collider(this.flechasGrupo, this.moviles, flecha => flecha.destroy());
@@ -539,6 +547,7 @@ function empezarJuego(scene, continuar = true) {
 }
 
 function reiniciarPartida() {
+    vidaJefeGuardada = null;
     vidas = VIDAS_INICIALES;
     nivelActual = 0;
     score = 0;
@@ -569,6 +578,7 @@ function borrarPartida() {
 
 // sigue desde el comienzo del nivel guardado, con las vidas llenas
 function continuarPartida(p) {
+    vidaJefeGuardada = null;
     vidas = VIDAS_INICIALES;
     nivelActual = p.nivel;
     score = p.score || 0;
@@ -618,6 +628,45 @@ function crearTexturas(scene) {
     g.fillStyle(0xffffff); g.fillRect(4, 2, 14, 2);
     g.generateTexture('laser', 22, 6);
     g.destroy();
+}
+
+// ---------- Barra de vida del jugador (solo en la pelea con el jefe) ----------
+function crearBarraSalud(scene) {
+    if (scene.barraSalud) return;
+    scene.barraSaludFondo = scene.add.rectangle(20, 60, 124, 12, 0x000000, 0.75).setOrigin(0, 0.5)
+        .setStrokeStyle(2, 0xffffff).setScrollFactor(0).setDepth(50);
+    scene.barraSalud = scene.add.rectangle(22, 60, 120, 8, 0x4ade80).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
+    scene.textoSalud = scene.add.text(150, 54, '', { fontSize: '11px', color: '#ffffff', stroke: '#000', strokeThickness: 3 })
+        .setScrollFactor(0).setDepth(51);
+    actualizarBarraSalud(scene);
+}
+
+function actualizarBarraSalud(scene) {
+    if (!scene.barraSalud) return;
+    const p = Phaser.Math.Clamp(scene.salud / SALUD_MAXIMA, 0, 1);
+    scene.barraSalud.width = 120 * p;
+    scene.barraSalud.setFillStyle(p > 0.5 ? 0x4ade80 : p > 0.25 ? 0xfacc15 : 0xef4444);
+    scene.textoSalud.setText(`${Math.ceil(scene.salud)}`);
+}
+
+function recibirDaño(scene, daño) {
+    const g = scene.mascotaGesi;
+    scene.salud = Math.max(0, scene.salud - daño);
+    actualizarBarraSalud(scene);
+    scene.tweens.add({ targets: [scene.barraSalud, scene.barraSaludFondo], scaleY: 1.6, yoyo: true, duration: 90 });
+    scene.cameras.main.shake(160, 0.006);
+    scene.sound.play('bump', { volume: 0.7 });
+    // empujón y un momento sin recibir más daño
+    const lado = scene.jefe?.sprite && g.body.center.x < scene.jefe.sprite.body.center.x ? -1 : 1;
+    g.setVelocity(lado * 230, -220);
+    g.setTintFill(0xff4444);
+    scene.time.delayedCall(100, () => g.clearTint());
+    scene.invulnerableHasta = scene.time.now + 900;
+    scene.tweens.add({ targets: g, alpha: 0.3, yoyo: true, repeat: 4, duration: 90, onComplete: () => g.setAlpha(1) });
+    if (scene.salud <= 0) {
+        scene.invulnerableHasta = 0;
+        killgesi(scene, 'sin_salud');
+    }
 }
 
 function actualizarCorazones(scene) {
@@ -1165,7 +1214,13 @@ function revelarBloque(_mascotaGesi, bloque) {
 
 function recogerPremio(_mascotaGesi, premio) {
     premio.disableBody(true, true);
-    if (premio.tipoPremio === 'corazon') {
+    if (premio.tipoPremio === 'corazon' && this.peleaJefe && this.salud < SALUD_MAXIMA) {
+        // en la pelea el corazón cura la barra de vida
+        this.salud = Math.min(SALUD_MAXIMA, this.salud + 45);
+        actualizarBarraSalud(this);
+        mostrarMensaje(this, '+45 VIDA', 800);
+        this.sound.play('aparece', { volume: 0.5 });
+    } else if (premio.tipoPremio === 'corazon') {
         if (vidas < VIDAS_INICIALES) {
             vidas++;
             actualizarCorazones(this);
@@ -1462,6 +1517,7 @@ function completarNivel(mascotaGesi) {
             return;
         }
         nivelActual++;
+        vidaJefeGuardada = null;
         scoreInicioNivel = score;
         checkpointX = null;
         guardarPartida();
@@ -1571,6 +1627,11 @@ function update(time, delta) {
         this.mascotaGesi.setVelocityX(0);
         return;
     }
+    if (this.cinematica) {
+        this.mascotaGesi.setVelocityX(0);
+        animar(this, 'idle');
+        return;
+    }
 
     const g = this.mascotaGesi;
     const enSuelo = g.body.touching.down || g.body.blocked.down;
@@ -1653,9 +1714,17 @@ function moveFloorPiece(floorPiece, newX) {
     floorPiece.setX(newX);
 }
 
-function killgesi(game, causa) {
+// daño: cuánta salud quita durante la pelea con el jefe (fuera de la pelea, cualquier golpe mata)
+function killgesi(game, causa, daño = 20) {
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
+    if (game.cinematica && causa !== 'caida') return;
+    if (game.peleaJefe && causa !== 'caida' && causa !== 'sin_salud') {
+        if (protegido(game) || estaInvulnerable(game)) return;
+        if (game.tieneEscudo) { romperEscudo(game, texto => mostrarMensaje(game, texto, 900)); return; }
+        recibirDaño(game, daño);
+        return;
+    }
     // el escudo y la embestida protegen de todo menos de caer a la lava
     if (causa !== 'caida' && protegido(game)) return;
     if (causa !== 'caida') {
