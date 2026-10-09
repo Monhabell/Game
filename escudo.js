@@ -15,7 +15,7 @@ const FRAME_BURBUJA = 3; // frame de la animación donde la burbuja está entera
 
 export function cargarEscudo(scene) {
     scene.load.spritesheet('fx_escudo', 'assets/efectos/escudo.png', { frameWidth: 256, frameHeight: 256 });
-    scene.load.audio('escudo_roto', 'assets/sound/effects/powerdown.mp3');
+    scene.load.audio('escudo_roto', 'assets/sound/aventura/escudo_roto.mp3');
 }
 
 export function crearAnimacionesEscudo(scene) {

@@ -162,10 +162,12 @@ function preload() {
 
     this.load.spritesheet('lava', 'assets/scenery/lava1.png', { frameWidth: 64, frameHeight: 64 });
 
-    this.load.audio('gameover', 'assets/sound/music/gameover.mp3');
-    this.load.audio('victoria', 'assets/sound/music/win.wav');
-    this.load.audio('musica', 'assets/sound/music/overworld/theme.mp3');
-    this.load.audio('musica_cueva', 'assets/sound/music/underground/theme.mp3');
+    // música y efectos de aventura originales (assets/sound/aventura)
+    this.load.audio('gameover', 'assets/sound/aventura/muerte.mp3');
+    this.load.audio('victoria', 'assets/sound/aventura/victoria.mp3');
+    this.load.audio('musica', 'assets/sound/aventura/musica_aventura.mp3');
+    this.load.audio('musica_cueva', 'assets/sound/aventura/musica_cueva.mp3');
+    this.load.audio('musica_batalla', 'assets/sound/aventura/musica_batalla.mp3');
     // cargar enemigos
     this.load.spritesheet('malo', 'assets/entities/underground/Run.png', { frameWidth: 128, frameHeight: 128 });
     this.load.spritesheet('maloDead', 'assets/Dead.png', { frameWidth: 128, frameHeight: 128 });
@@ -173,12 +175,12 @@ function preload() {
     // (las monedas se cargan en cargarMazmorra)
 
     // sonido de matar
-    this.load.audio('matar', 'assets/sound/effects/matar.wav');
-    this.load.audio('moneda', 'assets/sound/effects/coin.mp3');
-    this.load.audio('disparo', 'assets/sound/effects/kick.mp3');
-    this.load.audio('bump', 'assets/sound/effects/block-bump.wav');
-    this.load.audio('romper', 'assets/sound/effects/break-block.wav');
-    this.load.audio('aparece', 'assets/sound/effects/powerup-appears.mp3');
+    this.load.audio('matar', 'assets/sound/aventura/matar.mp3');
+    this.load.audio('moneda', 'assets/sound/aventura/moneda.mp3');
+    this.load.audio('disparo', 'assets/sound/aventura/disparo.mp3');
+    this.load.audio('bump', 'assets/sound/aventura/bump.mp3');
+    this.load.audio('romper', 'assets/sound/aventura/romper.mp3');
+    this.load.audio('aparece', 'assets/sound/aventura/aparece.mp3');
     cargarEscudo(this);
     cargarJefes(this);
     cargarSonidos(this);
@@ -1441,6 +1443,7 @@ function completarNivel(mascotaGesi) {
     this.atacando = false;
     animar(this, 'idle');
     this.musica.stop();
+    this.musicaBatalla?.stop();
     this.sound.play('victoria');
     this.tweens.add({ targets: this.bandera, y: SUELO_Y - 40, duration: 1200 });
     addToScore(1000, mascotaGesi, this);
@@ -1671,6 +1674,7 @@ function killgesi(game, causa) {
     mascotaGesi.anims.play(`${game.pj.id}-dead`);
     mascotaGesi.setCollideWorldBounds(false);
     game.musica.stop();
+    game.musicaBatalla?.stop();
     sound.add('gameover', { volume: 1 }).play();
 
     vidas = Math.max(0, vidas - 1);

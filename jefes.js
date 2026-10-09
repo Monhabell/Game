@@ -130,6 +130,11 @@ function empezarPelea(scene, api) {
 
     scene.sound.play('rugido', { volume: 0.8 });
     scene.sound.play('emboscada', { volume: 0.5 });
+    // cambia la música a la de batalla
+    scene.musica?.pause();
+    scene.musicaBatalla = scene.sound.add('musica_batalla', { loop: true, volume: 0.3 });
+    scene.musicaBatalla.play();
+    scene.events.once('shutdown', () => scene.musicaBatalla?.destroy());
     scene.cameras.main.shake(500, 0.008);
     api.mostrarMensaje(scene, `¡${d.nombre}!`, 1500);
 
@@ -206,6 +211,8 @@ function derrotar(scene, api) {
     s.body.checkCollision.none = true;
     scene.sound.play('rugido', { volume: 0.8, rate: 0.7 });
     scene.sound.play('matar');
+    // termina la música de batalla y vuelve la del nivel
+    scene.tweens.add({ targets: scene.musicaBatalla, volume: 0, duration: 1200, onComplete: () => { scene.musicaBatalla?.stop(); scene.musica?.resume(); } });
     scene.cameras.main.flash(300, 255, 230, 180);
     scene.cameras.main.shake(600, 0.01);
     api.addToScore(2000, s, scene);
