@@ -12,6 +12,10 @@
 // api: { killgesi(scene), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
 
 const SUELO_Y = 332;
+export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para verla entera)
+const ZOOM_ARENA = 1.55;          // zoom de la cámara durante la pelea (normal = 2)
+const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
+const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
 const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
 
 // un jefe por nivel (se repite si hay más niveles)
@@ -47,7 +51,7 @@ export function prepararJefe(scene, nivel, indice) {
     const meta = nivel.meta;
     scene.jefe = {
         datos, indice,
-        arenaIni: meta - 700, arenaFin: meta - 50,
+        arenaIni: meta - ANCHO_ARENA - 50, arenaFin: meta - 50,
         estado: 'esperando', vida: datos.vida, vidaMax: datos.vida,
         derrotado: false, sprite: null, muros: [],
     };
@@ -75,6 +79,23 @@ function empezarPelea(scene, api) {
     scene.recargarParaJefe?.();
 
     j.muros = [crearMuro(scene, j.arenaIni), crearMuro(scene, j.arenaFin)];
+
+    // la cámara se aleja para ver toda la arena
+    scene.camaraArena = (j.arenaIni + j.arenaFin) / 2;
+    scene.tweens.add({ targets: scene.cameras.main, zoom: ZOOM_ARENA, duration: 900, ease: 'Sine.inOut' });
+
+    // los enemigos normales que estaban en la arena se desvanecen: el troll pelea solo
+    scene.enemies.getChildren().slice().forEach(e => {
+        if (e.x > j.arenaIni - 40 && e.x < j.arenaFin + 40) {
+            e.body.enable = false;
+            scene.tweens.add({ targets: e, alpha: 0, duration: 400, onComplete: () => e.destroy() });
+        }
+    });
+    j.pisotones = [];
+    j.proxPisoton = 0;
+    j.sacudidaHasta = 0;
+    j.huidaHasta = 0;
+    j.encimaDesde = 0;
 
     // el troll cae del cielo
     const s = scene.physics.add.sprite(j.arenaFin - 150, -80, `troll${d.troll}_Idle`).setOrigin(0.5, 1).setScale(d.escala).setDepth(20);
@@ -125,10 +146,19 @@ function empezarPelea(scene, api) {
 function contactoConJefe(scene, api) {
     const j = scene.jefe, g = scene.mascotaGesi;
     if (!j || j.estado !== 'pelea') return;
-    // saltarle encima: le quita vida y rebota
+    // saltarle encima: le quita vida y rebota (pero no se deja pisar seguido)
     if (g.body.touching.down && j.sprite.body.touching.up) {
-        dañarJefe(scene, 1, api);
+        const ahora = scene.time.now;
         g.setVelocityY(-380);
+        // si insiste mientras está protegido, se lo quita de encima de nuevo
+        if (ahora < j.sacudidaHasta) { if (ahora > (j.ultimaSacudida || 0) + 400) sacudirse(scene); return; }
+        if (ahora < j.proxPisoton) return; // no le hace daño
+        dañarJefe(scene, 1, api);
+        j.proxPisoton = ahora + PISOTON_ESPERA;
+        j.pisotones = j.pisotones.filter(t => ahora - t < 4000);
+        j.pisotones.push(ahora);
+        const limite = j.furioso ? 1 : PISOTONES_PARA_SACUDIR;
+        if (j.pisotones.length >= limite) sacudirse(scene);
         return;
     }
     if (scene.protegido?.()) {
@@ -168,6 +198,8 @@ function derrotar(scene, api) {
     j.estado = 'derrotado';
     j.derrotado = true;
     scene.peleaJefe = false;
+    scene.camaraArena = null;
+    scene.tweens.add({ targets: scene.cameras.main, zoom: 2, delay: 1500, duration: 900, ease: 'Sine.inOut' });
     scene.limiteDerecho = null;
     s.setVelocity(0, 0).clearTint();
     s.anims.play(`troll${j.datos.troll}-dead`);
@@ -213,6 +245,24 @@ export function actualizarJefe(scene, time, api) {
         ondaExpansiva(scene, b.center.x, api);
         j.ocupadoHasta = time + 450;
     }
+    // después de sacudirse, corre rápido lejos del jugador
+    if (time < j.huidaHasta) {
+        s.setVelocityX(j.dirHuida * vel * 3);
+        s.flipX = j.dirHuida < 0;
+        if (b.blocked.left || b.blocked.right) j.huidaHasta = 0;
+        return;
+    }
+
+    // si el jugador se queda parado sobre su cabeza, se lo quita de encima
+    const gb = g.body;
+    const encima = Math.abs(gb.bottom - b.top) < 6 && gb.right > b.left && gb.left < b.right;
+    if (encima) {
+        if (!j.encimaDesde) j.encimaDesde = time;
+        if (time - j.encimaDesde > 350) { sacudirse(scene); j.encimaDesde = 0; return; }
+    } else {
+        j.encimaDesde = 0;
+    }
+
     // embestida: corre en línea recta hasta chocar con un muro
     if (j.embistiendo) {
         s.setVelocityX(j.dirEmbestida * vel * 3.2);
@@ -261,6 +311,34 @@ export function actualizarJefe(scene, time, api) {
 }
 
 // ---------- Ataques del troll ----------
+
+// se sacude con fuerza: lanza al jugador lejos y sale corriendo
+function sacudirse(scene) {
+    const j = scene.jefe, s = j.sprite, g = scene.mascotaGesi, d = j.datos;
+    if (j.estado !== 'pelea') return;
+    const ahora = scene.time.now;
+    j.pisotones = [];
+    j.ultimaSacudida = ahora;
+    j.sacudidaHasta = Math.max(j.sacudidaHasta, ahora + 2500); // un rato sin que los pisotones le hagan daño
+    j.embistiendo = false;
+
+    // lanza al jugador hacia un lado
+    const lado = g.body.center.x < s.body.center.x ? -1 : 1;
+    g.setVelocity(lado * 420, -460);
+    scene.sound.play('rugido', { volume: 0.7, rate: 1.3 });
+    scene.cameras.main.shake(250, 0.008);
+    s.anims.play(`troll${d.troll}-hurt`, true);
+    scene.tweens.add({ targets: s, angle: { from: -8, to: 8 }, yoyo: true, repeat: 3, duration: 60, onComplete: () => s.setAngle(0) });
+    const t = scene.add.text(s.x, s.body.top - 24, '¡FUERA!', {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '10px', color: '#ffd27a', stroke: '#000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(45);
+    scene.tweens.add({ targets: t, y: t.y - 20, alpha: 0, delay: 400, duration: 500, onComplete: () => t.destroy() });
+
+    // y corre hacia el otro lado
+    j.dirHuida = -lado;
+    j.huidaHasta = ahora + 300 + 650;
+    j.ocupadoHasta = ahora + 300;
+}
 
 function garrotazo(scene, api, retraso) {
     const j = scene.jefe, s = j.sprite, b = s.body, d = j.datos;

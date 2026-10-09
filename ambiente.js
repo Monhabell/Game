@@ -458,7 +458,9 @@ export function actualizarAmbiente(scene, time, objetivo) {
     // la luz sigue al personaje (con un leve parpadeo, como una antorcha)
     const parpadeo = 1 + Math.sin(time / 90) * 0.012 + Math.sin(time / 37) * 0.008;
     const radio = scene.estadoLuz.radio;
-    scene.oscuridad.setPosition(objetivo.x - cam.scrollX, objetivo.y - cam.scrollY + 10).setScale(parpadeo * radio);
+    // posición en pantalla (en medidas de zoom 2, para que funcione también con la cámara alejada)
+    const z = cam.zoom / 2;
+    scene.oscuridad.setPosition((objetivo.x - cam.scrollX) * z, (objetivo.y - cam.scrollY + 10) * z).setScale(parpadeo * radio);
     scene.luzCalida.setPosition(objetivo.x, objetivo.y + 8).setScale(2.6 * parpadeo * Math.sqrt(radio));
 }
 

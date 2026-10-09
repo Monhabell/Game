@@ -342,6 +342,11 @@ function create() {
 
     // camara
     this.anchoNivel = nivel.ancho;
+    this.camaraArena = null;
+    const antes = () => compensarZoom(this), despues = () => quitarCompensacion(this);
+    this.events.on('prerender', antes);
+    this.events.on('render', despues);
+    this.events.once('shutdown', () => { this.events.off('prerender', antes); this.events.off('render', despues); });
     this.cameras.main.setOrigin(0).setZoom(ZOOM);
     moverCamara(this);
 
@@ -380,10 +385,33 @@ function create() {
 // la cámara sigue a Gesi sin mostrar nada fuera del nivel
 function moverCamara(scene) {
     const g = scene.mascotaGesi;
-    if (g.isDead) return;
     const cam = scene.cameras.main;
-    cam.scrollX = Phaser.Math.Clamp(g.x - VISTA.width / 2, 0, Math.max(0, scene.anchoNivel - VISTA.width));
-    cam.scrollY = 0;
+    // con la cámara alejada (pelea con el jefe) se ve más mundo: se centra en la arena
+    const anchoVista = VISTA.width * ZOOM / cam.zoom, altoVista = VISTA.height * ZOOM / cam.zoom;
+    if (!g.isDead || scene.camaraArena) {
+        const centro = scene.camaraArena ?? g.x;
+        cam.scrollX = Phaser.Math.Clamp(centro - anchoVista / 2, 0, Math.max(0, scene.anchoNivel - anchoVista));
+    }
+    cam.scrollY = VISTA.height - altoVista; // el suelo siempre queda abajo; lo extra se ve arriba (cielo)
+}
+
+// Lo que se dibuja fijo en la pantalla (HUD, cielo, niebla, oscuridad) está pensado para zoom 2.
+// Cuando la cámara se aleja, se agranda solo al dibujar para que siga cubriendo toda la pantalla.
+function compensarZoom(scene) {
+    const cam = scene.cameras.main;
+    const k = ZOOM / cam.zoom;
+    scene.objetosCompensados = [];
+    if (Math.abs(k - 1) < 0.001) return;
+    scene.children.list.forEach(o => {
+        if (o.scrollFactorX === undefined || o.scrollFactorX > 0.1 || o.scrollFactorY > 0.1) return;
+        scene.objetosCompensados.push([o, o.x, o.y, o.scaleX, o.scaleY]);
+        o.x *= k; o.y *= k;
+        o.setScale(o.scaleX * k, o.scaleY * k);
+    });
+}
+function quitarCompensacion(scene) {
+    (scene.objetosCompensados || []).forEach(([o, x, y, sx, sy]) => { o.x = x; o.y = y; o.setScale(sx, sy); });
+    scene.objetosCompensados = [];
 }
 
 // pixel art nítido: cada píxel se dibuja como un bloque limpio, sin desenfoque

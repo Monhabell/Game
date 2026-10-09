@@ -48,7 +48,7 @@ export function aleatorizarNivel(nivel, indice, sueloExtra = []) {
     const candidatos = [];
     [...(nivel.suelo || []), ...sueloExtra].forEach(([a, b]) => {
         for (let x = a + 110; x <= b - 110; x += 50) {
-            if (x < 350 || x > meta - 760) continue; // la arena del jefe queda libre de trampas
+            if (x < 350 || x > meta - 1010) continue; // la arena del jefe queda libre de trampas
             if (checkpoints.some(cp => Math.abs(x - cp) < 150)) continue;
             if (dentro(x, escaleras) || dentro(x, falsos)) continue;
             candidatos.push(x);
@@ -122,7 +122,7 @@ export function aleatorizarNivel(nivel, indice, sueloExtra = []) {
     });
 
     // la arena del jefe (antes de la meta) queda despejada: sin escaleras ni bloques
-    const inicioArena = meta - 760;
+    const inicioArena = meta - 1010;
     n.escaleras = (nivel.escaleras || []).filter(([x]) => x < inicioArena);
     n.bloques = n.bloques.filter(([x, , p]) => x + p.length * 32 < inicioArena);
 
