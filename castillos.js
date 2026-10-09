@@ -8,7 +8,7 @@ const TORRES = [24, 25, 26, 27, 28, 29, 30, 31, 32];
 const MUROS = [33, 34, 35, 36, 37, 38];
 
 // castillo de la meta y estilo de las ruinas de cada nivel (se repite si hay más niveles)
-const CASTILLO_META = [21, 24, 22, 27, 25, 28];
+export const CASTILLO_META = [21, 24, 22, 27, 25, 28];
 const ESTILO_RUINAS = [1, 3, 1, 2, 3, 2];
 
 export function cargarCastillos(scene) {

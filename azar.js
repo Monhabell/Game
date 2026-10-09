@@ -48,7 +48,7 @@ export function aleatorizarNivel(nivel, indice, sueloExtra = []) {
     const candidatos = [];
     [...(nivel.suelo || []), ...sueloExtra].forEach(([a, b]) => {
         for (let x = a + 110; x <= b - 110; x += 50) {
-            if (x < 350 || x > meta - 220) continue;
+            if (x < 350 || x > meta - 760) continue; // la arena del jefe queda libre de trampas
             if (checkpoints.some(cp => Math.abs(x - cp) < 150)) continue;
             if (dentro(x, escaleras) || dentro(x, falsos)) continue;
             candidatos.push(x);
@@ -121,6 +121,14 @@ export function aleatorizarNivel(nivel, indice, sueloExtra = []) {
         if (!yaHay && moneda(pH)) n.bloques.push([x0 - 12, 232, 'H']);
     });
 
+    // la arena del jefe (antes de la meta) queda despejada: sin escaleras ni bloques
+    const inicioArena = meta - 760;
+    n.escaleras = (nivel.escaleras || []).filter(([x]) => x < inicioArena);
+    n.bloques = n.bloques.filter(([x, , p]) => x + p.length * 32 < inicioArena);
+
+    // cargas de escudo repartidas al azar por el nivel
+    n.escudos = repartir(indice >= 3 ? 2 : 1, x => [x, 296]);
+
     // si quedaron menos trampas que el mínimo del nivel, se agregan más
     const minimo = MINIMO_TRAMPAS[Math.min(indice, MINIMO_TRAMPAS.length - 1)];
     const extras = [
@@ -159,6 +167,29 @@ export function aleatorizarNivel(nivel, indice, sueloExtra = []) {
     }
 
     return n;
+}
+
+// ---------- Cargas de escudo al azar ----------
+// si no tienes escudo, de vez en cuando aparece una carga delante de ti (fuera de la pelea con el jefe)
+export function iniciarEscudosAlAzar(scene, soltarEscudo, ancho) {
+    const programar = () => scene.time.delayedCall(azar(22000, 38000), intentar);
+    const intentar = () => {
+        const g = scene.mascotaGesi;
+        if (!g.isDead && !scene.nivelTerminado && !scene.tieneEscudo && !scene.peleaJefe) {
+            for (let i = 0; i < 10; i++) {
+                const x = g.x + azar(160, 380);
+                if (x > ancho - 100) break;
+                const y = alturaSobreSuelo(scene, x);
+                if (y !== null) {
+                    soltarEscudo(scene, x, y - 2);
+                    scene.mostrarMensajeCorto?.('¡UN ESCUDO!');
+                    break;
+                }
+            }
+        }
+        programar();
+    };
+    programar();
 }
 
 // ---------- Corazones al azar ----------
@@ -205,7 +236,7 @@ export function iniciarCorazonesAlAzar(scene, faltanVidas, ancho) {
         if (!g.isDead && !scene.nivelTerminado && faltanVidas()) {
             for (let i = 0; i < 10; i++) {
                 const x = g.x + azar(140, 360);
-                if (x > ancho - 100) break;
+                if (x > ancho - 100 || (scene.limiteDerecho && x > scene.limiteDerecho)) break;
                 const y = alturaSobreSuelo(scene, x);
                 if (y !== null) {
                     soltarCorazon(scene, x, y, '¡UNA VIDA!');

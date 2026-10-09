@@ -6,8 +6,11 @@
 // - Al romperse: la burbuja estalla, la pantalla tiembla, empuja al personaje hacia atrás
 //   y queda 1.5 s sin recibir daño (parpadeando) para no morir en el mismo instante.
 // - Caer a la lava o a un hueco mata igual, aunque tenga escudo.
+// - Se recarga solo al avanzar (AVANCE_RECARGA px) y con cargas de escudo que aparecen al azar.
+//   Durante la pelea con el jefe no se recarga avanzando: solo con las cargas.
 
 const INVULNERABLE_MS = 1500;
+const AVANCE_RECARGA = 900; // px que hay que avanzar para que el escudo se recargue solo
 const FRAME_BURBUJA = 3; // frame de la animación donde la burbuja está entera
 
 export function cargarEscudo(scene) {
@@ -51,6 +54,11 @@ export function crearEscudo(scene) {
     crearTexturaAura(scene);
     scene.auraEscudo = scene.add.image(0, 0, 'aura_escudo')
         .setScale(0.72, 0.82).setAlpha(0).setDepth(41);
+    // barra de carga del escudo (debajo del ícono)
+    scene.barraEscudoFondo = scene.add.rectangle(140, 42, 34, 6, 0x000000, 0.7).setStrokeStyle(1, 0x8fd8ff).setScrollFactor(0).setDepth(50);
+    scene.barraEscudo = scene.add.rectangle(124, 42, 32, 4, 0x5fd0ff).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
+    scene.textoEscudo = scene.add.text(160, 36, '', { fontSize: '9px', color: '#9fe6ff', stroke: '#000', strokeThickness: 3 })
+        .setScrollFactor(0).setDepth(51);
     scene.iconoEscudo = scene.add.image(140, 24, 'fx_escudo', FRAME_BURBUJA)
         .setScale(0.16).setScrollFactor(0).setDepth(50);
     mostrarEscudo(scene, scene.tieneEscudo);
@@ -64,6 +72,16 @@ function destellarAura(scene) {
     scene.tweens.add({ targets: scene.auraEscudo, alpha: 0, delay: 500, duration: 900 });
 }
 
+// barra: llena y azul con escudo; si está roto se va llenando en amarillo con el avance
+function dibujarCarga(scene, progreso) {
+    const lleno = scene.tieneEscudo;
+    const p = lleno ? 1 : progreso;
+    scene.barraEscudo.width = 32 * p;
+    scene.barraEscudo.setFillStyle(lleno ? 0x5fd0ff : 0xffd27a);
+    const texto = lleno ? '' : scene.peleaJefe ? 'busca cargas' : `${Math.floor(p * 100)}%`;
+    if (scene.textoEscudo.text !== texto) scene.textoEscudo.setText(texto);
+}
+
 function mostrarEscudo(scene, activo) {
     if (!activo) {
         scene.tweens.killTweensOf(scene.auraEscudo);
@@ -73,11 +91,43 @@ function mostrarEscudo(scene, activo) {
     else scene.iconoEscudo.setTint(0x555555).setAlpha(0.45);
 }
 
-export function actualizarEscudo(scene) {
+export function actualizarEscudo(scene, mostrarMensaje) {
     const g = scene.mascotaGesi;
     if (!scene.auraEscudo) return;
     scene.auraEscudo.setPosition(g.body.center.x, g.body.center.y - 4);
-    if (g.isDead) scene.auraEscudo.setVisible(false);
+    if (g.isDead) { scene.auraEscudo.setVisible(false); return; }
+    if (scene.tieneEscudo || scene.peleaJefe) dibujarCarga(scene, 0);
+
+    // recarga por avance: el ícono se va llenando a medida que avanzas
+    if (!scene.tieneEscudo && !scene.peleaJefe) {
+        if (scene.escudoRotoX == null) scene.escudoRotoX = g.x;
+        const progreso = Phaser.Math.Clamp((g.x - scene.escudoRotoX) / AVANCE_RECARGA, 0, 1);
+        scene.iconoEscudo.setAlpha(0.3 + 0.6 * progreso);
+        dibujarCarga(scene, progreso);
+        if (progreso >= 1) {
+            dibujarCarga(scene, 1);
+            scene.escudoRotoX = null;
+            recuperarEscudo(scene, mostrarMensaje, '¡ESCUDO RECARGADO!');
+        }
+    }
+}
+
+// carga de escudo para recoger (aparece al azar y durante la pelea con el jefe)
+export function soltarEscudo(scene, x, y, dura = 9000) {
+    const c = scene.premios.create(x, y, 'fx_escudo', FRAME_BURBUJA).setScale(0.16).refreshBody();
+    c.body.setSize(28, 28);
+    c.tipoPremio = 'escudo';
+    const brillo = scene.add.image(x, y, 'brillo').setDepth(41).setScale(0.9).setTint(0x8fd8ff).setAlpha(0.45).setBlendMode('ADD');
+    scene.tweens.add({ targets: c, y: y - 6, yoyo: true, repeat: -1, duration: 600, ease: 'Sine.inOut' });
+    scene.sound.play('aparece', { volume: 0.4, rate: 1.2 });
+    if (dura) {
+        scene.time.delayedCall(dura - 3000, () => {
+            if (c.active) scene.tweens.add({ targets: [c, brillo], alpha: 0.2, yoyo: true, repeat: 5, duration: 250 });
+        });
+        scene.time.delayedCall(dura, () => { if (c.active) c.destroy(); });
+    }
+    c.on('destroy', () => brillo.active && brillo.destroy());
+    return c;
 }
 
 export function estaInvulnerable(scene) {
@@ -87,6 +137,7 @@ export function estaInvulnerable(scene) {
 export function romperEscudo(scene, mostrarMensaje) {
     const g = scene.mascotaGesi;
     scene.tieneEscudo = false;
+    scene.escudoRotoX = g.x; // desde aquí cuenta el avance para recargarlo
     scene.invulnerableHasta = scene.time.now + INVULNERABLE_MS;
     mostrarEscudo(scene, false);
 
@@ -114,8 +165,9 @@ export function romperEscudo(scene, mostrarMensaje) {
     mostrarMensaje('¡ESCUDO ROTO!');
 }
 
-export function recuperarEscudo(scene, mostrarMensaje) {
+export function recuperarEscudo(scene, mostrarMensaje, texto = '¡ESCUDO RECUPERADO!') {
     if (scene.tieneEscudo) return false;
+    scene.escudoRotoX = null;
     scene.tieneEscudo = true;
     mostrarEscudo(scene, true);
     destellarAura(scene);
@@ -124,6 +176,7 @@ export function recuperarEscudo(scene, mostrarMensaje) {
     fx.anims.play('escudo-aparece');
     fx.once('animationcomplete', () => fx.destroy());
     scene.tweens.add({ targets: scene.iconoEscudo, scale: 0.24, yoyo: true, duration: 160 });
-    mostrarMensaje('¡ESCUDO RECUPERADO!');
+    scene.sound.play('punto_control', { volume: 0.5, rate: 1.3 });
+    mostrarMensaje(texto);
     return true;
 }

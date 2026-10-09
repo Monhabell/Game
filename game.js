@@ -10,11 +10,21 @@ import {
     decorarNivel, crearEstatua, encenderEstatua
 } from "./mazmorra.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa } from "./sorpresas.js"
-import { aleatorizarNivel, iniciarCorazonesAlAzar, soltarCorazon } from "./azar.js"
+import { aleatorizarNivel, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
+import { cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta } from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
+import { crearMapa, actualizarMapa } from "./mapa.js"
 import {
-    cargarEscudo, crearAnimacionesEscudo, crearEscudo, actualizarEscudo, estaInvulnerable, romperEscudo, recuperarEscudo
+    cargarEscudo, crearAnimacionesEscudo, crearEscudo, actualizarEscudo, estaInvulnerable, romperEscudo, recuperarEscudo, soltarEscudo
 } from "./escudo.js"
+
+// funciones que usa el jefe (jefes.js)
+const apiJefe = {
+    killgesi: (scene) => killgesi(scene),
+    mostrarMensaje: (...a) => mostrarMensaje(...a),
+    addToScore: (...a) => addToScore(...a),
+    soltarEscudo: (...a) => soltarEscudo(...a),
+};
 
 // funciones que usan las trampas sorpresa (sorpresas.js)
 const apiSorpresas = { killgesi: (scene) => killgesi(scene), crearEnemigo: (...a) => crearEnemigo(...a), mostrarMensaje: (...a) => mostrarMensaje(...a) };
@@ -63,7 +73,15 @@ const config = {
     scene: [
         // primero la pantalla para elegir personaje (también carga todos los recursos)
         { key: 'seleccion', preload, create: crearSeleccion, update: actualizarSeleccion },
-        { key: 'juego', create, update }
+        { key: 'juego', create, update },
+        // mapa del mundo entre un nivel y el siguiente
+        {
+            key: 'mapa',
+            create(data) {
+                crearMapa(this, { ...data, personaje: personajeId, vidas, maxVidas: VIDAS_INICIALES, score, zoom: ZOOM });
+            },
+            update(time) { actualizarMapa(this, time); },
+        }
     ]
 }
 
@@ -83,8 +101,20 @@ if (window.ResizeObserver) {
         juego.scale.refresh();
     }).observe(document.getElementById('game'));
 }
-botonAgrandar?.addEventListener('click', () => agrandar());
-document.getElementById('btn-pantalla-completa')?.addEventListener('click', () => juego.scale.toggleFullscreen());
+botonAgrandar?.addEventListener('click', e => { agrandar(); e.currentTarget.blur(); });
+document.getElementById('btn-pantalla-completa')?.addEventListener('click', e => { juego.scale.toggleFullscreen(); e.currentTarget.blur(); });
+
+// borrar el progreso y volver a la pantalla de selección para empezar desde el nivel 1
+function reiniciarDesdeCero() {
+    borrarPartida();
+    reiniciarPartida();
+    juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
+    juego.scene.start('seleccion');
+}
+document.getElementById('btn-reiniciar')?.addEventListener('click', e => {
+    e.currentTarget.blur(); // que ESPACIO no vuelva a apretar el botón mientras juegas
+    if (window.confirm('¿Borrar el progreso guardado y empezar desde el nivel 1?')) reiniciarDesdeCero();
+});
 document.addEventListener('keydown', e => {
     if (e.repeat) return;
     const tecla = e.key.toLowerCase();
@@ -150,6 +180,7 @@ function preload() {
     this.load.audio('romper', 'assets/sound/effects/break-block.wav');
     this.load.audio('aparece', 'assets/sound/effects/powerup-appears.mp3');
     cargarEscudo(this);
+    cargarJefes(this);
     cargarSonidos(this);
 
     // bolas de fuego que saltan de la lava
@@ -162,6 +193,7 @@ function create() {
     // las trampas se reparten al azar en cada intento (no se pueden memorizar);
     // en el nivel 1 la primera parte hecha a mano no se toca
     const nivel = aleatorizarNivel(NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : []);
+    guardarPartida(); // para no tener que volver al inicio
     prepararAnimaciones(this);
     this.nivelTerminado = false;
     this.pj = PERSONAJES.find(pj => pj.id === personajeId);
@@ -214,6 +246,20 @@ function create() {
     // corazones que aparecen al azar cuando te faltan vidas
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
     iniciarCorazonesAlAzar(this, () => vidas < VIDAS_INICIALES, nivel.ancho);
+    iniciarEscudosAlAzar(this, soltarEscudo, nivel.ancho);
+
+    // jefe al final del nivel
+    this.peleaJefe = false;
+    this.limiteDerecho = null;
+    this.protegido = () => protegido(this);
+    this.reaparecerEnArena = x => { checkpointX = Math.max(checkpointX ?? 0, x); };
+    // al empezar la pelea: flechas y maná llenos para poder usar los poderes contra el jefe
+    this.recargarParaJefe = () => {
+        flechas = Math.max(flechas, 20);
+        this.mana = MANA_MAXIMO;
+        actualizarRecurso(this);
+    };
+    prepararJefe(this, nivel, nivelActual);
 
     // con una sola vida se escucha un latido
     this.time.addEvent({
@@ -355,6 +401,7 @@ function prepararAnimaciones(scene) {
     crearAnimacionesEnemigos(scene);
     crearAnimacionesMazmorra(scene);
     crearAnimacionesEscudo(scene);
+    crearAnimacionesJefes(scene);
     crearTexturas(scene);
 }
 
@@ -371,6 +418,10 @@ function crearSeleccion() {
     }).setOrigin(0.5);
 
     const estilo = (tam, color = '#fff') => ({ fontFamily: 'monospace', fontSize: tam, fill: color, stroke: '#000', strokeThickness: 3, align: 'center' });
+    // si hay partida guardada, se elige el personaje con el que se venía jugando
+    this.partida = leerPartida();
+    if (this.partida && this.partida.nivel === 0 && !this.partida.score) this.partida = null; // nada que continuar
+    if (this.partida) personajeId = this.partida.personaje || personajeId;
     this.indiceSel = Math.max(0, PERSONAJES.findIndex(pj => pj.id === personajeId));
     this.tarjetas = PERSONAJES.map((pj, i) => {
         const x = 135 + i * 260;
@@ -388,7 +439,7 @@ function crearSeleccion() {
         ];
         this.add.text(x, 262, lineas.join('\n'), { ...estilo('11px'), lineSpacing: 6 }).setOrigin(0.5);
         panel.on('pointerdown', () => {
-            if (this.indiceSel === i) empezarJuego(this);
+            if (this.indiceSel === i) empezarJuego(this, true);
             else this.sound.play('menu_mover', { volume: 0.5 });
             this.indiceSel = i;
             marcarSeleccion(this);
@@ -396,8 +447,32 @@ function crearSeleccion() {
         return { panel, sprite, pj };
     });
 
-    this.add.text(VISTA.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar   ·   F pantalla completa', estilo('12px', '#ffe066')).setOrigin(0.5);
-    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE' });
+    if (this.partida) {
+        // botón para empezar desde cero (pide un segundo clic para confirmar)
+        const boton = this.add.text(16, 14, '↺ DESDE EL NIVEL 1', {
+            fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#ffd6d6',
+            backgroundColor: '#6e141e', padding: { x: 6, y: 6 },
+        }).setDepth(5).setInteractive({ useHandCursor: true });
+        let confirmar = false;
+        boton.on('pointerdown', () => {
+            if (!confirmar) {
+                confirmar = true;
+                boton.setText('¿SEGURO? CLIC OTRA VEZ').setBackgroundColor('#a3122a');
+                this.sound.play('vacio', { volume: 0.5 });
+                this.time.delayedCall(3000, () => {
+                    if (boton.active) { confirmar = false; boton.setText('↺ DESDE EL NIVEL 1').setBackgroundColor('#6e141e'); }
+                });
+            } else {
+                empezarJuego(this, false);
+            }
+        });
+        const n = this.partida.nivel;
+        this.add.text(VISTA.width / 2, 44, `Partida guardada: Nivel ${n + 1} · ${NIVELES[n].nombre}`, estilo('11px', '#9fe6ff')).setOrigin(0.5);
+        this.add.text(VISTA.width / 2, 366, `← → personaje   ·   ENTER: continuar en el Nivel ${n + 1}   ·   N: nueva partida`, estilo('12px', '#ffe066')).setOrigin(0.5);
+    } else {
+        this.add.text(VISTA.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar   ·   F pantalla completa', estilo('12px', '#ffe066')).setOrigin(0.5);
+    }
+    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N' });
     marcarSeleccion(this);
 }
 
@@ -416,13 +491,20 @@ function actualizarSeleccion(time) {
     const k = this.teclasSel, JD = Phaser.Input.Keyboard.JustDown;
     if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
-    if (JD(k.enter) || JD(k.espacio)) empezarJuego(this);
+    if (JD(k.enter) || JD(k.espacio)) empezarJuego(this, true);
+    if (JD(k.nueva) && this.partida) empezarJuego(this, false);
 }
 
-function empezarJuego(scene) {
+// continuar = true: sigue en el nivel guardado (si hay); false: partida nueva desde el nivel 1
+function empezarJuego(scene, continuar = true) {
     personajeId = PERSONAJES[scene.indiceSel].id;
     scene.sound.play('menu_ok', { volume: 0.6 });
-    reiniciarPartida();
+    const partida = continuar ? leerPartida() : null;
+    if (partida) continuarPartida(partida);
+    else {
+        borrarPartida();
+        reiniciarPartida();
+    }
     scene.scene.start('juego');
 }
 
@@ -431,6 +513,36 @@ function reiniciarPartida() {
     nivelActual = 0;
     score = 0;
     scoreInicioNivel = 0;
+    checkpointX = null;
+}
+
+// ---------- Partida guardada (en el navegador, sobrevive a cerrar la página) ----------
+const CLAVE_GUARDADO = 'monhabell-aventura-partida';
+
+function guardarPartida() {
+    try {
+        localStorage.setItem(CLAVE_GUARDADO, JSON.stringify({ nivel: nivelActual, score: scoreInicioNivel, personaje: personajeId }));
+    } catch (e) { /* sin almacenamiento disponible: se juega igual, sin guardar */ }
+}
+
+function leerPartida() {
+    try {
+        const p = JSON.parse(localStorage.getItem(CLAVE_GUARDADO));
+        if (p && Number.isInteger(p.nivel) && p.nivel >= 0 && p.nivel < NIVELES.length) return p;
+    } catch (e) { /* guardado dañado o no disponible */ }
+    return null;
+}
+
+function borrarPartida() {
+    try { localStorage.removeItem(CLAVE_GUARDADO); } catch (e) { /* nada que borrar */ }
+}
+
+// sigue desde el comienzo del nivel guardado, con las vidas llenas
+function continuarPartida(p) {
+    vidas = VIDAS_INICIALES;
+    nivelActual = p.nivel;
+    score = p.score || 0;
+    scoreInicioNivel = score;
     checkpointX = null;
 }
 
@@ -711,6 +823,7 @@ function construirNivel(scene, nivel) {
     });
 
     // corazones (recuperan una vida) y cristales (tesoro de 500 puntos)
+    (nivel.escudos || []).forEach(([x, y]) => soltarEscudo(scene, x, y, 0));
     (nivel.corazones || []).forEach(([x, y]) => {
         const c = scene.premios.create(x, y, 'mz_corazon').anims.play('mz_corazon', true).refreshBody();
         c.tipoPremio = 'corazon';
@@ -1032,6 +1145,11 @@ function recogerPremio(mascotaGesi, premio) {
             addToScore(300, premio, this);
         }
         this.sound.play('victoria', { volume: 0.4 });
+    } else if (premio.tipoPremio === 'escudo') {
+        if (!recuperarEscudo(this, texto => mostrarMensaje(this, texto, 900), '¡ESCUDO CARGADO!')) {
+            addToScore(200, premio, this);
+            this.sound.play('moneda');
+        }
     } else {
         addToScore(500, premio, this);
         this.sound.play('moneda');
@@ -1130,6 +1248,7 @@ function ejecutarHabilidad(scene, h) {
             const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
             if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) dañarEnemigo(scene, e, h.tipo === 'rayo' ? 2 : 1);
         });
+        golpearJefeEnZona(scene, zona, h.tipo === 'rayo' ? 2 : 1, apiJefe);
         if (h.tipo === 'rayo') {
             const rayo = scene.add.rectangle(x0 + h.alcance / 2, b.center.y - 6, h.alcance, 6, 0xffe066).setDepth(20);
             scene.tweens.add({ targets: rayo, scaleY: 3, alpha: 0, duration: 350, onComplete: () => rayo.destroy() });
@@ -1287,7 +1406,7 @@ function onlava(mascotaGesi, lava) {
 }
 
 function completarNivel(mascotaGesi) {
-    if (this.nivelTerminado || mascotaGesi.isDead) return;
+    if (this.nivelTerminado || mascotaGesi.isDead || jefeBloqueaMeta(this)) return;
     this.nivelTerminado = true;
 
     mascotaGesi.setVelocityX(0);
@@ -1305,7 +1424,8 @@ function completarNivel(mascotaGesi) {
 
     this.time.delayedCall(ultimo ? 6000 : 3500, () => {
         if (ultimo) {
-            // juego terminado: volver a elegir personaje
+            // juego terminado: volver a elegir personaje y empezar de cero
+            borrarPartida();
             reiniciarPartida();
             this.scene.start('seleccion');
             return;
@@ -1313,7 +1433,9 @@ function completarNivel(mascotaGesi) {
         nivelActual++;
         scoreInicioNivel = score;
         checkpointX = null;
-        this.scene.restart();
+        guardarPartida();
+        // el personaje camina por el mapa hasta el siguiente nivel
+        this.scene.start('mapa', { desde: nivelActual - 1, hasta: nivelActual });
     });
 }
 
@@ -1406,7 +1528,8 @@ function trampasNivel1(scene) {
 
 function update(time, delta) {
     moverCamara(this);
-    actualizarEscudo(this);
+    actualizarEscudo(this, texto => mostrarMensaje(this, texto, 900));
+    actualizarJefe(this, this.time.now, apiJefe);
     actualizarMundo(this);
     actualizarAmbiente(this, time, this.mascotaGesi);
     moverLava(this, time);
@@ -1463,13 +1586,15 @@ function update(time, delta) {
 
     if (enSuelo) this.saltosAire = 0;
     if (this.keys.up.isDown && enSuelo) {
+        // se "gasta" la pulsación: el doble salto necesita volver a presionar ↑
+        JD(this.keys.up);
         g.setVelocityY(-this.pj.salto);
         this.sound.play('salto', { volume: 0.3 });
         animar(this, 'jump');
     } else if (this.pj.dobleSalto && !enSuelo && this.saltosAire < 1 && JD(this.keys.up)) {
-        // doble salto del mago
+        // doble salto del mago (nunca frena: si ya sube más rápido, se suma un poco)
         this.saltosAire++;
-        g.setVelocityY(-400);
+        g.setVelocityY(Math.min(g.body.velocity.y - 120, -440));
         this.sound.play('salto', { volume: 0.3, rate: 1.35 });
         g.anims.play(`${this.pj.id}-jump`, false);
     }
@@ -1532,10 +1657,11 @@ function killgesi(game, causa) {
 
     if (vidas <= 0) {
         // sin corazones: GAME OVER y se vuelve al inicio del juego
-        mostrarMensaje(game, 'GAME OVER\nVuelves al inicio');
+        mostrarMensaje(game, `GAME OVER\nVuelves al inicio\ndel nivel ${nivelActual + 1}`);
         game.time.delayedCall(900, () => sound.play('game_over', { volume: 0.7 }));
         game.time.delayedCall(3500, () => {
-            reiniciarPartida();
+            continuarPartida({ nivel: nivelActual, score: scoreInicioNivel });
+            guardarPartida();
             scene.start('seleccion');
         });
         return;

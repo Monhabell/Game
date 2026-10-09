@@ -92,6 +92,17 @@
             outline-offset: 3px;
         }
 
+        /* acción que borra el progreso: color de advertencia */
+        .boton-reiniciar {
+            border-color: #ff8a8a;
+            background: rgba(110, 20, 30, 0.85);
+            box-shadow: 0 4px 0 #6b1020;
+        }
+
+        .boton-reiniciar:hover {
+            background: rgba(150, 30, 40, 0.9);
+        }
+
         .boton-juego[aria-pressed="true"] {
             background: rgba(0, 120, 90, 0.9);
             border-color: #7dffc8;
@@ -221,6 +232,8 @@
                 title="Agranda el juego para que ocupe toda la ventana (tecla G)">⤢ Agrandar</button>
             <button type="button" class="boton-juego" id="btn-pantalla-completa"
                 title="Juega en pantalla completa (tecla F, sales con Esc)">⛶ Pantalla completa</button>
+            <button type="button" class="boton-juego boton-reiniciar" id="btn-reiniciar"
+                title="Borra el progreso guardado y empieza otra vez desde el nivel 1">↺ Empezar desde el nivel 1</button>
         </div>
         
         <div class="controls">

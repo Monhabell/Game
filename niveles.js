@@ -53,7 +53,7 @@ export const NIVELES = [
         fondo: 'montanas', // montañas en silueta con árboles secos (en vez del paisaje)
         velEnemigos: 40,
         checkpoints: [2400],
-        mezcla: ['zombie1', 'zombie2', 'zombie3', 'esqueleto'],
+        mezcla: ['zombie1', 'zombie2', 'alien_green', 'zombie3', 'esqueleto'],
         plantas: [2750, 4150],
         // la primera parte (hasta x≈2300) está hecha a mano en construirNivel1()
         suelo: [[2300, 3000], [3130, 3480], [3600, 3700], [3840, 5200]],
@@ -99,7 +99,7 @@ export const NIVELES = [
         tinte: 0x8a4a3a,
         velEnemigos: 50,
         checkpoints: [3150],
-        mezcla: ['esqueleto', 'zombie2', 'zombie3', 'esqueleto', 'zombie1'],
+        mezcla: ['esqueleto', 'zombie2', 'alien_blue', 'zombie3', 'esqueleto', 'alien_gray', 'zombie1'],
         plantas: [1250, 3600, 5000],
         espiritus: [[1440, 190], [2840, 170], [4560, 190]],
         suelo: [[0, 700], [850, 1400], [1540, 1740], [1950, 2600], [3100, 3800], [3950, 4500], [4650, 6000]],
