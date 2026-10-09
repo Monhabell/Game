@@ -3,7 +3,8 @@ import { monedas } from "./monedas.js"
 import { NIVELES, SUELO_Y } from "./niveles.js"
 
 let score = 0; // Variable global para la puntuación
-let muertes = 0; // vidas infinitas, como en Cat Mario: solo se cuentan las muertes
+const VIDAS_INICIALES = 4;
+let vidas = VIDAS_INICIALES; // se muestran como corazones; al acabarse se vuelve al inicio del juego
 let scoreInicioNivel = 0; // al morir el puntaje vuelve a este valor
 const FLECHAS_INICIALES = 10;
 let flechas = FLECHAS_INICIALES;
@@ -196,8 +197,13 @@ function create() {
 
     // HUD
     const estiloHud = { fontSize: '16px', fill: '#fff', stroke: '#000', strokeThickness: 3 };
-    this.muertesText = this.add.text(20, 15, `Muertes: ${muertes}`, estiloHud)
-        .setScrollFactor(0).setDepth(50); // Mantener el texto fijo en la pantalla
+    // corazones de vida (los perdidos se ven grises)
+    this.corazones = [];
+    for (let i = 0; i < VIDAS_INICIALES; i++) {
+        this.corazones.push(this.add.image(28 + i * 26, 24, 'corazon').setScale(1.4)
+            .setScrollFactor(0).setDepth(50)); // Mantener fijo en la pantalla
+    }
+    actualizarCorazones(this);
     this.scoreText = this.add.text(180, 15, `Puntaje: ${score}`, estiloHud)
         .setScrollFactor(0).setDepth(50);
     this.flechasText = this.add.text(370, 15, `Flechas: ${flechas}`, estiloHud)
@@ -243,7 +249,22 @@ function crearTexturas(scene) {
     g.fillStyle(0x7a3e12); g.fillRoundedRect(2, 8, 12, 18, 3);
     g.fillStyle(0xf2c14e); g.fillRect(2, 14, 12, 2);
     g.generateTexture('carcaj', 16, 26);
+    g.clear();
+
+    // corazón
+    g.fillStyle(0xff2d55);
+    g.fillCircle(4, 4, 4); g.fillCircle(12, 4, 4);
+    g.fillTriangle(0, 5, 16, 5, 8, 14);
+    g.fillStyle(0xffffff, 0.7); g.fillRect(3, 2, 2, 2);
+    g.generateTexture('corazon', 16, 14);
     g.destroy();
+}
+
+function actualizarCorazones(scene) {
+    scene.corazones.forEach((c, i) => {
+        if (i < vidas) c.clearTint().setAlpha(1);
+        else c.setTint(0x555555).setAlpha(0.5);
+    });
 }
 
 function crearFondo(scene, nivel) {
@@ -766,14 +787,14 @@ function completarNivel(mascotaGesi) {
 
     const ultimo = nivelActual === NIVELES.length - 1;
     mostrarMensaje(this, ultimo
-        ? `¡GANASTE EL JUEGO!\nPuntaje: ${score}\nMuertes: ${muertes}`
+        ? `¡GANASTE EL JUEGO!\nPuntaje: ${score}`
         : `¡NIVEL ${nivelActual + 1} COMPLETADO!`);
 
     this.time.delayedCall(ultimo ? 6000 : 3500, () => {
         if (ultimo) {
             nivelActual = 0;
             score = 0;
-            muertes = 0;
+            vidas = VIDAS_INICIALES;
         } else {
             nivelActual++;
         }
@@ -784,7 +805,9 @@ function completarNivel(mascotaGesi) {
 }
 
 function mostrarMensaje(scene, texto, duracion) {
-    const mensaje = scene.add.text(config.width / 2, config.height / 2 - 40, texto, {
+    // un mensaje nuevo reemplaza al anterior para que no se encimen
+    if (scene.mensajeActual && scene.mensajeActual.active) scene.mensajeActual.destroy();
+    const mensaje = scene.mensajeActual = scene.add.text(config.width / 2, config.height / 2 - 40, texto, {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '20px',
         fill: '#fff',
@@ -928,14 +951,29 @@ function killgesi(game) {
     game.musica.stop();
     sound.add('gameover', { volume: 1 }).play();
 
-    muertes += 1;
-    game.muertesText.setText(`Muertes: ${muertes}`);
+    vidas -= 1;
+    actualizarCorazones(game);
+    game.tweens.add({ targets: game.corazones[vidas], scale: 2.2, yoyo: true, duration: 150 });
     score = scoreInicioNivel;
 
     mascotaGesi.body.checkCollision.none = true;
     mascotaGesi.setVelocityX(0);
 
     game.time.delayedCall(120, () => mascotaGesi.setVelocityY(-200));
+
+    if (vidas <= 0) {
+        // sin corazones: GAME OVER y se vuelve al inicio del juego
+        mostrarMensaje(game, 'GAME OVER\nVuelves al inicio');
+        game.time.delayedCall(3500, () => {
+            vidas = VIDAS_INICIALES;
+            nivelActual = 0;
+            score = 0;
+            scoreInicioNivel = 0;
+            checkpointX = null;
+            scene.restart();
+        });
+        return;
+    }
 
     mostrarMensaje(game, BURLAS[Math.floor(Math.random() * BURLAS.length)], 1600);
 
