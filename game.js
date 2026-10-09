@@ -2,6 +2,9 @@ import { createAnimations } from "./animations.js"
 import { monedas } from "./monedas.js"
 import { NIVELES, SUELO_Y } from "./niveles.js"
 import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes } from "./personajes.js"
+import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos } from "./enemigos.js"
+import { crearAmbiente, actualizarAmbiente, tinteOscuro, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
+import { cargarCastillos, crearPaisaje, crearRuinas, crearCastilloMeta } from "./castillos.js"
 
 let score = 0; // Variable global para la puntuación
 const VIDAS_INICIALES = 4;
@@ -41,6 +44,8 @@ function preload() {
     this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png');
     // personajes jugables (arquera, espadachín y mago)
     cargarPersonajes(this);
+    cargarEnemigos(this);
+    cargarCastillos(this);
     this.load.spritesheet('arbol', 'assets/scenery/arbol1.png', { frameWidth: 208, frameHeight: 191 });
     this.load.spritesheet('arbol2', 'assets/scenery/arbol2.png', { frameWidth: 208, frameHeight: 191 });
 
@@ -113,6 +118,9 @@ function create() {
     this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = nivel.velEnemigos ?? 50;
+    // enemigos que caminan en este nivel (se van turnando)
+    this.mezcla = nivel.mezcla || ['zombie1', 'zombie2', 'zombie3'];
+    this.contEnemigos = 0;
 
     crearFondo(this, nivel);
 
@@ -127,6 +135,7 @@ function create() {
     this.bolas = this.physics.add.group();
     this.carcajes = this.physics.add.staticGroup();
     this.flechasGrupo = this.physics.add.group({ allowGravity: false });
+    this.balasEnemigas = this.physics.add.group({ allowGravity: false });
     this.cayentes = []; // ladrillos que caen
     this.pinchos = [];
     this.emboscadas = [];
@@ -151,6 +160,7 @@ function create() {
     this.physics.add.collider(this.enemies, this.floor);
 
     this.physics.add.collider(this.enemies, this.enemies, (enemy1, enemy2) => {
+        if (enemy1.def?.tipo === 'planta' || enemy2.def?.tipo === 'planta') return;
         // Cambiar la dirección de ambos enemigos invirtiendo su velocidad
         enemy1.setVelocityX(-enemy1.body.velocity.x);
         enemy2.setVelocityX(-enemy2.body.velocity.x);
@@ -188,9 +198,17 @@ function create() {
     this.physics.add.overlap(this.flechasGrupo, this.enemies, (flecha, enemy) => {
         if (enemy.isDead) return;
         if (!flecha.perfora) flecha.destroy();
-        matarEnemigo(this, enemy);
+        dañarEnemigo(this, enemy, 1);
     });
     this.physics.add.collider(this.flechasGrupo, this.floor, flecha => flecha.destroy());
+
+    // disparos de los enemigos
+    this.physics.add.overlap(this.mascotaGesi, this.balasEnemigas, (g, bala) => {
+        if (protegido(this)) { bala.destroy(); return; }
+        bala.destroy();
+        killgesi(this);
+    });
+    this.physics.add.collider(this.balasEnemigas, this.floor, bala => bala.destroy());
     this.physics.add.collider(this.flechasGrupo, this.moviles, flecha => flecha.destroy());
     this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (f, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
@@ -200,6 +218,9 @@ function create() {
     // camara
     this.cameras.main.setBounds(0, 0, nivel.ancho, config.height); // cambiar tamaño de mundo
     this.cameras.main.startFollow(this.mascotaGesi);
+
+    // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
+    crearAmbiente(this, nivel, nivelActual);
 
     // HUD
     const estiloHud = { fontSize: '16px', fill: '#fff', stroke: '#000', strokeThickness: 3 };
@@ -232,13 +253,16 @@ function create() {
 function prepararAnimaciones(scene) {
     if (!scene.anims.exists('enemy-walk')) createAnimations(scene);
     crearAnimacionesPersonajes(scene);
+    crearAnimacionesEnemigos(scene);
     crearTexturas(scene);
 }
 
 // ---------- Pantalla de selección de personaje ----------
 function crearSeleccion() {
     prepararAnimaciones(this);
-    this.add.image(config.width / 2, config.height / 2, 'background').setTint(0x555577);
+    this.add.image(config.width / 2, config.height / 2, 'background').setTint(0x3a3a4e);
+    this.add.image(config.width / 2, config.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(1.25).setTint(0x34343f);
+    crearNieblaSeleccion(this);
 
     this.add.text(config.width / 2, 22, 'ELIGE TU PERSONAJE', {
         fontFamily: '"Press Start 2P", monospace', fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 5
@@ -284,7 +308,8 @@ function marcarSeleccion(scene) {
     });
 }
 
-function actualizarSeleccion() {
+function actualizarSeleccion(time) {
+    moverNieblaSeleccion(this, time);
     const k = this.teclasSel, JD = Phaser.Input.Keyboard.JustDown;
     if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); }
     if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); }
@@ -340,6 +365,12 @@ function crearTexturas(scene) {
     g.fillTriangle(0, 5, 16, 5, 8, 14);
     g.fillStyle(0xffffff, 0.7); g.fillRect(3, 2, 2, 2);
     g.generateTexture('corazon', 16, 14);
+    g.clear();
+
+    // láser de los aliens
+    g.fillStyle(0xd94dff); g.fillRect(0, 1, 22, 4);
+    g.fillStyle(0xffffff); g.fillRect(4, 2, 14, 2);
+    g.generateTexture('laser', 22, 6);
     g.destroy();
 }
 
@@ -353,15 +384,23 @@ function actualizarCorazones(scene) {
 function crearFondo(scene, nivel) {
     const anchofondo = 960;
     const cantidad_fondo = Math.ceil(nivel.ancho / anchofondo) + 1;
-    for (let i = 0; i < cantidad_fondo; i++) {
-        scene.add.image(450 + (i * anchofondo), 200, 'background').setTint(nivel.tinte ?? 0xffffff);
+    if (nivel.nubes) {
+        // niveles al aire libre: paisaje de noche
+        crearPaisaje(scene, nivel, tinteOscuro(0x8899cc, nivelActual));
+    } else {
+        for (let i = 0; i < cantidad_fondo; i++) {
+            scene.add.image(450 + (i * anchofondo), 200, 'background').setTint(tinteOscuro(nivel.tinte, nivelActual));
+        }
     }
 
     if (nivel.nubes) {
         for (let x = 200, i = 0; x < nivel.ancho; x += 550, i++) {
-            scene.add.image(x, i % 2 ? 90 : 50, 'cloud1').setScale(0.35).setScrollFactor(0.6).setAlpha(0.9);
+            scene.add.image(x, i % 2 ? 90 : 50, 'cloud1').setScale(0.35).setScrollFactor(0.6).setAlpha(0.7).setTint(0x555566);
         }
     }
+
+    // ruinas de castillos al fondo
+    crearRuinas(scene, nivel, nivelActual, tinteOscuro(0x9a9aae, nivelActual + 1));
 }
 
 // Primera parte del nivel 1, hecha a mano
@@ -554,9 +593,12 @@ function construirNivel(scene, nivel) {
     });
 
     (nivel.enemigos || []).forEach(e => {
-        const [x, y] = Array.isArray(e) ? e : [e, SUELO_Y - 2];
-        crearEnemigo(scene, x, y);
+        const [x, y, tipo] = Array.isArray(e) ? e : [e, SUELO_Y - 2];
+        crearEnemigo(scene, x, y ?? SUELO_Y - 2, tipo);
     });
+    // plantas disfrazadas de arbusto y espíritus de fuego voladores
+    (nivel.plantas || []).forEach(x => crearEnemigo(scene, x, SUELO_Y - 2, 'planta'));
+    (nivel.espiritus || []).forEach(([x, y]) => crearEnemigo(scene, x, y, 'espiritu'));
 
     (nivel.goteros || []).forEach(([x, delay]) => {
         scene.add.sprite(x, config.height - 370, 'lava_falling').setOrigin(0, 0.5).setScale(0.5).anims.play('lavacaer', true);
@@ -596,7 +638,7 @@ function construirNivel(scene, nivel) {
     const mx = nivel.meta;
     scene.add.image(mx, SUELO_Y, 'mastil').setOrigin(0.5, 1);
     scene.bandera = scene.add.image(mx - 6, SUELO_Y - 160, 'bandera').setOrigin(1, 0).setScale(2);
-    scene.add.image(mx + 180, SUELO_Y, 'castillo').setOrigin(0.5, 1).setScale(2);
+    crearCastilloMeta(scene, mx + 50, nivelActual, 0xb4b4bc);
     scene.zonaMeta = scene.add.zone(mx, SUELO_Y / 2, 24, SUELO_Y);
     scene.physics.add.existing(scene.zonaMeta, true);
 }
@@ -621,15 +663,175 @@ function activarCheckpoint(scene, cp) {
     mostrarMensaje(scene, '¡PUNTO DE CONTROL!', 1200);
 }
 
-function crearEnemigo(scene, x, y) {
-    let enemy = scene.enemies.create(x, y, 'malo').anims.play('enemy-walk', true)
+// tipo: clave de ENEMIGOS; sin tipo se usa el siguiente de la mezcla del nivel
+function crearEnemigo(scene, x, y, tipo) {
+    tipo = tipo || scene.mezcla[scene.contEnemigos++ % scene.mezcla.length];
+    const def = ENEMIGOS[tipo];
+    const inicial = def.tipo === 'planta' ? 'disfraz' : 'walk';
+    const enemy = scene.enemies.create(x, y, `${tipo}-${inicial}`).anims.play(`${tipo}-${inicial}`, true)
         .setOrigin(0, 1)
         .setGravityY(300)
-        .setVelocityX(-scene.velEnemigos)
         .setScale(1);
-    enemy.flipX = true;
-    enemy.body.setSize(20, 69).setOffset(50, 57); // recirde de secmenbto de colicion
+    const [w, h, ox, oy] = def.cuerpo;
+    enemy.body.setSize(w, h).setOffset(ox, oy);
+    enemy.tipoId = tipo;
+    enemy.def = def;
+    enemy.vida = def.vida;
+    enemy.velBase = scene.velEnemigos * def.vel;
+    enemy.proxAtaque = scene.time.now + 800 + Math.random() * 800;
+    enemy.atacandoHasta = 0;
+    enemy.invulHasta = 0;
+
+    if (def.tipo === 'planta') {
+        enemy.body.setAllowGravity(false).setImmovable(true);
+        enemy.body.pushable = false;
+    } else if (def.tipo === 'volador') {
+        enemy.body.setAllowGravity(false);
+        enemy.fase = Math.random() * Math.PI * 2;
+    }
+    if (def.corre) enemy.anims.play(`${tipo}-run`, true);
+    enemy.setVelocityX(-enemy.velBase);
+    enemy.flipX = true; // los sprites miran a la derecha
     return enemy;
+}
+
+// el enemigo pierde vida; devuelve true si lo golpeó
+function dañarEnemigo(scene, enemy, cantidad = 1) {
+    if (enemy.isDead || scene.time.now < (enemy.invulHasta || 0)) return false;
+    enemy.vida = (enemy.vida ?? 1) - cantidad;
+    if (enemy.vida <= 0) {
+        matarEnemigo(scene, enemy);
+        return true;
+    }
+    enemy.invulHasta = scene.time.now + 350;
+    enemy.setTintFill(0xffffff);
+    scene.time.delayedCall(90, () => enemy.active && enemy.clearTint());
+    scene.sound.play('bump', { volume: 0.4 });
+    if (enemy.tipoId) {
+        enemy.anims.play(`${enemy.tipoId}-hurt`, true);
+        enemy.atacandoHasta = scene.time.now + 300;
+        enemy.setVelocityX(0);
+        scene.time.delayedCall(300, () => volverACaminar(enemy));
+    }
+    return true;
+}
+
+function volverACaminar(enemy) {
+    if (!enemy.active || enemy.isDead) return;
+    const def = enemy.def;
+    const anim = def.tipo === 'planta' ? 'walk' : def.corre ? 'run' : 'walk';
+    enemy.anims.play(`${enemy.tipoId}-${anim}`, true);
+    if (def.tipo !== 'planta') enemy.setVelocityX(enemy.flipX ? -enemy.velBase : enemy.velBase);
+}
+
+// ataque del enemigo: se detiene, hace la animación y en el frame "soltar" golpea o dispara
+function atacar(scene, enemy, alSoltar) {
+    const def = enemy.def;
+    const anim = scene.anims.get(`${enemy.tipoId}-attack`);
+    const duracion = anim.frames.length / anim.frameRate * 1000;
+    enemy.atacandoHasta = scene.time.now + duracion;
+    enemy.proxAtaque = scene.time.now + duracion + def.cadencia;
+    enemy.setVelocity(0, def.tipo === 'volador' ? 0 : enemy.body.velocity.y);
+    enemy.anims.play(`${enemy.tipoId}-attack`, true);
+    scene.time.delayedCall(def.soltar / anim.frameRate * 1000, () => {
+        if (enemy.active && !enemy.isDead) alSoltar();
+    });
+    scene.time.delayedCall(duracion, () => volverACaminar(enemy));
+}
+
+// golpe cuerpo a cuerpo de un enemigo (esqueleto, planta)
+function golpeDeEnemigo(scene, enemy) {
+    const eb = enemy.body, alcance = enemy.def.alcance;
+    const x0 = enemy.flipX ? eb.left - alcance : eb.right;
+    const zona = new Phaser.Geom.Rectangle(x0, eb.top - 10, alcance, eb.height + 10);
+    const gb = scene.mascotaGesi.body;
+    if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) {
+        killgesi(scene);
+    }
+}
+
+function dispararEnemigo(scene, enemy) {
+    const eb = enemy.body, gb = scene.mascotaGesi.body;
+    if (enemy.def.tipo === 'volador') {
+        // bola de fuego apuntada a Gesi
+        const bola = scene.balasEnemigas.create(eb.center.x, eb.center.y, 'bola_espiritu').anims.play('bola_espiritu-giro', true);
+        bola.body.setSize(16, 16);
+        const ang = Phaser.Math.Angle.Between(eb.center.x, eb.center.y, gb.center.x, gb.center.y);
+        scene.physics.velocityFromRotation(ang, 190, bola.body.velocity);
+        bola.setRotation(ang + Math.PI);
+        scene.time.delayedCall(3500, () => bola.active && bola.destroy());
+    } else {
+        // láser horizontal desde la pistola
+        const dir = enemy.flipX ? -1 : 1;
+        const laser = scene.balasEnemigas.create(eb.center.x + dir * 30, eb.top + 34, 'laser');
+        laser.setVelocityX(dir * 320);
+        scene.time.delayedCall(2500, () => laser.active && laser.destroy());
+    }
+    scene.sound.play('disparo', { volume: 0.4 });
+}
+
+function actualizarEnemigo(scene, enemy, time) {
+    const def = enemy.def;
+    if (!def) return;
+    const g = scene.mascotaGesi, gb = g.body, eb = enemy.body;
+    const dx = gb.center.x - eb.center.x, dy = gb.center.y - eb.center.y;
+    const gesiVivo = !g.isDead && !scene.nivelTerminado;
+    const atacando = time < enemy.atacandoHasta;
+
+    if (def.tipo === 'planta') {
+        enemy.setVelocity(0, 0);
+        if (!enemy.revelada) {
+            if (gesiVivo && Math.abs(dx) < 120 && Math.abs(dy) < 90) {
+                // ¡sorpresa! el arbusto era una planta
+                enemy.revelada = true;
+                enemy.flipX = dx < 0;
+                enemy.atacandoHasta = time + 600;
+                enemy.proxAtaque = time + 400;
+                enemy.anims.play('planta-revelar', true);
+                scene.time.delayedCall(600, () => volverACaminar(enemy));
+            }
+        } else if (gesiVivo && !atacando && time > enemy.proxAtaque && Math.abs(dx) < def.alcance + 20 && Math.abs(dy) < 70) {
+            enemy.flipX = dx < 0;
+            atacar(scene, enemy, () => golpeDeEnemigo(scene, enemy));
+        }
+        return;
+    }
+
+    if (def.tipo === 'volador') {
+        if (!atacando) {
+            // flota subiendo y bajando y se acerca a Gesi sin pegarse
+            enemy.setVelocityY(Math.cos(time / 380 + enemy.fase) * 35);
+            const cerca = Math.abs(dx) < 500;
+            enemy.setVelocityX(cerca && Math.abs(dx) > 150 ? Math.sign(dx) * enemy.velBase : 0);
+            if (cerca) enemy.flipX = dx < 0;
+            if (gesiVivo && cerca && time > enemy.proxAtaque && Math.abs(dx) < def.alcance) {
+                atacar(scene, enemy, () => dispararEnemigo(scene, enemy));
+            }
+        }
+        return;
+    }
+
+    if (atacando) return;
+
+    // caminar y dar la vuelta en las paredes
+    if (eb.blocked.left) { enemy.setVelocityX(enemy.velBase); }
+    else if (eb.blocked.right) { enemy.setVelocityX(-enemy.velBase); }
+    if (Math.abs(eb.velocity.x) > 1) enemy.flipX = eb.velocity.x < 0;
+
+    if (!gesiVivo || time < enemy.proxAtaque || Math.abs(dy) > 60) return;
+    const delante = enemy.flipX ? -dx : dx;
+    if (def.tipo === 'espadachin' && delante > 0 && delante < def.alcance + 25) {
+        atacar(scene, enemy, () => golpeDeEnemigo(scene, enemy));
+    } else if (def.tipo === 'tirador' && Math.abs(dx) < def.alcance && enSu(scene, enemy)) {
+        enemy.flipX = dx < 0; // se voltea hacia Gesi para disparar
+        atacar(scene, enemy, () => dispararEnemigo(scene, enemy));
+    }
+}
+
+// el enemigo está dentro de la pantalla (no disparan desde fuera de la cámara)
+function enSu(scene, enemy) {
+    const cam = scene.cameras.main.worldView;
+    return enemy.x > cam.left - 40 && enemy.x < cam.right;
 }
 
 function onlavagotasgesi(mascotaGesi, lavaesgota) {
@@ -696,7 +898,7 @@ function golpearBloque(mascotaGesi, pieza) {
         this.sound.play('bump');
         const enemigo = crearEnemigo(this, bloque.x - 50, bloque.y - 16);
         const haciaGesi = mascotaGesi.x < bloque.x ? -1 : 1;
-        enemigo.setVelocityX(haciaGesi * this.velEnemigos);
+        enemigo.setVelocityX(haciaGesi * enemigo.velBase);
         enemigo.flipX = haciaGesi < 0;
         return;
     }
@@ -803,7 +1005,7 @@ function ejecutarHabilidad(scene, h) {
         scene.enemies.getChildren().slice().forEach(e => {
             if (e.isDead || !e.body) return;
             const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
-            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) matarEnemigo(scene, e);
+            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) dañarEnemigo(scene, e, h.tipo === 'rayo' ? 2 : 1);
         });
         if (h.tipo === 'rayo') {
             const rayo = scene.add.rectangle(x0 + h.alcance / 2, b.center.y - 6, h.alcance, 6, 0xffe066).setDepth(20);
@@ -832,12 +1034,15 @@ function protegido(scene) {
 
 function matarEnemigo(scene, enemy) {
     enemy.isDead = true;
-    enemy.anims.play('enemy-muerte', true);
+    enemy.clearTint();
+    enemy.anims.play(enemy.tipoId ? `${enemy.tipoId}-dead` : 'enemy-muerte', true);
     scene.sound.play('matar');
-    addToScore(150, enemy, scene);
-    enemy.setVelocityX(0);
-    enemy.body.setSize(20, 0.5).setOffset(50, 128);
-    scene.time.delayedCall(5000, () => enemy.destroy());
+    addToScore(enemy.def ? 100 + 50 * enemy.def.vida : 150, enemy, scene);
+    enemy.setVelocity(0, 0);
+    // sin cuerpo para que no estorbe; queda tirado un momento y desaparece
+    enemy.body.checkCollision.none = true;
+    enemy.body.setAllowGravity(false);
+    scene.tweens.add({ targets: enemy, alpha: 0, delay: 1500, duration: 800, onComplete: () => enemy.destroy() });
 }
 
 function actualizarTrampas(scene) {
@@ -924,15 +1129,20 @@ function onHitEnemy(mascotaGesi, enemy) {
     // Verificar si el enemigo ya está muerto
     if (enemy.isDead || this.nivelTerminado) return;
 
-    // con el escudo o durante la embestida, los enemigos mueren al tocarlos
+    // con el escudo o durante la embestida, los enemigos reciben daño al tocarlos
     if (protegido(this)) {
-        matarEnemigo(this, enemy);
+        dañarEnemigo(this, enemy, 1);
         return;
     }
 
     if (mascotaGesi.body.touching.down && enemy.body.touching.up) {
-        matarEnemigo(this, enemy);
-        mascotaGesi.setVelocityY(-250); // rebote al pisar al enemigo
+        if (enemy.def?.espinas) {
+            // la planta tiene espinas: pisarla duele
+            killgesi(this);
+            return;
+        }
+        dañarEnemigo(this, enemy, 1);
+        mascotaGesi.setVelocityY(-280); // rebote al pisar al enemigo
     } else {
         killgesi(this);
     }
@@ -1009,14 +1219,17 @@ function actualizarMundo(scene) {
         }
     });
 
-    // enemigos: dan la vuelta al chocar con una pared y desaparecen si caen
+    // enemigos: cada tipo tiene su comportamiento; desaparecen si caen
+    const ahora = scene.time.now;
     scene.enemies.getChildren().slice().forEach(enemy => {
         if (enemy.y > config.height + 150 || enemy.x < -200) {
             enemy.destroy();
             return;
         }
         if (enemy.isDead) return;
-        if (enemy.body.blocked.left) {
+        if (enemy.def) {
+            actualizarEnemigo(scene, enemy, ahora);
+        } else if (enemy.body.blocked.left) {
             enemy.setVelocityX(scene.velEnemigos);
             enemy.flipX = false;
         } else if (enemy.body.blocked.right) {
@@ -1062,6 +1275,7 @@ function trampasNivel1(scene) {
 
 function update(time, delta) {
     actualizarMundo(this);
+    actualizarAmbiente(this, time, this.mascotaGesi);
 
     if (this.mascotaGesi.isDead) return;
 

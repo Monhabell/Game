@@ -13,6 +13,9 @@
 // bolas: [x, cadaCuantosMs] bolas de fuego que saltan desde la lava
 // emboscadas: [xAviso, [x de cada enemigo]] al pasar por xAviso caen enemigos del cielo
 // carcajes: [x, y] dan +5 flechas
+// mezcla: tipos de enemigos que caminan en el nivel (se van turnando); ver enemigos.js
+// plantas: x de plantas disfrazadas de arbusto (¡no las pises, tienen espinas!)
+// espiritus: [x, y] espíritus de fuego que vuelan y disparan
 // suelo / lava: rangos [xInicio, xFin]
 // enemigos: x (aparece en el suelo) o [x, y]
 // goteros: [x, cadaCuantosMs] (gotas de lava que caen del techo)
@@ -39,6 +42,8 @@ export const NIVELES = [
         nubes: true,
         velEnemigos: 40,
         checkpoints: [2400],
+        mezcla: ['zombie1', 'zombie2', 'zombie3', 'esqueleto'],
+        plantas: [2750, 4150],
         // la primera parte (hasta x≈2300) está hecha a mano en construirNivel1()
         suelo: [[2300, 3000], [3130, 3480], [3600, 3700], [3840, 5200]],
         lava: [[3000, 3130], [3700, 3840]],
@@ -78,6 +83,9 @@ export const NIVELES = [
         tinte: 0x8a4a3a,
         velEnemigos: 50,
         checkpoints: [3150],
+        mezcla: ['esqueleto', 'zombie2', 'zombie3', 'esqueleto', 'zombie1'],
+        plantas: [1250, 3600, 5000],
+        espiritus: [[1440, 190], [2840, 170], [4560, 190]],
         suelo: [[0, 700], [850, 1400], [1540, 1740], [1950, 2600], [3100, 3800], [3950, 4500], [4650, 6000]],
         falsos: [[1740, 1800]],
         bolas: [[760, 2500], [1455, 2200], [2842, 2300], [3860, 2000]],
@@ -124,6 +132,9 @@ export const NIVELES = [
         tinte: 0xffb38a,
         velEnemigos: 55,
         checkpoints: [2350, 3450],
+        mezcla: ['alien_green', 'alien_blue', 'esqueleto', 'zombie3'],
+        plantas: [1550, 2550],
+        espiritus: [[850, 140], [2000, 150], [4350, 150]],
         suelo: [[0, 600], [1100, 1700], [2300, 2700], [3400, 4000], [4700, 6300]],
         falsos: [[2700, 2800]],
         bolas: [[1000, 2400], [2000, 2100], [3330, 2200], [4300, 2000]],
@@ -169,6 +180,9 @@ export const NIVELES = [
         tinte: 0x7a5aa8,
         velEnemigos: 65,
         checkpoints: [1950, 2880, 4250],
+        mezcla: ['esqueleto', 'alien_armor', 'alien_red', 'zombie1', 'alien_predator_mask'],
+        plantas: [1000, 2100, 4700, 5850],
+        espiritus: [[1600, 140], [3850, 150], [5075, 180]],
         suelo: [[0, 500], [640, 1300], [1900, 2400], [2600, 2700], [2850, 3500], [4200, 5000], [5150, 6900]],
         falsos: [[2550, 2600]],
         bolas: [[570, 1800], [1600, 2200], [2475, 1700], [2775, 1700], [3550, 2000], [5075, 1700]],
@@ -209,8 +223,14 @@ export const NIVELES = [
         goteros: [[539, 1500], [1600, 2000], [2444, 1400], [2744, 1400], [3950, 2000], [4600, 1400], [5044, 1400]],
         meta: 6450,
     },
-    generarNivel({ nombre: 'El Volcán', semilla: 7, dificultad: 0.75, tramos: 11, cueva: true, tinte: 0xb8503a }),
-    generarNivel({ nombre: 'El Reino de las Nubes', semilla: 21, dificultad: 1, tramos: 14, nubes: true, tinte: 0x9fb8ff }),
+    generarNivel({
+        nombre: 'El Volcán', semilla: 7, dificultad: 0.75, tramos: 11, cueva: true, tinte: 0xb8503a,
+        mezcla: ['esqueleto', 'zombie1', 'alien_dark_gray', 'zombie3', 'alien_gray', 'esqueleto'],
+    }),
+    generarNivel({
+        nombre: 'El Reino de las Nubes', semilla: 21, dificultad: 1, tramos: 14, nubes: true, tinte: 0x9fb8ff,
+        mezcla: ['alien_green', 'alien_blue', 'alien_red', 'alien_predator_mask', 'alien_armor', 'esqueleto'],
+    }),
 ];
 
 // Generador de niveles grandes a partir de "tramos" que siempre se pueden pasar.
@@ -226,11 +246,11 @@ function azar(semilla) {
     };
 }
 
-function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, nubes = false, tinte }) {
+function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, nubes = false, tinte, mezcla }) {
     const r = azar(semilla);
     const entre = (a, b) => Math.round(a + r() * (b - a));
     const n = {
-        nombre, cueva, nubes, tinte,
+        nombre, cueva, nubes, tinte, mezcla, plantas: [], espiritus: [],
         velEnemigos: Math.round(50 + 30 * d),
         suelo: [], lava: [], bloques: [], escaleras: [], enemigos: [],
         monedas: [], goteros: [], moviles: [], checkpoints: [],
@@ -252,6 +272,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
             if (r() < 0.4 + 0.4 * d) n.pinchos.push([x + largo - 120, d > 0.6 ? 2 : 1, true]);
             if (r() < 0.5 * d) n.emboscadas.push([x + 100, [x + 300, x + 450]]);
             if (r() < 0.25) n.carcajes.push([x + Math.round(largo / 2), 290]);
+            if (r() < 0.3 + 0.3 * d) n.plantas.push(x + entre(220, largo - 160));
         }
         if (bloques && largo >= 500 && r() < 0.75) {
             const patrones = ['B?B', '?B?B?', 'BB?BB', '???', 'B??B', 'BEB', '?C?', 'C?C', 'E??', 'BCCB'];
@@ -281,6 +302,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         n.monedas.push(...arco(Math.round(x + g / 2 - 30), 230));
         if (r() < 0.6 * d) n.bloques.push([x - 12, 232, 'H']); // bloque invisible en el borde
         if (r() < 0.5 * d) n.bolas.push([Math.round(x + g / 2), entre(1800, 2600)]);
+        else if (r() < 0.3 * d) n.espiritus.push([Math.round(x + g / 2), 170]);
         if (r() < 0.3 + 0.6 * d) n.goteros.push([Math.round(x + g / 2 - 31), intervaloGota()]);
         x += g;
     };
@@ -306,6 +328,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         const ancho = entre(380, 420 + 200 * d);
         n.lava.push([x, x + ancho]);
         n.moviles.push([x + 94, 300, 'x', ancho - 188, Math.round(70 + 40 * d)]);
+        if (r() < d) n.espiritus.push([x + Math.round(ancho / 2), 140]);
         n.monedas.push(...fila(x + 100, 230, Math.floor((ancho - 200) / 40), 40));
         x += ancho;
     };
