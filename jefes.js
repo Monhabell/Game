@@ -136,7 +136,7 @@ function empezarPelea(scene, api) {
 
     scene.physics.add.collider(s, scene.floor);
     j.muros.forEach(m => scene.physics.add.collider(s, m.cuerpo));
-    scene.physics.add.collider(scene.mascotaGesi, s, () => contactoConJefe(scene, api));
+    scene.physics.add.collider(scene.mascotaGesi, s, () => contactoConJefe(scene, api), () => !scene.mascotaGesi.isDead);
     scene.physics.add.overlap(scene.flechasGrupo, s, (a, b) => {
         const flecha = a === s ? b : a;
         if (!flecha.perfora) flecha.destroy();

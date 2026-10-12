@@ -13,6 +13,7 @@ export const PERSONAJES = [
         id: 'arquera',
         nombre: 'Gesi',
         titulo: 'La Arquera',
+        frase: 'Nunca falla un tiro... casi nunca.',
         color: 0xff4d6d,
         carpeta: 'assets/personajes/arquera',
         hojas: {
@@ -39,6 +40,7 @@ export const PERSONAJES = [
         id: 'espadachin',
         nombre: 'Leo',
         titulo: 'El Espadachín',
+        frase: 'Primero corre, después pregunta.',
         color: 0xf2c14e,
         carpeta: 'assets/personajes/espadachin',
         hojas: {
@@ -65,6 +67,7 @@ export const PERSONAJES = [
         id: 'mago',
         nombre: 'Zeno',
         titulo: 'El Mago',
+        frase: 'Sabe hechizos. No sabe ver trampas.',
         color: 0x9d7bff,
         carpeta: 'assets/personajes/mago',
         hojas: {

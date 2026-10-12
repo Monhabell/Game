@@ -14,6 +14,7 @@ import { aleatorizarNivel, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarC
 import { cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta } from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
 import { crearMapa, actualizarMapa } from "./mapa.js"
+import { mostrarCarga, crearTitulo, crearIntro, crearFinal } from "./historia.js"
 import {
     cargarEscudo, crearAnimacionesEscudo, crearEscudo, actualizarEscudo, estaInvulnerable, romperEscudo, recuperarEscudo, soltarEscudo
 } from "./escudo.js"
@@ -35,12 +36,16 @@ let vidas = VIDAS_INICIALES; // se muestran como corazones; al acabarse se vuelv
 let scoreInicioNivel = 0; // al morir el puntaje vuelve a este valor
 const FLECHAS_INICIALES = 10;
 let flechas = FLECHAS_INICIALES;
+let muertes = 0; // en toda la partida: se muestra en el HUD y en el final
 let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
 let vidaJefeGuardada = null; // { nivel, vida }: el daño hecho al jefe se mantiene si mueres con vidas
 const SALUD_MAXIMA = 100; // barra de vida del jugador durante la pelea con el jefe
+// carrera: antes se sumaban 2 px por fotograma (120 px/s a 60 Hz) + 100 px/s de velocidad
+const VEL_CARRERA = 220; // px/s al correr (se multiplica por la velocidad del personaje)
+const VEL_DERIVA = 100;  // px/s que conserva en el aire al soltar la flecha
 // El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja al doble
 // (1580x760) con la cámara en zoom x2: así se ve nítido aunque la pantalla sea grande.
 const ZOOM = 2;
@@ -73,8 +78,26 @@ const config = {
         }
     },
     scene: [
-        // primero la pantalla para elegir personaje (también carga todos los recursos)
-        { key: 'seleccion', preload, create: crearSeleccion, update: actualizarSeleccion },
+        // pantalla de título (también carga todos los recursos), historia y elegir personaje
+        {
+            key: 'titulo',
+            preload() { mostrarCarga(this, ZOOM); preload.call(this); },
+            create() {
+                prepararAnimaciones(this);
+                crearTitulo(this, {
+                    zoom: ZOOM,
+                    alJugar: () => this.scene.start('seleccion'),
+                    alHistoria: () => this.scene.start('intro'),
+                });
+            },
+            update(time) { this.actualizarTitulo(time); },
+        },
+        {
+            key: 'intro',
+            create() { crearIntro(this, { zoom: ZOOM, alTerminar: () => this.scene.start('seleccion') }); },
+            update(time) { this.actualizarIntro(time); },
+        },
+        { key: 'seleccion', create: crearSeleccion, update: actualizarSeleccion },
         { key: 'juego', create, update },
         // mapa del mundo entre un nivel y el siguiente
         {
@@ -83,7 +106,13 @@ const config = {
                 crearMapa(this, { ...data, personaje: personajeId, vidas, maxVidas: VIDAS_INICIALES, score, zoom: ZOOM });
             },
             update(time) { actualizarMapa(this, time); },
-        }
+        },
+        // final: amanece en Monhabell y se muestran puntaje y muertes
+        {
+            key: 'final',
+            create(data) { crearFinal(this, { zoom: ZOOM, ...data, alTerminar: () => this.scene.start('titulo') }); },
+            update(time) { this.actualizarFinal(time); },
+        },
     ]
 }
 
@@ -117,10 +146,33 @@ document.getElementById('btn-reiniciar')?.addEventListener('click', e => {
     e.currentTarget.blur(); // que ESPACIO no vuelva a apretar el botón mientras juegas
     if (window.confirm('¿Borrar el progreso guardado y empezar desde el nivel 1?')) reiniciarDesdeCero();
 });
+// botones flotantes sobre el juego (los únicos visibles cuando está embebido en itch.io)
+const botonSonido = document.getElementById('btn-sonido');
+const botonFsFlotante = document.getElementById('btn-fs-flotante');
+let silenciado = false; // juego.sound.mute tarda en reflejarse con WebAudio, así que lo recordamos aquí
+function silenciar(activar = !silenciado) {
+    silenciado = activar;
+    if (juego.sound) juego.sound.mute = activar;
+    botonSonido?.setAttribute('aria-pressed', String(activar));
+    botonSonido?.setAttribute('aria-label', activar ? 'Activar sonido' : 'Silenciar sonido');
+    try { localStorage.setItem('monhabell-aventura-mute', activar ? '1' : '0'); } catch (_e) { /* no se recuerda, no pasa nada */ }
+}
+// al arrancar se recupera la preferencia guardada (el sonido existe recién cuando el juego está listo)
+juego.events.once('ready', () => {
+    try { if (localStorage.getItem('monhabell-aventura-mute') === '1') silenciar(true); } catch (_e) { /* sin almacenamiento */ }
+});
+botonSonido?.addEventListener('click', e => { silenciar(); e.currentTarget.blur(); });
+botonFsFlotante?.addEventListener('click', e => { juego.scale.toggleFullscreen(); e.currentTarget.blur(); });
+document.addEventListener('fullscreenchange', () => {
+    botonFsFlotante?.setAttribute('aria-pressed', String(!!document.fullscreenElement));
+    botonFsFlotante?.setAttribute('aria-label', document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa');
+});
+
 document.addEventListener('keydown', e => {
     if (e.repeat) return;
     const tecla = e.key.toLowerCase();
-    if (tecla === 'f') juego.scale.toggleFullscreen();
+    if (tecla === 'm') silenciar();
+    else if (tecla === 'f') juego.scale.toggleFullscreen();
     else if (tecla === 'g') agrandar();
     else if (e.key === 'Escape' && document.body.classList.contains('modo-grande')) agrandar(false);
 });
@@ -310,7 +362,7 @@ function create() {
     this.physics.add.collider(this.lavaes, this.floor)
 
     // Configurar la colisión entre el jugador y los enemigos
-    this.physics.add.collider(this.mascotaGesi, this.enemies, onHitEnemy, null, this);// muerte con enemigo
+    this.physics.add.collider(this.mascotaGesi, this.enemies, onHitEnemy, vivo, this);// muerte con enemigo
 
     this.physics.add.collider(this.mascotaGesi, this.lavaes, onlava, null, this);// muere con lava
 
@@ -318,17 +370,17 @@ function create() {
     this.physics.add.collider(this.lavaesgota, this.floor, salpicar, (_gota, piso) => !piso.esGotero, this);
     this.physics.add.collider(this.lavaesgota, this.moviles, salpicar, null, this);
 
-    this.physics.add.collider(this.mascotaGesi, this.lavaesgota, onlavagotasgesi, null, this);// muere con lava
+    this.physics.add.collider(this.mascotaGesi, this.lavaesgota, onlavagotasgesi, vivo, this);// muere con lava
 
-    this.physics.add.overlap(this.mascotaGesi, this.coins, collectCoin, null, this);
+    this.physics.add.overlap(this.mascotaGesi, this.coins, collectCoin, vivo, this);
 
     // bloques invisibles: solo chocan si Gesi los golpea desde abajo (o si ya aparecieron)
     this.physics.add.collider(this.mascotaGesi, this.invisibles, revelarBloque,
         (g, b) => b.revelado || (g.body.velocity.y < 0 && g.body.top >= b.body.bottom - 12), this);
     this.physics.add.collider(this.enemies, this.invisibles, null, (_e, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.bolas, () => killgesi(this));
-    this.physics.add.overlap(this.mascotaGesi, this.carcajes, recogerCarcaj, null, this);
-    this.physics.add.overlap(this.mascotaGesi, this.premios, recogerPremio, null, this);
+    this.physics.add.overlap(this.mascotaGesi, this.carcajes, recogerCarcaj, vivo, this);
+    this.physics.add.overlap(this.mascotaGesi, this.premios, recogerPremio, vivo, this);
 
     // flechas
     this.physics.add.overlap(this.flechasGrupo, this.enemies, (flecha, enemy) => {
@@ -379,6 +431,8 @@ function create() {
     this.recursoText = this.add.text(370, 15, '', estiloHud)
         .setScrollFactor(0).setDepth(50);
     actualizarRecurso(this);
+    this.muertesText = this.add.text(VISTA.width - 130, 15, `☠ ${muertes}`, estiloHud)
+        .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
     this.nivelText = this.add.text(VISTA.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
@@ -452,7 +506,7 @@ function crearSeleccion() {
     this.add.image(VISTA.width / 2, VISTA.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(0.625).setTint(0x2c3140);
     this.nieblaAlta.setDepth(1);
 
-    this.add.text(VISTA.width / 2, 22, 'ELIGE TU PERSONAJE', {
+    this.add.text(VISTA.width / 2, 22, 'ELIGE TU HEROE', {
         fontFamily: '"Press Start 2P", monospace', fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 5
     }).setOrigin(0.5);
 
@@ -477,6 +531,7 @@ function crearSeleccion() {
             `★ ${pj.pasiva}`,
         ];
         this.add.text(x, 262, lineas.join('\n'), { ...estilo('11px'), lineSpacing: 6 }).setOrigin(0.5);
+        this.add.text(x, 322, `"${pj.frase}"`, { ...estilo('10px', '#b9c6e0'), fontStyle: 'italic', wordWrap: { width: 210 } }).setOrigin(0.5);
         panel.on('pointerdown', () => {
             if (this.indiceSel === i) empezarJuego(this, true);
             else this.sound.play('menu_mover', { volume: 0.5 });
@@ -554,6 +609,7 @@ function reiniciarPartida() {
     score = 0;
     scoreInicioNivel = 0;
     checkpointX = null;
+    muertes = 0;
 }
 
 // ---------- Partida guardada (en el navegador, sobrevive a cerrar la página) ----------
@@ -561,7 +617,7 @@ const CLAVE_GUARDADO = 'monhabell-aventura-partida';
 
 function guardarPartida() {
     try {
-        localStorage.setItem(CLAVE_GUARDADO, JSON.stringify({ nivel: nivelActual, score: scoreInicioNivel, personaje: personajeId }));
+        localStorage.setItem(CLAVE_GUARDADO, JSON.stringify({ nivel: nivelActual, score: scoreInicioNivel, personaje: personajeId, muertes }));
     } catch (_e) { /* sin almacenamiento disponible: se juega igual, sin guardar */ }
 }
 
@@ -585,6 +641,7 @@ function continuarPartida(p) {
     score = p.score || 0;
     scoreInicioNivel = score;
     checkpointX = null;
+    muertes = p.muertes || 0;
 }
 
 // texturas dibujadas con código (no hay imágenes para estas)
@@ -1512,10 +1569,11 @@ function completarNivel(mascotaGesi) {
 
     this.time.delayedCall(ultimo ? 6000 : 3500, () => {
         if (ultimo) {
-            // juego terminado: volver a elegir personaje y empezar de cero
+            // juego terminado: escena final y luego se empieza de cero
+            const resumen = { personaje: personajeId, score, muertes };
             borrarPartida();
             reiniciarPartida();
-            this.scene.start('seleccion');
+            this.scene.start('final', resumen);
             return;
         }
         nivelActual++;
@@ -1657,19 +1715,21 @@ function update(time, delta) {
     } else {
         if (!g.body.allowGravity) g.body.setAllowGravity(true);
 
+        // la velocidad va en px/s: el personaje corre igual en pantallas de 60 Hz o de 144 Hz
         if (this.keys.left.isDown) {
             enSuelo && animar(this, 'run');
-            g.x -= 2 * v;
-            g.setVelocityX(-100 * v);
+            g.setVelocityX(-VEL_CARRERA * v);
             g.flipX = true;
         } else if (this.keys.right.isDown) {
             enSuelo && animar(this, 'run');
-            g.x += 2 * v;
-            g.setVelocityX(100 * v);
+            g.setVelocityX(VEL_CARRERA * v);
             g.flipX = false;
         } else if (enSuelo) {
             animar(this, 'idle');
             g.setVelocityX(0);
+        } else if (Math.abs(g.body.velocity.x) > VEL_DERIVA * v) {
+            // al soltar la flecha en el aire sigue avanzando, pero más lento (como antes)
+            g.setVelocityX(Math.sign(g.body.velocity.x) * VEL_DERIVA * v);
         }
     }
 
@@ -1717,6 +1777,34 @@ function moveFloorPiece(floorPiece, newX) {
 }
 
 // daño: cuánta salud quita durante la pelea con el jefe (fuera de la pelea, cualquier golpe mata)
+// los enemigos, las gotas y los premios dejan de interactuar con el cuerpo después de morir
+const vivo = g => !g.isDead;
+
+// Cómo queda el cuerpo al morir (sin saltos ni atravesar el suelo):
+// - lava o hueco: se hunde despacio en la lava, brillando, y desaparece
+// - golpe, trampa o enemigo: sigue chocando con el suelo; si estaba en el aire cae
+//   con la gravedad normal y termina tendido donde murió, con un pequeño empujón hacia atrás
+function caerMuerto(game, causa) {
+    const g = game.mascotaGesi;
+    g.body.setAllowGravity(true);
+    if (causa === 'caida') {
+        g.body.checkCollision.none = true; // ya está dentro de la lava: no hay suelo donde apoyarse
+        g.setCollideWorldBounds(false);    // se hunde por debajo del borde de la pantalla
+        g.body.setAllowGravity(false);
+        g.setVelocity(0, 40);
+        g.setTint(0xff7a3d);
+        game.tweens.add({ targets: g, alpha: 0, delay: 500, duration: 1100 });
+        const brillo = game.add.image(g.x, SUELO_Y + 6, 'brillo').setDepth(41).setScale(1.6)
+            .setTint(0xff5a1f).setAlpha(0.8).setBlendMode('ADD');
+        game.tweens.add({ targets: brillo, alpha: 0, scale: 2.4, duration: 1200, onComplete: () => brillo.destroy() });
+        return;
+    }
+    // empujón corto en sentido contrario a donde mira, y frena por rozamiento contra el suelo
+    g.setVelocityX(g.flipX ? 70 : -70);
+    if (g.body.velocity.y < 0) g.setVelocityY(0); // si iba subiendo, empieza a caer en ese punto
+    g.setDragX(500);
+}
+
 function killgesi(game, causa, daño = 20) {
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
@@ -1747,22 +1835,20 @@ function killgesi(game, causa, daño = 20) {
     mascotaGesi.isDead = true;
     game.atacando = false;
     game.dashHasta = 0;
-    mascotaGesi.body.setAllowGravity(true);
     mascotaGesi.anims.play(`${game.pj.id}-dead`);
-    mascotaGesi.setCollideWorldBounds(false);
+    caerMuerto(game, causa);
     game.musica.stop();
     game.musicaBatalla?.stop();
     sound.add('gameover', { volume: 1 }).play();
 
     vidas = Math.max(0, vidas - 1);
+    muertes++;
+    game.muertesText?.setText(`☠ ${muertes}`);
+    if (game.muertesText) game.tweens.add({ targets: game.muertesText, scale: 1.4, yoyo: true, duration: 140 });
     actualizarCorazones(game);
     if (game.corazones[vidas]) game.tweens.add({ targets: game.corazones[vidas], scale: 1.3, yoyo: true, duration: 150 });
     score = scoreInicioNivel;
 
-    mascotaGesi.body.checkCollision.none = true;
-    mascotaGesi.setVelocityX(0);
-
-    game.time.delayedCall(120, () => mascotaGesi.setVelocityY(-200));
 
     if (vidas <= 0) {
         // sin corazones: GAME OVER y se vuelve al inicio del juego

@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game - Monhabell</title>
+    <title>Monhabell Aventura: La Noche Eterna</title>
+    <meta name="description" content="Plataformas troll de fantasía: elige entre Gesi, Leo y Zeno, esquiva trampas que mienten y derrota al Rey Troll para devolver el sol a Monhabell.">
+    <link rel="icon" type="image/png" href="assets/favicon.png">
     <script src="./phaser.min.js"></script>
     <script type="module" src="./game.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
@@ -42,6 +44,61 @@
             overflow: hidden;
             border: 3px solid #00ffff;
         }
+
+        #game { position: relative; }
+
+        .botones-flotantes {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            z-index: 10;
+            display: flex;
+            gap: 6px;
+            opacity: 0.55;
+            transition: opacity 0.2s;
+        }
+
+        .botones-flotantes:hover,
+        .botones-flotantes:focus-within {
+            opacity: 1;
+        }
+
+        .boton-flotante {
+            width: 38px;
+            height: 38px;
+            padding: 7px;
+            display: grid;
+            place-items: center;
+            background: rgba(4, 18, 31, 0.75);
+            border: 2px solid rgba(0, 255, 255, 0.6);
+            border-radius: 8px;
+            color: #9ff3ff;
+            cursor: pointer;
+        }
+
+        .boton-flotante:hover {
+            background: rgba(0, 70, 120, 0.9);
+            color: #ffe066;
+        }
+
+        .boton-flotante:focus-visible {
+            outline: 3px solid #ffe066;
+            outline-offset: 2px;
+        }
+
+        .boton-flotante svg {
+            width: 100%;
+            height: 100%;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .boton-flotante .ico-off { display: none; }
+        .boton-flotante[aria-pressed="true"] .ico-on { display: none; }
+        .boton-flotante[aria-pressed="true"] .ico-off { display: inline; }
 
         /* el juego se dibuja al doble de resolución, así que se ve nítido sin forzar píxeles */
         #game canvas {
@@ -125,6 +182,48 @@
             width: min(100vw, calc((100vh - 70px) * 2.079));
             border-radius: 0;
             border-width: 2px;
+        }
+
+        /* dentro de itch.io (iframe): solo el juego, llenando todo el espacio */
+        body.embebido {
+            background: #05070f;
+            min-height: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body.embebido .title,
+        body.embebido .historia,
+        body.embebido .controls,
+        body.embebido .footer,
+        body.embebido .barra-juego {
+            display: none;
+        }
+
+        body.embebido .game-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+
+        body.embebido #game {
+            width: min(100vw, calc(100vh * 2.079));
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .historia {
+            max-width: 760px;
+            margin: 26px auto 0;
+            padding: 0 16px;
+            line-height: 1.8;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .historia strong {
+            color: #ffe066;
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -224,9 +323,25 @@
     </style>
 </head>
 <body>
+    <script>
+        // en itch.io el juego se muestra dentro de un iframe
+        if (window.self !== window.top) document.body.classList.add('embebido');
+    </script>
     <div class="game-container">
         <h1 class="title">MONHABELL AVENTURA</h1>
-        <div id="game"></div>
+        <div id="game">
+            <!-- botones sobre el juego: siguen visibles en itch.io y en pantalla completa -->
+            <div class="botones-flotantes">
+                <button type="button" class="boton-flotante" id="btn-sonido" aria-pressed="false"
+                    aria-label="Silenciar sonido" title="Silenciar (tecla M)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico-on" d="M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/><path class="ico-off" d="M4 9h4l5-4v14l-5-4H4zM16 9l6 6M22 9l-6 6"/></svg>
+                </button>
+                <button type="button" class="boton-flotante" id="btn-fs-flotante"
+                    aria-label="Pantalla completa" title="Pantalla completa (tecla F)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="ico-on" d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path class="ico-off" d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+                </button>
+            </div>
+        </div>
         <div class="barra-juego">
             <button type="button" class="boton-juego" id="btn-agrandar" aria-pressed="false"
                 title="Agranda el juego para que ocupe toda la ventana (tecla G)">⤢ Agrandar</button>
@@ -236,6 +351,10 @@
                 title="Borra el progreso guardado y empieza otra vez desde el nivel 1">↺ Empezar desde el nivel 1</button>
         </div>
         
+        <p class="historia">El <strong>Rey Troll</strong> robó el Cristal del Alba y la noche nunca termina en Monhabell.
+            Sus trolls llenaron el camino de trampas: carteles que mienten, monedas falsas y suelos que desaparecen.
+            Elige a tu héroe y devuélvele el sol al reino... si puedes.</p>
+
         <div class="controls">
             <h2>CONTROLES</h2>
             <div class="arrows">
@@ -253,10 +372,10 @@
                     <div class="arrow-key" id="key-c">C</div>
                 </div>
             </div>
-            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>G: agrandar · F: pantalla completa · Esc: salir<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
+            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>G: agrandar · F: pantalla completa · M: silenciar · Esc: salir<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
         </div>
         
-        <p class="footer">Juega con las flechas del teclado | © 2024 Monhabell</p>
+        <p class="footer">Juega con las flechas del teclado | © 2026 Monhabell</p>
     </div>
 
     <script>
