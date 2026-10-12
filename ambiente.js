@@ -11,12 +11,13 @@
 // lo cercano más oscuro y con más contraste.
 // Cada nivel puede tener 'oscuridad' (0 = nada, 1 = negro total fuera de la luz).
 //
-// La niebla cambia sola: a veces se despeja y luego se vuelve densa (ver cicloNiebla).
-// La luz también: a veces todo se ilumina y otras se oscurece casi por completo (ver cicloLuz).
-// En los niveles más altos la niebla densa aparece más seguido.
+// Cada región tiene su propia atmósfera (ver regiones.js): oscuridad, partículas, niebla y
+// tormenta. Los efectos fuertes (apagón, niebla densa) no salen al azar: son momentos
+// guionizados en un punto del nivel, con pausas largas entre ellos y nunca durante el jefe.
 
 import { crearPaisaje, crearRuinas } from "./castillos.js"
 import { crearFondoCueva, moverFondoCueva } from "./mazmorra.js"
+import { regionDe, eventosDeRegion, PAUSA_ENTRE_EVENTOS, OSCURIDAD_MAXIMA } from "./regiones.js"
 
 const ANCHO = 790;
 const ALTO = 380;
@@ -306,7 +307,8 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     const tipo = nivel.nubes ? 'afuera' : 'cueva';
     const p = PALETAS[tipo];
     const reducir = reducirMovimiento();
-    const oscuridad = nivel.oscuridad ?? Math.min(0.9, 0.62 + nivelIndice * 0.055);
+    const region = regionDe(nivelIndice);
+    const oscuridad = Math.min(OSCURIDAD_MAXIMA, nivel.oscuridad ?? region.oscuridad);
     scene.capasNiebla = scene.capasNiebla || [];
 
     // niebla general suave sobre todo
@@ -317,31 +319,24 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     scene.nieblaBaja = scene.add.tileSprite(0, ALTO - 140, ANCHO, 140, 'niebla_baja')
         .setOrigin(0).setScrollFactor(0).setDepth(31).setAlpha(0.6).setTint(p.nieblaSuelo);
 
-    // partículas: brasas que suben en la cueva, polvo y esporas afuera
-    const frecuencia = reducir ? 400 : (tipo === 'cueva' ? 110 : 170);
-    scene.particulas = scene.add.particles(0, 0, 'particula', tipo === 'cueva' ? {
-        x: { min: 0, max: ANCHO }, y: ALTO + 5,
-        speedY: { min: -55, max: -18 }, speedX: { min: -12, max: 12 },
-        lifespan: { min: 4000, max: 7000 }, scale: { start: 0.9, end: 0.1 },
-        alpha: { start: 0.9, end: 0 }, tint: p.particula, blendMode: 'ADD', frequency: frecuencia,
-    } : {
-        x: { min: -20, max: ANCHO }, y: { min: 40, max: ALTO },
-        speedX: { min: 4, max: 18 }, speedY: { min: -8, max: 6 },
-        lifespan: { min: 5000, max: 9000 }, scale: { start: 0.7, end: 0.2 },
-        alpha: { start: 0.5, end: 0 }, tint: p.particula, blendMode: 'ADD', frequency: frecuencia,
-    }).setScrollFactor(0).setDepth(32);
+    // partículas propias de la región (luciérnagas, brasas, ceniza, polvo o lluvia)
+    scene.particulas = scene.add.particles(0, 0, 'particula', configParticulas(region.particulas, p, reducir))
+        .setScrollFactor(0).setDepth(32);
 
-    // oscuridad del color de la noche, con luz alrededor del personaje
     // pared de niebla que solo se ve cuando la niebla está densa
     scene.nieblaDensa = scene.add.tileSprite(0, 0, ANCHO, ALTO, 'niebla')
         .setOrigin(0).setScrollFactor(0).setDepth(33).setAlpha(0).setTint(p.niebla).setTileScale(1.6);
 
+    // oscuridad del color de la noche, con luz alrededor del personaje
     scene.oscuridad = scene.add.image(0, 0, `oscuridad_${tipo}`)
         .setScrollFactor(0).setDepth(40).setAlpha(oscuridad);
     scene.oscuridadBase = oscuridad;
+    scene.estadoLuz = { alpha: oscuridad, radio: 1 };
 
-    cicloNiebla(scene, nivelIndice);
-    cicloLuz(scene, nivelIndice, oscuridad);
+    // niebla de la región (sin cambios bruscos) y momentos fuertes guionizados
+    cicloNiebla(scene, region, reducir);
+    scene.eventosAmbiente = eventosDeRegion(region, nivel.meta).map(e => ({ ...e, hecho: false }));
+    scene.ultimoEventoFuerte = -Infinity;
 
     // luz cálida de antorcha alrededor del personaje
     scene.luzCalida = scene.add.image(0, 0, 'brillo').setDepth(41).setScale(2.6)
@@ -355,78 +350,88 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
         if (!reducir) scene.tweens.add({ targets: brillo, alpha: 0.26, yoyo: true, repeat: -1, duration: 900 + Math.random() * 700, ease: 'Sine.inOut' });
     });
 
-    // relámpagos en los niveles al aire libre (no si el sistema pide reducir movimiento)
-    if (nivel.nubes && !reducir) {
+    // relámpagos solo en las regiones con tormenta (y no si el sistema pide reducir movimiento)
+    if (region.relampagos && !reducir) {
+        const [min, max] = region.relampagos;
         const relampago = () => {
-            scene.cameras.main.flash(110, 90, 105, 150);
-            scene.time.delayedCall(Phaser.Math.Between(250, 700), () => scene.sound.play('trueno', { volume: 0.55 }));
-            scene.time.delayedCall(200, () => scene.cameras.main.flash(80, 60, 70, 110));
-            scene.time.delayedCall(Phaser.Math.Between(8000, 16000), relampago);
+            if (!scene.peleaJefe) {
+                scene.cameras.main.flash(110, 90, 105, 150);
+                scene.time.delayedCall(Phaser.Math.Between(250, 700), () => scene.sound.play('trueno', { volume: 0.55 }));
+                scene.time.delayedCall(200, () => scene.cameras.main.flash(80, 60, 70, 110));
+            }
+            scene.time.delayedCall(Phaser.Math.Between(min, max), relampago);
         };
-        scene.time.delayedCall(Phaser.Math.Between(4000, 9000), relampago);
+        scene.time.delayedCall(Phaser.Math.Between(min / 2, max / 2), relampago);
     }
 }
 
-// ---------- Niebla que cambia: despejada, normal y densa ----------
-// despejada = sin nada de niebla; cada nivel (y cada intento) empieza despejado
-const ESTADOS_NIEBLA = { despejada: 0, normal: 1, densa: 2 };
-
-function cicloNiebla(scene, nivelIndice) {
-    // cada nivel (y cada intento) empieza despejado, sin niebla; la niebla llega después
-    scene.estadoNiebla = { v: 0, nombre: 'despejada' };
-    const probDensa = Math.min(0.6, 0.3 + 0.06 * nivelIndice); // más niebla densa en niveles altos
-
-    const cambiar = () => {
-        if (!scene.sys.isActive()) return;
-        const actual = scene.estadoNiebla.nombre;
-        // nunca repite el mismo estado dos veces seguidas
-        let siguiente;
-        if (actual === 'densa') siguiente = Math.random() < 0.6 ? 'despejada' : 'normal';
-        else if (actual === 'despejada') siguiente = Math.random() < probDensa + 0.25 ? 'densa' : 'normal';
-        else siguiente = Math.random() < probDensa ? 'densa' : 'despejada';
-
-        scene.estadoNiebla.nombre = siguiente;
-        scene.tweens.add({ targets: scene.estadoNiebla, v: ESTADOS_NIEBLA[siguiente], duration: Phaser.Math.Between(3500, 5000), ease: 'Sine.inOut' });
-        if (siguiente === 'densa') {
-            scene.mostrarMensajeCorto?.('La niebla se espesa...');
-            scene.sound.play('viento', { volume: 0.4 });
-        }
-        scene.time.delayedCall(Phaser.Math.Between(10000, 22000), cambiar);
-    };
-    scene.time.delayedCall(Phaser.Math.Between(8000, 14000), cambiar);
+// partículas de cada región: identifican el lugar sin tapar la vista
+function configParticulas(tipo, p, reducir) {
+    const menos = f => reducir ? f * 3 : f;
+    const comun = { blendMode: 'ADD' };
+    switch (tipo) {
+        case 'brasas': // suben desde la lava
+            return { ...comun, x: { min: 0, max: ANCHO }, y: ALTO + 5, speedY: { min: -55, max: -18 }, speedX: { min: -12, max: 12 },
+                lifespan: { min: 4000, max: 7000 }, scale: { start: 0.9, end: 0.1 }, alpha: { start: 0.9, end: 0 }, tint: p.particula, frequency: menos(110) };
+        case 'luciernagas': // pocas, cálidas, flotan despacio y titilan
+            return { ...comun, x: { min: 0, max: ANCHO }, y: { min: 140, max: ALTO - 30 }, speedX: { min: -10, max: 10 }, speedY: { min: -8, max: 8 },
+                lifespan: { min: 3000, max: 5000 }, scale: { start: 0.5, end: 0.3 }, alpha: { start: 0.9, end: 0, ease: 'Sine.easeIn' }, tint: [0xffe27a, 0xd8ff7a], frequency: menos(380) };
+        case 'ceniza': // cae lenta, gris
+            return { x: { min: -20, max: ANCHO + 20 }, y: -10, speedX: { min: -20, max: -5 }, speedY: { min: 15, max: 35 },
+                lifespan: { min: 9000, max: 12000 }, scale: { start: 0.5, end: 0.3 }, alpha: { start: 0.45, end: 0 }, tint: [0x9a9aa6, 0x7a7a86], frequency: menos(260) };
+        case 'lluvia': // trazos finos y transparentes en diagonal
+            return { x: { min: 0, max: ANCHO + 120 }, y: -10, speedX: { min: -90, max: -70 }, speedY: { min: 420, max: 480 },
+                lifespan: 1000, scaleX: 0.3, scaleY: 2.4, rotate: 10, alpha: { start: 0.5, end: 0.3 }, tint: 0x9fb8ff, frequency: menos(30) };
+        default: // 'polvo': motas que flotan en el aire quieto de la fortaleza
+            return { ...comun, x: { min: -20, max: ANCHO }, y: { min: 40, max: ALTO }, speedX: { min: 2, max: 8 }, speedY: { min: -4, max: 4 },
+                lifespan: { min: 5000, max: 9000 }, scale: { start: 0.5, end: 0.2 }, alpha: { start: 0.35, end: 0 }, tint: [0xd8c8b0, 0xa8a0c0], frequency: menos(300) };
+    }
 }
 
-// ---------- Luz que cambia: iluminado, normal y oscuro ----------
-// alpha: qué tan oscuro está lejos del personaje; radio: tamaño del círculo de luz
-function cicloLuz(scene, nivelIndice, oscuridadNormal) {
-    const ESTADOS = {
-        iluminado: { alpha: 0.12, radio: 2.3 },
-        normal: { alpha: oscuridadNormal, radio: 1 },
-        oscuro: { alpha: 0.97, radio: 0.55 },
-    };
-    scene.estadoLuz = { ...ESTADOS.normal, nombre: 'normal' };
-    const probOscuro = Math.min(0.6, 0.3 + 0.06 * nivelIndice); // más oscuridad en niveles altos
+// ---------- Niebla de la región ----------
+// v: 0 = despejada, 1 = normal, 2 = densa. La densa solo llega con un evento guionizado.
+const NIEBLA_BASE = { suave: 0.7, humo: 1.2, variable: 1 };
 
+function cicloNiebla(scene, region, reducir) {
+    const base = NIEBLA_BASE[region.niebla] ?? 1;
+    scene.estadoNiebla = { v: base, base };
+    if (region.niebla !== 'variable' || reducir) return;
+    // va y viene despacio entre despejada y normal, sin avisos ni sonidos
     const cambiar = () => {
         if (!scene.sys.isActive()) return;
-        const actual = scene.estadoLuz.nombre;
-        let siguiente;
-        if (actual === 'oscuro') siguiente = Math.random() < 0.6 ? 'iluminado' : 'normal';
-        else if (actual === 'iluminado') siguiente = Math.random() < probOscuro + 0.25 ? 'oscuro' : 'normal';
-        else siguiente = Math.random() < probOscuro ? 'oscuro' : 'iluminado';
-
-        scene.estadoLuz.nombre = siguiente;
-        scene.tweens.add({
-            targets: scene.estadoLuz, ...ESTADOS[siguiente],
-            duration: Phaser.Math.Between(3000, 4500), ease: 'Sine.inOut',
-        });
-        if (siguiente === 'oscuro') {
-            scene.mostrarMensajeCorto?.('Se apagan las luces...');
-            scene.sound.play('apagon', { volume: 0.45 });
+        if (!scene.eventoActivo) {
+            const destino = scene.estadoNiebla.v > 0.7 ? 0.35 : 1;
+            scene.tweens.add({ targets: scene.estadoNiebla, v: destino, duration: Phaser.Math.Between(5000, 7000), ease: 'Sine.inOut' });
         }
-        scene.time.delayedCall(Phaser.Math.Between(9000, 18000), cambiar);
+        scene.time.delayedCall(Phaser.Math.Between(15000, 25000), cambiar);
     };
-    scene.time.delayedCall(Phaser.Math.Between(12000, 18000), cambiar);
+    scene.time.delayedCall(Phaser.Math.Between(10000, 16000), cambiar);
+}
+
+// ---------- Momentos fuertes guionizados ----------
+// Se activan al CRUZAR su punto del nivel. Si reapareces más adelante, no se repiten.
+function revisarEventos(scene, time, x) {
+    const ev = (scene.eventosAmbiente || []).find(e => !e.hecho && x >= e.x);
+    if (!ev) return;
+    ev.hecho = true;
+    if (x > ev.x + 400) return; // reapareció más adelante: ese momento ya pasó
+    if (scene.peleaJefe || scene.eventoActivo || time - scene.ultimoEventoFuerte < PAUSA_ENTRE_EVENTOS) return;
+    scene.ultimoEventoFuerte = time;
+    scene.eventoActivo = true;
+    scene.mostrarMensajeCorto?.(ev.texto);
+    const luz = scene.estadoLuz, niebla = scene.estadoNiebla;
+    const terminar = () => { scene.eventoActivo = false; };
+    if (ev.tipo === 'apagon') {
+        scene.sound.play('apagon', { volume: 0.45 });
+        const normal = { alpha: scene.oscuridadBase, radio: 1 };
+        scene.tweens.add({ targets: luz, alpha: Math.min(OSCURIDAD_MAXIMA, scene.oscuridadBase + 0.2), radio: 0.8, duration: 2500, ease: 'Sine.inOut' });
+        scene.time.delayedCall(ev.dura, () => scene.tweens.add({ targets: luz, ...normal, duration: 3000, ease: 'Sine.inOut', onComplete: terminar }));
+    } else {
+        scene.sound.play('viento', { volume: 0.4 });
+        scene.tweens.killTweensOf(niebla);
+        scene.tweens.add({ targets: niebla, v: 2, duration: 3000, ease: 'Sine.inOut' });
+        scene.time.delayedCall(ev.dura, () => scene.tweens.add({ targets: niebla, v: niebla.base, duration: 3500, ease: 'Sine.inOut', onComplete: terminar }));
+    }
 }
 
 // cuánto se ve cada capa según la intensidad v (0 = despejada, 1 = normal, 2 = densa)
@@ -437,15 +442,16 @@ function aplicarNiebla(scene) {
     scene.capasNiebla.forEach(({ capa, base }) => capa.setAlpha(Math.min(0.9, base * v)));
     scene.nieblaAlta.setAlpha(subir(v, 0.25, 0.5));
     scene.nieblaBaja.setAlpha(subir(v, 0.55, 0.85));
-    scene.nieblaDensa.setAlpha(subir(v, 0.2, 0.6));
+    scene.nieblaDensa.setAlpha(subir(v, 0.2, 0.45)); // densa, pero se siguen viendo plataformas y enemigos
     // con niebla densa todo se ve un poco más oscuro; despejada, un poco más claro
     const luz = scene.estadoLuz;
-    scene.oscuridad.setAlpha(Phaser.Math.Clamp(luz.alpha + (v - 1) * 0.06, 0, 0.97));
+    scene.oscuridad.setAlpha(Phaser.Math.Clamp(luz.alpha + (v - 1) * 0.06, 0, OSCURIDAD_MAXIMA));
 }
 
 export function actualizarAmbiente(scene, time, objetivo) {
     if (!scene.oscuridad) return;
     const cam = scene.cameras.main;
+    if (!objetivo.isDead) revisarEventos(scene, time, objetivo.x);
     aplicarNiebla(scene);
     scene.nieblaDensa.tilePositionX = cam.scrollX * 0.7 + time * 0.02;
     scene.capasNiebla.forEach(({ capa, factor, vel }) => { capa.tilePositionX = cam.scrollX * factor + time * vel; });

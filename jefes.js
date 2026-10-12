@@ -1,15 +1,23 @@
-// Jefes de final de nivel: trolls (CraftPix "2D Game Troll Free Character Sprites").
+// El jefe: el Rey Troll (CraftPix "2D Game Troll Free Character Sprites").
 //
 // Antes de la bandera hay una arena. Al entrar se cierran dos muros de roca, el troll cae
 // del cielo y aparece su barra de vida. Hay que quitarle toda la vida para poder llegar a la meta.
-// - camina hacia el jugador y lo golpea con el garrote cuando está cerca
-// - ataques especiales al azar: salto con onda expansiva, embestida, lanzar roca, rugido que
-//   hace caer rocas y (furioso) terremoto de tres saltos. Antes de cada uno aparece un "!".
-// - al chocar con un muro tras la embestida queda aturdido: es el momento de atacarlo
-// - con la mitad de la vida se enfurece: más rápido y ataca más seguido
+//
+// Es SIEMPRE el mismo troll: cada vez que lo vences huye herido ("¡volveré más fuerte!") y en el
+// nivel siguiente vuelve habiendo aprendido algo nuevo. Cada encuentro enseña UNA cosa (se anuncia
+// al empezar) y el último combina todo en tres fases:
+//   1 · garrote y salto con onda                    -> saltar la onda
+//   2 · + embestida (choca contra el muro: aturdido) -> aprovechar la ventana
+//   3 · + coraza frontal y roca lanzada             -> atacar por la espalda, desde arriba o aturdido
+//   4 · + rugido (caen rocas); la coraza se rompe   -> leer sombras; la pelea cambia de fase
+//   5 · + terremoto al enfurecerse                  -> saltar con él
+//   6 · tres fases: con coraza, sin coraza y furioso
+// - camina hacia el jugador y lo golpea con el garrote cuando está cerca (destello rojo antes)
+// - cada ataque especial tiene su aviso: un símbolo y un color propios sobre la cabeza
+// - la dificultad sale de aprender sus patrones, no de que tenga más vida
 // - durante la pelea el escudo no se recarga avanzando: solo aparecen cargas de escudo
 //
-// api: { killgesi(scene), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
+// api: { killgesi(scene, daño, origenX), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
 
 const SUELO_Y = 332;
 export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para verla entera)
@@ -18,15 +26,32 @@ const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
 const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
 const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
 
-// un jefe por nivel (se repite si hay más niveles)
+// un encuentro por nivel con el mismo Rey Troll (se repite el último si hay más niveles)
+//   ataques: especiales que ya sabe usar ('terremoto' solo cuando está furioso)
+//   coraza: lo protege de frente mientras su vida esté por ENCIMA de esa fracción (null = sin coraza)
+//   furia: con esa fracción de vida o menos se enfurece (más rápido y ataca más seguido)
+//   leccion: lo que se anuncia al empezar · final: el último no huye, cae derrotado
+const NOMBRE_JEFE = 'EL REY TROLL';
 export const JEFES = [
-    { nombre: 'TROLL DEL BOSQUE', troll: 1, vida: 12, vel: 70, escala: 0.6 },
-    { nombre: 'TROLL DE LA CUEVA', troll: 2, vida: 16, vel: 80, escala: 0.6 },
-    { nombre: 'TROLL DEL PUENTE', troll: 3, vida: 20, vel: 90, escala: 0.62 },
-    { nombre: 'TROLL DE LA FORTALEZA', troll: 1, vida: 26, vel: 100, escala: 0.65 },
-    { nombre: 'TROLL DEL VOLCÁN', troll: 2, vida: 32, vel: 110, escala: 0.66 },
-    { nombre: 'EL REY TROLL', troll: 3, vida: 40, vel: 120, escala: 0.72 },
+    { encuentro: 1, troll: 3, vida: 10, vel: 70, escala: 0.56, ataques: ['salto'], coraza: null, furia: 0,
+        leccion: 'Cuando salta, su onda recorre el suelo: ¡salta tú también!' },
+    { encuentro: 2, troll: 3, vida: 14, vel: 80, escala: 0.58, ataques: ['salto', 'embestida'], coraza: null, furia: 0.4,
+        leccion: 'NUEVO: EMBESTIDA. Si choca contra el muro queda aturdido.' },
+    { encuentro: 3, troll: 3, vida: 16, vel: 85, escala: 0.6, ataques: ['salto', 'embestida', 'roca'], coraza: 0, furia: 0.4,
+        leccion: 'NUEVO: CORAZA. De frente no le haces nada: por la espalda, desde arriba o aturdido.' },
+    { encuentro: 4, troll: 3, vida: 20, vel: 95, escala: 0.62, ataques: ['salto', 'embestida', 'roca', 'rugido'], coraza: 0.5, furia: 0.5,
+        leccion: 'NUEVO: RUGIDO. Hace caer rocas: mira sus sombras.' },
+    { encuentro: 5, troll: 3, vida: 24, vel: 105, escala: 0.66, ataques: ['salto', 'embestida', 'roca', 'rugido', 'terremoto'], coraza: 0.5, furia: 0.6,
+        leccion: 'NUEVO: TERREMOTO. Cuando se enfurece salta tres veces: ¡salta con él!' },
+    { encuentro: 6, troll: 3, vida: 30, vel: 115, escala: 0.72, ataques: ['salto', 'embestida', 'roca', 'rugido', 'terremoto'], coraza: 0.66, furia: 0.33,
+        leccion: 'PELEA FINAL: coraza, rocas y furia. Usa todo lo que aprendiste.', final: true },
 ];
+// avisos de cada ataque especial: símbolo y color sobre la cabeza (siempre los mismos)
+const AVISOS = {
+    salto: ['↑', '#ffd27a'], embestida: ['»', '#ff5555'], roca: ['●', '#ffb070'],
+    rugido: ['!!', '#ff5555'], terremoto: ['≈', '#ff5555'],
+};
+const ATURDIDO_MS = 1100; // ventana para atacarlo tras chocar contra el muro (la coraza no lo protege)
 
 export function cargarJefes(scene) {
     [1, 2, 3].forEach(k => Object.values(ANIMS).forEach(([archivo]) => {
@@ -56,12 +81,19 @@ export function prepararJefe(scene, nivel, indice) {
     scene.curacionArena = Math.max(20, 45 - 5 * indice);
     const meta = nivel.meta;
     scene.jefe = {
-        datos, indice,
+        datos: { ...datos, nombre: NOMBRE_JEFE }, indice,
         arenaIni: meta - ANCHO_ARENA - 50, arenaFin: meta - 50,
         estado: 'esperando', vida: scene.vidaJefeInicial ?? datos.vida, vidaMax: datos.vida,
         reintento: scene.vidaJefeInicial != null,
         derrotado: false, sprite: null, muros: [],
     };
+    // antesala: un cartel de piedra (este no miente) anuncia la guarida
+    const cx = meta - ANCHO_ARENA - 260;
+    scene.add.rectangle(cx, (SUELO_Y + 150) / 2 + 10, 5, SUELO_Y - 160, 0x3a3440);
+    scene.add.text(cx, 150, datos.final ? 'TRONO DEL\nREY TROLL' : 'GUARIDA DEL\nREY TROLL', {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#ff9a9a', align: 'center',
+        backgroundColor: '#2a2230', padding: { x: 6, y: 5 },
+    }).setOrigin(0.5).setDepth(42);
 }
 
 // muro de roca que sale del suelo
@@ -72,6 +104,7 @@ function crearMuro(scene, x) {
     const cuerpo = scene.add.zone(x, SUELO_Y / 2, 40, SUELO_Y);
     scene.physics.add.existing(cuerpo, true);
     scene.physics.add.collider(scene.mascotaGesi, cuerpo);
+    scene.physics.add.collider(scene.enemies, cuerpo); // los enemigos normales no entran a la arena
     return { visual, tope, cuerpo };
 }
 
@@ -108,7 +141,8 @@ function empezarPelea(scene, api) {
 
     // los enemigos normales que estaban en la arena se desvanecen: el troll pelea solo
     scene.enemies.getChildren().slice().forEach(e => {
-        if (e.x > j.arenaIni - 40 && e.x < j.arenaFin + 40) {
+        const ex = e.body ? e.body.center.x : e.x; // el centro del cuerpo (la imagen empieza más a la izquierda)
+        if (ex > j.arenaIni - 40 && ex < j.arenaFin + 40) {
             e.body.enable = false;
             scene.tweens.add({ targets: e, alpha: 0, duration: 400, onComplete: () => e.destroy() });
         }
@@ -132,7 +166,11 @@ function empezarPelea(scene, api) {
     j.invulHasta = 0;
     j.ocupadoHasta = ahora + DURACION;
     j.enAire = true;
-    if (j.vida <= j.vidaMax / 2) { j.furioso = true; s.setTint(0xff8a8a); }
+    j.aturdidoHasta = 0;
+    j.coraza = tieneCoraza(j);
+    if (j.coraza) crearCoraza(scene, j);
+    if (d.furia && j.vida <= j.vidaMax * d.furia) j.furioso = true;
+    restaurarTinte(j);
 
     scene.physics.add.collider(s, scene.floor);
     j.muros.forEach(m => scene.physics.add.collider(s, m.cuerpo));
@@ -140,7 +178,7 @@ function empezarPelea(scene, api) {
     scene.physics.add.overlap(scene.flechasGrupo, s, (a, b) => {
         const flecha = a === s ? b : a;
         if (!flecha.perfora) flecha.destroy();
-        dañarJefe(scene, 1, api);
+        dañarJefe(scene, 1, api, flecha.x);
     });
 
     // rugido cuando cae
@@ -156,7 +194,7 @@ function empezarPelea(scene, api) {
         const nombre = scene.add.text(395, 178, d.nombre, {
             fontFamily: '"Press Start 2P", monospace', fontSize: '20px', color: '#ffe9a8', stroke: '#000', strokeThickness: 6,
         }).setOrigin(0.5).setScrollFactor(0).setDepth(72).setAlpha(0).setScale(1.6);
-        const sub = scene.add.text(395, 208, '— ¡DERRÓTALO PARA SEGUIR! —', {
+        const sub = scene.add.text(395, 210, `ENCUENTRO ${d.encuentro} · ${d.leccion}`, {
             fontFamily: 'monospace', fontSize: '11px', color: '#ffb4b4', stroke: '#000', strokeThickness: 3,
         }).setOrigin(0.5).setScrollFactor(0).setDepth(72).setAlpha(0);
         scene.tweens.add({ targets: franja, scaleX: 1, delay: 1100, duration: 350, ease: 'Cubic.out' });
@@ -165,6 +203,8 @@ function empezarPelea(scene, api) {
         scene.tweens.add({ targets: [franja, nombre, sub], alpha: 0, delay: DURACION - 500, duration: 400, onComplete: () => [franja, nombre, sub].forEach(o => o.destroy()) });
     } else {
         api.mostrarMensaje(scene, '¡OTRA VEZ!', 1200);
+        // al reintentar se repite la lección, corta
+        scene.time.delayedCall(1300, () => api.mostrarMensaje(scene, d.leccion, 2200));
     }
 
     // barra de vida del jefe (se llena hasta la vida que le queda)
@@ -225,34 +265,102 @@ function contactoConJefe(scene, api) {
         if (j.pisotones.length >= limite) sacudirse(scene);
         return;
     }
-    if (scene.protegido?.()) dañarJefe(scene, 1, api); // le pegas al chocar, pero igual te golpea
-    api.killgesi(scene, 15);
+    if (scene.protegido?.()) dañarJefe(scene, 1, api, g.body.center.x); // con la embestida de Leo le pegas al chocar, pero igual te golpea
+    api.killgesi(scene, 15, j.sprite.body.center.x);
 }
 
-export function dañarJefe(scene, cantidad, api) {
+// origenX: desde dónde llega el golpe (para la coraza); los pisotones desde arriba no lo pasan
+export function dañarJefe(scene, cantidad, api, origenX) {
     const j = scene.jefe;
     if (!j || j.estado !== 'pelea' || scene.time.now < j.invulHasta) return false;
+    // coraza: de frente no le entra nada, salvo que esté aturdido
+    if (j.coraza && origenX !== undefined && scene.time.now >= j.aturdidoHasta) {
+        const sb = j.sprite.body, frente = j.sprite.flipX ? -1 : 1;
+        if ((origenX - sb.center.x) * frente > 0) { rebotaEnCoraza(scene, j); return false; }
+    }
     j.vida = Math.max(0, j.vida - cantidad);
     scene.guardarVidaJefe?.(j.vida);
     j.invulHasta = scene.time.now + 250;
     j.barra.width = 280 * j.vida / j.vidaMax;
     const s = j.sprite;
     s.setTintFill(0xffffff);
-    scene.time.delayedCall(80, () => { if (s.active) { s.clearTint(); if (j.furioso) s.setTint(0xff8a8a); } });
+    scene.time.delayedCall(80, () => { if (s.active) restaurarTinte(j); });
     scene.sound.play('bump', { volume: 0.5 });
     api.addToScore(25, s, scene);
 
     if (j.vida <= 0) {
         derrotar(scene, api);
-    } else if (!j.furioso && j.vida <= j.vidaMax / 2) {
-        // con la mitad de la vida se enfurece
+        return true;
+    }
+    // cambio de fase: se le rompe la coraza
+    if (j.coraza && !tieneCoraza(j)) {
+        j.coraza = false;
+        romperCoraza(scene, j);
+        api.mostrarMensaje(scene, '¡SE LE ROMPE\nLA CORAZA!', 1300);
+    } else if (!j.furioso && j.datos.furia && j.vida <= j.vidaMax * j.datos.furia) {
+        // cambio de fase: se enfurece (más rápido, ataca más seguido y, si lo sabe, usa el terremoto)
         j.furioso = true;
-        s.setTint(0xff8a8a);
+        restaurarTinte(j);
         scene.sound.play('rugido', { volume: 0.8, rate: 1.2 });
         scene.cameras.main.shake(400, 0.007);
         api.mostrarMensaje(scene, '¡SE ENFURECE!', 1200);
     }
     return true;
+}
+
+// ---------- Coraza y tintes ----------
+function tieneCoraza(j) {
+    return j.datos.coraza !== null && j.datos.coraza !== undefined && j.vida > j.vidaMax * j.datos.coraza;
+}
+
+// placa de metal delante del troll, con un brillo azul que respira (se mueve con él en actualizarJefe)
+function crearCoraza(scene, j) {
+    j.brilloPlaca = scene.add.image(0, 0, 'brillo').setScale(0.9, 1.6).setTint(0x7f9cff).setAlpha(0.35).setBlendMode('ADD').setDepth(21);
+    j.placa = scene.add.image(0, 0, 'mz_bloque').setScale(0.9, 2.2).setTint(0xaab4ff).setDepth(22);
+    scene.tweens.add({ targets: j.brilloPlaca, alpha: 0.15, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.inOut' });
+}
+
+function moverCoraza(j) {
+    if (!j.placa) return;
+    const b = j.sprite.body, frente = j.sprite.flipX ? -1 : 1;
+    j.placa.setPosition(b.center.x + frente * (b.width / 2 + 4), b.center.y - 4);
+    j.brilloPlaca.setPosition(j.placa.x, j.placa.y);
+}
+
+function rebotaEnCoraza(scene, j) {
+    const ahora = scene.time.now;
+    if (ahora < (j.proxRebote || 0)) return;
+    j.proxRebote = ahora + 250;
+    scene.sound.play('bump', { volume: 0.6, rate: 2 });
+    if (j.placa) {
+        const chispa = scene.add.image(j.placa.x, j.placa.y - 10, 'brillo').setDepth(45).setScale(0.6).setTint(0xfff2a0).setBlendMode('ADD');
+        scene.tweens.add({ targets: chispa, scale: 1.2, alpha: 0, duration: 220, onComplete: () => chispa.destroy() });
+        scene.tweens.add({ targets: j.placa, x: j.placa.x + (j.sprite.flipX ? -3 : 3), yoyo: true, duration: 50 });
+    }
+    if (ahora > (j.proxTextoCoraza || 0)) {
+        j.proxTextoCoraza = ahora + 1500;
+        const t = scene.add.text(j.sprite.x, j.sprite.body.top - 24, '¡CORAZA!', {
+            fontFamily: '"Press Start 2P", monospace', fontSize: '9px', color: '#cfd6ff', stroke: '#000', strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(45);
+        scene.tweens.add({ targets: t, y: t.y - 16, alpha: 0, delay: 300, duration: 450, onComplete: () => t.destroy() });
+    }
+}
+
+function romperCoraza(scene, j) {
+    scene.sound.play('romper', { volume: 0.8 });
+    scene.cameras.main.shake(300, 0.01);
+    const p = j.placa;
+    j.placa = null;
+    j.brilloPlaca?.destroy();
+    if (p) scene.tweens.add({ targets: p, y: SUELO_Y + 40, angle: j.sprite.flipX ? -70 : 70, alpha: 0, duration: 600, ease: 'Quad.in', onComplete: () => p.destroy() });
+}
+
+// rojo si está furioso, normal si no
+function restaurarTinte(j) {
+    const s = j.sprite;
+    if (!s || !s.active) return;
+    s.clearTint();
+    if (j.furioso) s.setTint(0xff8a8a);
 }
 
 function derrotar(scene, api) {
@@ -263,17 +371,37 @@ function derrotar(scene, api) {
     scene.camaraArena = null;
     scene.tweens.add({ targets: scene.cameras.main, zoom: 2, delay: 1500, duration: 900, ease: 'Sine.inOut' });
     scene.limiteDerecho = null;
+    if (j.placa) { j.placa.destroy(); j.placa = null; }
+    j.brilloPlaca?.destroy();
     s.setVelocity(0, 0).clearTint();
-    s.anims.play(`troll${j.datos.troll}-dead`);
     s.body.checkCollision.none = true;
+    camaraLenta(scene);
     scene.sound.play('rugido', { volume: 0.8, rate: 0.7 });
     scene.sound.play('matar');
+    if (j.datos.final) {
+        // el último encuentro: cae derrotado para siempre
+        s.anims.play(`troll${j.datos.troll}-dead`);
+    } else {
+        // huye herido: tambalea, salta fuera de la arena y promete volver
+        s.anims.play(`troll${j.datos.troll}-hurt`);
+        scene.tweens.add({ targets: s, angle: { from: -10, to: 10 }, yoyo: true, repeat: 4, duration: 90, onComplete: () => s.setAngle(0) });
+        scene.time.delayedCall(1300, () => {
+            if (!s.active) return;
+            s.anims.play(`troll${j.datos.troll}-jump`);
+            s.body.setAllowGravity(true);
+            s.setVelocity(260, -620);
+            const amenaza = scene.add.text(s.x, s.body.top - 30, '¡VOLVERÉ MÁS FUERTE!', {
+                fontFamily: '"Press Start 2P", monospace', fontSize: '9px', color: '#ff9a9a', stroke: '#000', strokeThickness: 4,
+            }).setOrigin(0.5).setDepth(45);
+            scene.tweens.add({ targets: amenaza, y: amenaza.y - 30, alpha: 0, delay: 900, duration: 700, onComplete: () => amenaza.destroy() });
+        });
+    }
     // termina la música de batalla y vuelve la del nivel
     scene.tweens.add({ targets: scene.musicaBatalla, volume: 0, duration: 1200, onComplete: () => { scene.musicaBatalla?.stop(); if (scene.musica) { scene.musica.setVolume(0.25); scene.musica.resume(); } } });
     scene.cameras.main.flash(300, 255, 230, 180);
     scene.cameras.main.shake(600, 0.01);
     api.addToScore(2000, s, scene);
-    api.mostrarMensaje(scene, `¡${j.datos.nombre}\nDERROTADO!`, 2200);
+    api.mostrarMensaje(scene, j.datos.final ? '¡EL REY TROLL\nCAYÓ!' : `¡VICTORIA!\nEL REY TROLL HUYE`, 2200);
 
     // se va la barra y se derrumban los muros
     [j.barra, j.barraFondo, j.nombre].forEach(o => scene.tweens.add({ targets: o, alpha: 0, duration: 600, onComplete: () => o.destroy() }));
@@ -299,7 +427,9 @@ export function actualizarJefe(scene, time, api) {
             if (!j.reintento) {
                 scene.cameras.main.shake(900, 0.004);
                 scene.sound.play('rugido', { volume: 0.35, rate: 0.75 });
-                api.mostrarMensaje(scene, 'Algo enorme se acerca...', 1600);
+                const d = j.datos;
+                api.mostrarMensaje(scene, d.encuentro === 1 ? 'Algo enorme se acerca...'
+                    : d.final ? 'El trono tiembla...' : '¡El Rey Troll volvió!', 1600);
             }
         }
         if (!g.isDead && g.x > j.arenaIni + 60) empezarPelea(scene, api);
@@ -308,6 +438,7 @@ export function actualizarJefe(scene, time, api) {
     if (j.estado !== 'pelea') return;
 
     const s = j.sprite, b = s.body, d = j.datos;
+    moverCoraza(j);
     const margen = 130 * d.escala / 0.6; // medio ancho del troll con su garrote
     if (s.x < j.arenaIni + margen || s.x > j.arenaFin - margen) {
         s.x = Phaser.Math.Clamp(s.x, j.arenaIni + margen, j.arenaFin - margen);
@@ -352,7 +483,8 @@ export function actualizarJefe(scene, time, api) {
             scene.cameras.main.shake(350, 0.01);
             scene.sound.play('romper', { volume: 0.7 });
             caenRocas(scene, 3, api); // al chocar con el muro caen rocas
-            j.ocupadoHasta = time + 1100; // queda aturdido: momento para atacarlo
+            j.ocupadoHasta = time + ATURDIDO_MS; // queda aturdido: momento para atacarlo
+            j.aturdidoHasta = time + ATURDIDO_MS; // (y la coraza no lo protege)
             mareado(scene, s);
         }
         return;
@@ -366,22 +498,24 @@ export function actualizarJefe(scene, time, api) {
     const distancia = Math.abs(dx);
     const cerca = distancia < 110 && Math.abs(g.body.center.y - b.center.y) < 90;
 
-    if (cerca && time > j.proxAtaque) {
+    if (time > j.proxEspecial) {
+        // ataques especiales: uno al azar entre los que ya sabe (sin repetir el anterior).
+        // Van primero: aunque el jugador se pegue a él, el troll muestra lo que aprendió
+        const lista = d.ataques.filter(a => a !== 'terremoto' || j.furioso);
+        if (j.furioso && lista.includes('embestida')) lista.push('embestida');
+        let ataque;
+        do { ataque = lista[Math.floor(Math.random() * lista.length)]; } while (ataque === j.ultimoEspecial && new Set(lista).size > 1);
+        if (ataque === 'embestida' && distancia < 160) ataque = 'salto';
+        j.ultimoEspecial = ataque;
+        j.proxEspecial = time + (j.furioso ? 2600 : 4200) + Math.random() * 1200;
+        j.proxAtaque = Math.max(j.proxAtaque, time + 900); // nunca un garrotazo pegado a un especial
+        ESPECIALES[ataque](scene, api, dx);
+    } else if (cerca && time > j.proxAtaque) {
         // de cerca: garrotazo (furioso hace un combo de dos golpes)
         garrotazo(scene, api, 0);
         if (j.furioso) garrotazo(scene, api, 650);
         j.ocupadoHasta = time + (j.furioso ? 1350 : 700);
         j.proxAtaque = time + (j.furioso ? 1100 : 1500);
-    } else if (time > j.proxEspecial) {
-        // ataques especiales: se elige uno al azar (sin repetir el anterior)
-        const lista = ['salto', 'embestida', 'roca', 'rugido'];
-        if (j.furioso) lista.push('terremoto', 'embestida');
-        let ataque;
-        do { ataque = lista[Math.floor(Math.random() * lista.length)]; } while (ataque === j.ultimoEspecial && lista.length > 1);
-        if (ataque === 'embestida' && distancia < 160) ataque = 'salto';
-        j.ultimoEspecial = ataque;
-        j.proxEspecial = time + (j.furioso ? 2600 : 4200) + Math.random() * 1200;
-        ESPECIALES[ataque](scene, api, dx);
     } else {
         // caminar hacia el jugador
         s.setVelocityX(Math.sign(dx) * vel);
@@ -426,20 +560,24 @@ function garrotazo(scene, api, retraso) {
         if (j.estado !== 'pelea') return;
         s.setVelocityX(0);
         s.anims.play(`troll${d.troll}-attack`, true);
+        // aviso del garrotazo: destello rojo mientras levanta el garrote
+        s.setTintFill(0xff5050);
+        scene.time.delayedCall(110, () => restaurarTinte(j));
         scene.time.delayedCall(330, () => {
             if (j.estado !== 'pelea') return;
             scene.sound.play('golpe_enemigo', { volume: 0.7, rate: 0.7 });
             const dir = s.flipX ? -1 : 1;
             const zona = new Phaser.Geom.Rectangle(dir > 0 ? b.right - 10 : b.left - 120, b.top, 130, b.height);
             const gb = scene.mascotaGesi.body;
-            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) api.killgesi(scene, 25);
+            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) api.killgesi(scene, 25, b.center.x);
         });
     });
 }
 
-// "!" sobre la cabeza: avisa que viene un ataque especial
-function aviso(scene, s, color = '#ff5555') {
-    const t = scene.add.text(s.x, s.body.top - 26, '!', {
+// aviso sobre la cabeza: cada ataque especial tiene su símbolo y su color (ver AVISOS)
+function aviso(scene, s, ataque) {
+    const [simbolo, color] = AVISOS[ataque];
+    const t = scene.add.text(s.x, s.body.top - 26, simbolo, {
         fontFamily: '"Press Start 2P", monospace', fontSize: '18px', color, stroke: '#000', strokeThickness: 5,
     }).setOrigin(0.5).setDepth(45);
     scene.tweens.add({ targets: t, y: t.y - 12, alpha: 0, delay: 350, duration: 400, onComplete: () => t.destroy() });
@@ -482,7 +620,7 @@ const ESPECIALES = {
     // salto hacia el jugador y onda expansiva al caer
     salto(scene, _api, dx) {
         const j = scene.jefe, s = j.sprite;
-        aviso(scene, s, '#ffd27a');
+        aviso(scene, s, 'salto');
         s.anims.play(`troll${j.datos.troll}-jump`, true);
         s.setVelocity(Phaser.Math.Clamp(dx * 1.2, -260, 260), -520);
         j.enAire = true;
@@ -492,7 +630,7 @@ const ESPECIALES = {
     // embestida: carga corriendo de lado a lado (hay que saltarlo)
     embestida(scene, _api, dx) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
-        aviso(scene, s);
+        aviso(scene, s, 'embestida');
         s.setVelocityX(0);
         s.anims.play(`troll${d.troll}-idle`, true);
         scene.sound.play('rugido', { volume: 0.5, rate: 1.1 });
@@ -510,7 +648,7 @@ const ESPECIALES = {
     // lanza una roca en arco hacia el jugador
     roca(scene, _api, dx) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
-        aviso(scene, s, '#ffd27a');
+        aviso(scene, s, 'roca');
         s.setVelocityX(0);
         s.anims.play(`troll${d.troll}-attack`, true);
         j.ocupadoHasta = scene.time.now + 800;
@@ -530,7 +668,7 @@ const ESPECIALES = {
     // rugido: hace temblar la cueva y caen rocas, una justo encima del jugador
     rugido(scene, api) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
-        aviso(scene, s);
+        aviso(scene, s, 'rugido');
         s.setVelocityX(0);
         s.anims.play(`troll${d.troll}-hurt`, true);
         j.ocupadoHasta = scene.time.now + 1200;
@@ -542,7 +680,7 @@ const ESPECIALES = {
     // terremoto (solo furioso): tres saltitos seguidos, cada uno con onda
     terremoto(scene, _api, _dx) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
-        aviso(scene, s);
+        aviso(scene, s, 'terremoto');
         j.ocupadoHasta = scene.time.now + 2600;
         [0, 800, 1600].forEach(t => scene.time.delayedCall(t, () => {
             if (j.estado !== 'pelea') return;
@@ -570,10 +708,23 @@ export function golpearJefeEnZona(scene, zona, cantidad, api) {
     if (!j || j.estado !== 'pelea') return;
     const b = j.sprite.body;
     if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(b.left, b.top, b.width, b.height))) {
-        dañarJefe(scene, cantidad, api);
+        dañarJefe(scene, cantidad, api, scene.mascotaGesi.body.center.x);
     }
 }
 
 export function jefeBloqueaMeta(scene) {
     return scene.jefe && !scene.jefe.derrotado;
+}
+
+// cámara lenta un instante al vencerlo: que se sienta el golpe final
+function camaraLenta(scene) {
+    const t = 0.35;
+    scene.physics.world.timeScale = 1 / t;
+    scene.tweens.timeScale = t;
+    scene.time.timeScale = t;
+    scene.time.delayedCall(800 * t, () => {
+        scene.physics.world.timeScale = 1;
+        scene.tweens.timeScale = 1;
+        scene.time.timeScale = 1;
+    });
 }

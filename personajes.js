@@ -4,9 +4,18 @@
 // hojas: clave -> [archivo, cantidad de frames, frameRate, repeat]
 // habilidades (teclas ESPACIO, X y C):
 //   anim: hoja que se reproduce   soltar: frame en el que sale el ataque
-//   tipo: 'proyectil' | 'golpe' | 'rayo' | 'embestida' | 'escudo'
+//   tipo: 'proyectil' | 'golpe' | 'rayo' | 'embestida' | 'escudo' | 'voltereta'
 //   costo: flechas o maná que gasta   enfriamiento: ms antes de poder repetirla
 //   sonido: efecto al usarla (y rate: más agudo > 1, más grave < 1)
+//
+// Equilibrio: cada uno sobrevive de una forma distinta (ninguno es mejor en todo)
+//   Gesi (EVASIÓN):     voltereta con invulnerabilidad corta; salta más alto; recoge flechas sola
+//                       débil: poco daño de cerca y depende de las flechas
+//   Leo  (RESISTENCIA): el espadazo PARA los golpes de frente si lo lanzas justo a tiempo;
+//                       su escudo se recarga antes; corre más rápido
+//                       débil: no ataca de lejos más allá de la onda y no tiene doble salto
+//   Zeno (CONTROL):     doble salto, rayo largo y escudo mágico que absorbe UN golpe
+//                       débil: todo cuesta maná y el escudo tarda en volver
 
 export const PERSONAJES = [
     {
@@ -29,11 +38,13 @@ export const PERSONAJES = [
         salto: 520,
         dobleSalto: false,
         recurso: 'flechas',
-        pasiva: 'Salta más alto',
+        regeneraFlechas: 3000, // recoge una flecha cada 3 s mientras tenga menos de 5
+        pasiva: 'Salta alto · recoge flechas',
         habilidades: {
             espacio: { nombre: 'Flecha', anim: 'shot1', soltar: 7, tipo: 'proyectil', textura: 'flecha_pj', vel: 560, vida: 1400, costo: 1, enfriamiento: 450, sonido: 'arco' },
             x: { nombre: 'Flecha perforante', anim: 'shot2', soltar: 6, tipo: 'proyectil', textura: 'flecha_pj', vel: 720, vida: 1400, costo: 2, perfora: true, tinte: 0x66ddff, enfriamiento: 900, sonido: 'arco', rate: 0.8 },
-            c: { nombre: 'Golpe de arco', anim: 'atk1', soltar: 2, tipo: 'golpe', alcance: 55, enfriamiento: 350, sonido: 'espada', rate: 1.3 },
+            // voltereta: rueda hacia donde mira y durante 0,35 s atraviesa enemigos y disparos (no la lava)
+            c: { nombre: 'Voltereta', anim: 'jump', soltar: 0, tipo: 'voltereta', duracion: 350, vel: 380, enfriamiento: 1600, sonido: 'salto', rate: 1.5 },
         },
     },
     {
@@ -56,9 +67,11 @@ export const PERSONAJES = [
         salto: 480,
         dobleSalto: false,
         recurso: 'ninguno',
-        pasiva: 'Corre más rápido',
+        recargaEscudo: 600, // px que hay que avanzar para recargar el escudo (los demás: 900)
+        pasiva: 'Corre rápido · aguanta más',
         habilidades: {
-            espacio: { nombre: 'Espadazo', anim: 'atk1', soltar: 3, tipo: 'golpe', alcance: 65, enfriamiento: 300, sonido: 'espada' },
+            // parada: durante los primeros 250 ms del espadazo, los golpes y disparos de frente se anulan
+            espacio: { nombre: 'Espadazo / Parada', anim: 'atk1', soltar: 3, tipo: 'golpe', alcance: 65, parada: 250, enfriamiento: 300, sonido: 'espada' },
             x: { nombre: 'Onda de espada', anim: 'atk2', soltar: 1, tipo: 'proyectil', textura: 'onda', escala: 2, vel: 450, vida: 600, perfora: true, enfriamiento: 1200, sonido: 'espada', rate: 0.75 },
             c: { nombre: 'Embestida', anim: 'atk3', soltar: 0, tipo: 'embestida', duracion: 260, vel: 520, enfriamiento: 2000, sonido: 'espada', rate: 0.55 },
         },
@@ -87,7 +100,8 @@ export const PERSONAJES = [
         habilidades: {
             espacio: { nombre: 'Bola mágica', anim: 'atk1', soltar: 7, tipo: 'proyectil', textura: 'magia', animProyectil: 'magia-giro', escala: 1.2, vel: 400, vida: 1300, costo: 15, enfriamiento: 450, sonido: 'magia' },
             x: { nombre: 'Rayo', anim: 'atk3', soltar: 4, tipo: 'rayo', alcance: 340, costo: 35, enfriamiento: 1000, sonido: 'rayo' },
-            c: { nombre: 'Escudo mágico', anim: 'atk2', soltar: 1, tipo: 'escudo', duracion: 2000, costo: 40, enfriamiento: 5000, sonido: 'magia', rate: 0.7 },
+            // escudo mágico: absorbe UN golpe durante 1,5 s (antes: inmune a todo 2 s cada 5 s y dañaba al tocar)
+            c: { nombre: 'Escudo mágico', anim: 'atk2', soltar: 1, tipo: 'escudo', duracion: 1500, costo: 40, enfriamiento: 7000, sonido: 'magia', rate: 0.7 },
         },
     },
 ];

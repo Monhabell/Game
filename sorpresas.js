@@ -1,5 +1,5 @@
-// Trampas sorpresa estilo Cat Mario: carteles burlones, monedas trampa, rocas que caen,
-// estatuas falsas, plataformas que muerden, banderas falsas y zombies gigantes que persiguen.
+// Trampas sorpresa: carteles burlones, monedas trampa, rocas que caen, estatuas falsas,
+// plataformas que muerden, faros de meta falsos, cebos y zombies gigantes que persiguen.
 //
 // api: funciones de game.js que se necesitan aquí
 //   { killgesi(scene), crearEnemigo(scene, x, y, tipo), mostrarMensaje(scene, texto, ms) }
@@ -7,6 +7,11 @@
 import { crearEstatua } from "./mazmorra.js"
 
 const SUELO_Y = 332;
+// tiempos de aviso (a 220 px/s, la velocidad de carrera)
+const AVISO_ROCA = 200;        // px: la roca empieza a temblar a esta distancia...
+const TIEMBLA_ROCA = 500;      // ms: ...tiembla este tiempo y después tarda 330 ms en caer
+const AVISO_ESTATUA = 200;     // px: la estatua falsa despierta a esta distancia...
+const DESPIERTA_ESTATUA = 450; // ms: ...y el esqueleto sale después de esta espera
 
 const rect = b => new Phaser.Geom.Rectangle(b.left ?? b.x, b.top ?? b.y, b.width, b.height);
 const choca = (a, b) => Phaser.Geom.Intersects.RectangleToRectangle(a, b);
@@ -32,11 +37,16 @@ export function crearSorpresas(scene, nivel, inicioX = 0) {
     });
 
     // rocas (estalactitas en la cueva, bloques de piedra afuera) colgando arriba
-    scene.rocas = (nivel.rocas || []).filter(adelante).map(x => {
-        const img = cueva
-            ? scene.add.image(x, -8, 'mz_stalactite5').setOrigin(0.5, 0).setScale(1.4).setTint(0xa89888)
-            : scene.add.image(x, 10, 'mz_bloque').setOrigin(0.5, 0).setScale(2.2).setTint(0x8a8aa0);
-        return { x, img, estado: null };
+    scene.cueva = cueva;
+    scene.rocas = (nivel.rocas || []).filter(adelante).map(x => crearRoca(scene, x));
+
+    // cebos: cristales tentadores que esconden una trampa (ver activarCebo)
+    (nivel.cebos || []).filter(([x]) => adelante(x)).forEach(([x, y, tipo]) => {
+        const c = scene.premios.create(x, y, 'mz_cristal').anims.play('mz_cristal', true).refreshBody();
+        c.tipoPremio = 'cristal';
+        c.cebo = tipo;
+        c.brillo = scene.add.image(x, y, 'brillo').setDepth(41).setScale(0.8).setTint(0xc77dff).setAlpha(0.35).setBlendMode('ADD');
+        c.on('destroy', () => c.brillo.destroy());
     });
 
     // estatuas falsas (iguales a los puntos de control apagados)
@@ -48,14 +58,65 @@ export function crearSorpresas(scene, nivel, inicioX = 0) {
         p.muerde = true;
     });
 
-    // banderas de meta falsas
+    // faros de meta falsos (iguales al Faro del Alba de la meta)
     scene.banderasFalsas = (nivel.banderasFalsas || []).filter(adelante).map(x => {
         const mastil = scene.add.image(x, SUELO_Y, 'mastil').setOrigin(0.5, 1);
-        const bandera = scene.add.image(x - 6, SUELO_Y - 160, 'bandera').setOrigin(1, 0).setScale(2);
+        const bandera = scene.add.image(x, SUELO_Y - 165, 'bandera').setOrigin(0.5, 1).setScale(2);
         return { x, partes: [mastil, bandera], hecha: false };
     });
 
     scene.persecuciones = (nivel.persecuciones || []).filter(adelante).map(x => ({ x, hecha: false }));
+}
+
+// roca colgando del techo; cae cuando el jugador se acerca (ver actualizarSorpresas)
+function crearRoca(scene, x) {
+    const img = scene.cueva
+        ? scene.add.image(x, -8, 'mz_stalactite5').setOrigin(0.5, 0).setScale(1.4).setTint(0xa89888)
+        : scene.add.image(x, 10, 'mz_bloque').setOrigin(0.5, 0).setScale(2.2).setTint(0x8a8aa0);
+    return { x, img, estado: null };
+}
+
+// Castigo a la codicia: al tomar un cebo se activa su trampa.
+// Devuelve 'sin_premio' si el cebo no paga nada (el mímico).
+export function activarCebo(scene, premio, api) {
+    const g = scene.mascotaGesi, x = premio.x;
+    premio.brillo?.destroy();
+    scene.sound.play('trampa', { volume: 0.5 });
+    if (premio.cebo === 'mimico') {
+        // era un enemigo disfrazado: te empuja hacia atrás (sin quitarte vida) y pelea
+        const lado = g.x < x ? -1 : 1;
+        g.setVelocity(lado * 220, -220);
+        scene.empujadoHasta = scene.time.now + 250; // las flechas no anulan el empujón
+        scene.invulnerableHasta = scene.time.now + 700;
+        const e = api.crearEnemigo(scene, x, SUELO_Y - 2);
+        e.x = x - (e.def.cuerpo[2] + e.def.cuerpo[0] / 2) * (e.def.escala ?? 1);
+        e.flipX = lado < 0; // mira hacia el jugador
+        e.setVelocityX(lado < 0 ? -e.velBase : e.velBase);
+        e.setTintFill(0xc77dff);
+        scene.time.delayedCall(150, () => e.active && e.clearTint());
+        api.mostrarMensaje(scene, '¡ERA UN MÍMICO!', 1000);
+        return 'sin_premio';
+    }
+    if (premio.cebo === 'techo') {
+        // una roca se desprende encima de donde aterrizas: tiembla y cae como las demás
+        // (si sigues moviéndote te salvas; si te quedas admirando el cristal, no)
+        api.mostrarMensaje(scene, '¡CODICIOSO!', 900);
+        const esperar = scene.time.addEvent({
+            delay: 50, repeat: 80, callback: () => { // espera hasta 4 s a que aterrice
+                const b = g.body;
+                if (!g.isDead && b && !(b.blocked.down || b.touching.down) && esperar.getRepeatCount() > 0) return;
+                esperar.remove();
+                if (!g.isDead) scene.rocas.push(crearRoca(scene, b.center.x));
+            },
+        });
+    } else if (premio.cebo === 'suelo') {
+        // el suelo bajo el cristal se derrumba
+        scene.floor.getChildren()
+            .filter(p => p.esFalso && p.body && Math.abs(p.body.center.x - x) < 70)
+            .forEach(p => api.derrumbarSuelo(scene, p));
+        api.mostrarMensaje(scene, '¡EL SUELO!', 900);
+    }
+    return 'con_premio';
 }
 
 // la plataforma que muerde: se llama cuando Gesi la toca (colisión con el suelo)
@@ -99,12 +160,23 @@ export function actualizarSorpresas(scene, api) {
     const gb = g.body, gx = gb.center.x;
     const rGesi = rect(gb);
 
-    // rocas: tiemblan cuando te acercas y caen
+    // rocas: al acercarte tiemblan, sueltan polvo y su sombra aparece en el suelo; después caen.
+    // Si sigues corriendo sin mirar llegas justo debajo: hay que frenar o pasar antes
     scene.rocas.forEach(r => {
-        if (!r.estado && gx > r.x - 90 && gx < r.x + 30) {
+        if (!r.estado && Math.abs(gx - r.x) < AVISO_ROCA) {
             r.estado = 'tiembla';
-            scene.tweens.add({ targets: r.img, x: r.x + 2, yoyo: true, repeat: 3, duration: 50 });
-            scene.time.delayedCall(220, () => {
+            scene.tweens.add({ targets: r.img, x: r.x + 2, yoyo: true, repeat: Math.floor(TIEMBLA_ROCA / 100) - 1, duration: 50 });
+            scene.sound.play('romper', { volume: 0.2, rate: 1.6 });
+            const sombra = scene.add.ellipse(r.x, SUELO_Y - 1, 16, 5, 0x000000, 0.55).setDepth(36);
+            const aviso = scene.add.image(r.x, SUELO_Y - 4, 'brillo').setDepth(41).setScale(0.7, 0.2)
+                .setTint(0xffb070).setAlpha(0.55).setBlendMode('ADD');
+            scene.tweens.add({ targets: sombra, scaleX: 3, scaleY: 1.6, duration: TIEMBLA_ROCA + 330 });
+            scene.time.delayedCall(TIEMBLA_ROCA + 330, () => { sombra.destroy(); aviso.destroy(); });
+            for (let i = 0; i < 4; i++) {
+                const polvo = scene.add.rectangle(r.x + Phaser.Math.Between(-8, 8), r.img.y + r.img.displayHeight, 2, 2, 0xd8c0a0).setDepth(41);
+                scene.tweens.add({ targets: polvo, y: polvo.y + 60, alpha: 0, delay: i * 120, duration: 600, onComplete: () => polvo.destroy() });
+            }
+            scene.time.delayedCall(TIEMBLA_ROCA, () => {
                 r.estado = 'cae';
                 scene.tweens.add({
                     targets: r.img, y: SUELO_Y - r.img.displayHeight + 4, duration: 330, ease: 'Quad.easeIn',
@@ -122,23 +194,23 @@ export function actualizarSorpresas(scene, api) {
         }
     });
 
-    // estatua falsa: se despierta como esqueleto
+    // estatua falsa (tiene ojos rojos): se despierta como esqueleto antes de que llegues a ella
     scene.estatuasFalsas.forEach(e => {
-        if (e.hecha || gx < e.x - 25) return;
+        if (e.hecha || gx < e.x - AVISO_ESTATUA) return;
         e.hecha = true;
         api.mostrarMensaje(scene, '¡NO ERA UN PUNTO\nDE CONTROL!', 1200);
         scene.sound.play('trampa', { volume: 0.5 });
         scene.sound.play('romper');
-        scene.tweens.add({ targets: e.estatua, x: e.x + 3, yoyo: true, repeat: 4, duration: 40 });
-        scene.tweens.add({ targets: [e.estatua, e.luz], alpha: 0, delay: 250, duration: 250, onComplete: () => { e.estatua.destroy(); e.luz.destroy(); } });
-        scene.time.delayedCall(250, () => {
+        scene.tweens.add({ targets: e.estatua, x: e.x + 3, yoyo: true, repeat: 8, duration: 40 });
+        scene.tweens.add({ targets: [e.estatua, e.luz], alpha: 0, delay: DESPIERTA_ESTATUA, duration: 250, onComplete: () => { e.estatua.destroy(); e.luz.destroy(); } });
+        scene.time.delayedCall(DESPIERTA_ESTATUA, () => {
             const esq = api.crearEnemigo(scene, e.x - 64, SUELO_Y - 2, 'esqueleto');
             esq.flipX = gx < e.x;
             esq.setVelocityX(esq.flipX ? -esq.velBase : esq.velBase);
         });
     });
 
-    // bandera falsa: suena la victoria... y la bandera sale corriendo
+    // faro falso: suena la victoria... y el faro sale corriendo
     scene.banderasFalsas.forEach(f => {
         if (f.hecha || gx < f.x - 40) return;
         f.hecha = true;

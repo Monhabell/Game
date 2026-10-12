@@ -2,9 +2,9 @@
 // Coordenadas: el suelo tiene su parte superior en y = 332.
 //   - Bloques "fila baja": y = 232 (se pueden golpear desde el suelo y caminar por debajo)
 //   - Bloques "fila alta": y = 136 (se alcanzan saltando desde la fila baja)
-// Patrón de bloques: 'B' = ladrillo, '?' = bloque sorpresa (da moneda), ' ' = hueco
-//   Trampas estilo Cat Mario:
-//   'E' = parece '?' pero suelta un enemigo
+// Patrón de bloques: 'B' = ladrillo, '?' = piedra rúnica (da moneda al golpearla desde abajo), ' ' = hueco
+//   Trampas de bloque (cada una tiene su pista sutil: ver senales.js):
+//   'E' = parece piedra rúnica pero suelta un enemigo
 //   'C' = ladrillo que cae cuando pasas por debajo
 //   'H' = bloque invisible (aparece al golpearlo desde abajo; ideal en el borde de un hueco)
 //   'F' = ladrillo falso, no tiene piso
@@ -18,13 +18,13 @@
 // plantas: x de plantas disfrazadas de arbusto (¡no las pises, tienen espinas!)
 // espiritus: [x, y] espíritus de fuego que vuelan y disparan
 //
-// Más trampas sorpresa (estilo Cat Mario):
+// Más trampas sorpresa (ver sorpresas.js):
 // carteles: [x, y, texto] letreros burlones (suelen mentir)
 // monedasTrampa: [x, y] parecen monedas, pero al tomarlas cae un enemigo del cielo
 // rocas: x  una roca/estalactita se desprende del techo cuando pasas por debajo
 // estatuasFalsas: x  parece un punto de control, pero se convierte en esqueleto
 // mordedoras: [x, y] plataforma que tiembla, se pone roja y muerde si no te bajas rápido
-// banderasFalsas: x  una meta falsa: la bandera sale huyendo y suelta enemigos
+// banderasFalsas: x  una meta falsa: el faro sale huyendo y suelta enemigos
 // persecuciones: x  al pasar por ahí aparece un zombie gigante que te persigue
 // suelo / lava: rangos [xInicio, xFin]
 // enemigos: x (aparece en el suelo) o [x, y]
@@ -100,7 +100,7 @@ export const NIVELES = [
         velEnemigos: 50,
         checkpoints: [3150],
         mezcla: ['esqueleto', 'zombie2', 'alien_blue', 'zombie3', 'esqueleto', 'alien_gray', 'zombie1'],
-        plantas: [1250, 3600, 5000],
+        plantas: [1250, 5000],
         espiritus: [[1440, 190], [2840, 170], [4560, 190]],
         suelo: [[0, 700], [850, 1400], [1540, 1740], [1950, 2600], [3100, 3800], [3950, 4500], [4650, 6000]],
         falsos: [[1740, 1800]],
@@ -112,7 +112,7 @@ export const NIVELES = [
         cristales: [[2842, 200]],
         carteles: [[2860, 150, '¡ATAJO SEGURO!'], [2200, 110, 'NO MIRES ARRIBA']],
         monedasTrampa: [[1650, 300], [4796, 300]],
-        rocas: [520, 2230, 5150],
+        rocas: [520, 5150],
         estatuasFalsas: [1080],
         mordedoras: [[775, 285], [3875, 280]],
         lava: [[700, 850], [1400, 1540], [1800, 1950], [2600, 3100], [3800, 3950], [4500, 4650]],
@@ -184,12 +184,16 @@ export const NIVELES = [
         bloques: [
             [590, 232, 'H'],
             [1250, 232, 'B?B'],
+            [1450, 232, 'B?B?B'], // fila sobre la isla del medio: puede esconder trampas de bloque
+            [1290, 136, '?B?'],
             [1690, 232, 'H'],
             [3990, 232, 'H'],
             [2400, 232, '?BEB?'],
             [3140, 280, 'BBBB'],
             [3480, 232, 'BB'],
             [3600, 136, 'BBBBBB'],
+            [3720, 232, 'B?B?'],
+            [3880, 232, '?'],
             [4440, 280, 'BBBB'],
             [5000, 232, 'B?C?B'],
         ],
@@ -198,6 +202,7 @@ export const NIVELES = [
         monedas: [
             ...fila(150, 300, 4),
             ...fila(780, 230, 6),
+            ...fila(1466, 190, 5),
             ...fila(1900, 230, 8),
             ...fila(3156, 245, 4),
             ...fila(3616, 100, 6),

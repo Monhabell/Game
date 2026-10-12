@@ -10,6 +10,7 @@
 //   Durante la pelea con el jefe no se recarga avanzando: solo con las cargas.
 
 const INVULNERABLE_MS = 1500;
+const EMPUJON_MS = 250; // el empujón al romperse no se puede anular con las flechas (igual que en game.js)
 const AVANCE_RECARGA = 900; // px que hay que avanzar para que el escudo se recargue solo
 const FRAME_BURBUJA = 3; // frame de la animación donde la burbuja está entera
 
@@ -101,7 +102,8 @@ export function actualizarEscudo(scene, mostrarMensaje) {
     // recarga por avance: el ícono se va llenando a medida que avanzas
     if (!scene.tieneEscudo && !scene.peleaJefe) {
         if (scene.escudoRotoX == null) scene.escudoRotoX = g.x;
-        const progreso = Phaser.Math.Clamp((g.x - scene.escudoRotoX) / AVANCE_RECARGA, 0, 1);
+        // Leo (resistencia) lo recarga en menos distancia: ver recargaEscudo en personajes.js
+        const progreso = Phaser.Math.Clamp((g.x - scene.escudoRotoX) / (scene.pj?.recargaEscudo ?? AVANCE_RECARGA), 0, 1);
         scene.iconoEscudo.setAlpha(0.3 + 0.6 * progreso);
         dibujarCarga(scene, progreso);
         if (progreso >= 1) {
@@ -156,6 +158,7 @@ export function romperEscudo(scene, mostrarMensaje) {
 
     // empujón hacia atrás y parpadeo mientras es invulnerable
     g.setVelocity(g.flipX ? 200 : -200, -240);
+    scene.empujadoHasta = scene.time.now + EMPUJON_MS;
     g.setTintFill(0xffffff);
     scene.time.delayedCall(90, () => g.clearTint());
     scene.tweens.add({ targets: g, alpha: 0.25, yoyo: true, repeat: Math.floor(INVULNERABLE_MS / 180) - 1, duration: 90, onComplete: () => g.setAlpha(1) });

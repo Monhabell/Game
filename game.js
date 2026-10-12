@@ -9,7 +9,9 @@ import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, crearLava, moverLava,
     decorarNivel, crearEstatua, encenderEstatua
 } from "./mazmorra.js"
-import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa } from "./sorpresas.js"
+import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
+import { crearSenales, sombraDeCaida } from "./senales.js"
+import { crearArteOriginal } from "./arte.js"
 import { aleatorizarNivel, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
 import { cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta } from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
@@ -21,20 +23,24 @@ import {
 
 // funciones que usa el jefe (jefes.js)
 const apiJefe = {
-    killgesi: (scene, daño) => killgesi(scene, undefined, daño),
+    killgesi: (scene, daño, origenX) => killgesi(scene, undefined, daño, origenX),
     mostrarMensaje: (...a) => mostrarMensaje(...a),
     addToScore: (...a) => addToScore(...a),
     soltarEscudo: (...a) => soltarEscudo(...a),
 };
 
 // funciones que usan las trampas sorpresa (sorpresas.js)
-const apiSorpresas = { killgesi: (scene) => killgesi(scene), crearEnemigo: (...a) => crearEnemigo(...a), mostrarMensaje: (...a) => mostrarMensaje(...a) };
+const apiSorpresas = {
+    killgesi: (scene) => killgesi(scene), crearEnemigo: (...a) => crearEnemigo(...a), mostrarMensaje: (...a) => mostrarMensaje(...a),
+    derrumbarSuelo: (...a) => derrumbarSuelo(...a),
+};
 
 let score = 0; // Variable global para la puntuación
 const VIDAS_INICIALES = 4;
 let vidas = VIDAS_INICIALES; // se muestran como corazones; al acabarse se vuelve al inicio del juego
 let scoreInicioNivel = 0; // al morir el puntaje vuelve a este valor
 const FLECHAS_INICIALES = 10;
+const FLECHAS_RECOGIDAS = 5; // Gesi recoge flechas sola hasta tener esta cantidad
 let flechas = FLECHAS_INICIALES;
 let muertes = 0; // en toda la partida: se muestra en el HUD y en el final
 let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
@@ -46,6 +52,12 @@ const SALUD_MAXIMA = 100; // barra de vida del jugador durante la pelea con el j
 // carrera: antes se sumaban 2 px por fotograma (120 px/s a 60 Hz) + 100 px/s de velocidad
 const VEL_CARRERA = 220; // px/s al correr (se multiplica por la velocidad del personaje)
 const VEL_DERIVA = 100;  // px/s que conserva en el aire al soltar la flecha
+// pinchos ocultos: asoman a esta distancia y salen del todo después de la espera
+// (corriendo a 220 px/s quedan ~90 px para saltarlos)
+// tiempo en que un empujón (escudo roto, golpe, mímico) no se puede anular con las flechas
+const EMPUJON_MS = 250;
+const AVISO_PINCHOS = 190;
+const ESPERA_PINCHOS = 450;
 // El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja al doble
 // (1580x760) con la cámara en zoom x2: así se ve nítido aunque la pantalla sea grande.
 const ZOOM = 2;
@@ -179,8 +191,8 @@ document.addEventListener('keydown', e => {
 
 function preload() {
 
-    this.load.image('background', 'assets/fondo.png');
-    this.load.image('cloud1', 'assets/scenery/overworld/cloud1.png');
+    // la nube, el bloque rúnico, el faro de la meta, la bola de fuego y el cuerpo del suelo
+    // son gráficos propios dibujados por código: ver arte.js
     // personajes jugables (arquera, espadachín y mago)
     cargarPersonajes(this);
     cargarEnemigos(this);
@@ -194,25 +206,9 @@ function preload() {
         frameHeight: 129  // Ajusta según la altura de cada frame en la hoja de sprites
     });
 
-    this.load.image('suelo', 'assets/scenery/overworld/floorbricks.png');
-    this.load.image('suelo_cueva', 'assets/scenery/underground/floorbricks.png');
     this.load.image('suelo2', 'assets/scenery/trap2.png');
     this.load.image('suelo3', 'assets/scenery/piso.png');
 
-    // bloques
-    this.load.image('ladrillo', 'assets/blocks/overworld/block.png');
-    this.load.image('ladrillo_cueva', 'assets/blocks/underground/block.png');
-    this.load.image('bloque_duro', 'assets/blocks/overworld/immovableBlock.png');
-    this.load.image('bloque_duro_cueva', 'assets/blocks/underground/immovableBlock.png');
-    this.load.image('vacio', 'assets/blocks/overworld/emptyBlock.png');
-    this.load.image('vacio_cueva', 'assets/blocks/underground/emptyBlock.png');
-    this.load.spritesheet('misterio', 'assets/blocks/overworld/misteryBlock.png', { frameWidth: 16, frameHeight: 16 });
-    this.load.spritesheet('misterio_cueva', 'assets/blocks/underground/misteryBlock.png', { frameWidth: 16, frameHeight: 16 });
-
-    // meta
-    this.load.image('mastil', 'assets/scenery/flag-mast.png');
-    this.load.image('bandera', 'assets/scenery/final-flag.png');
-    this.load.image('castillo', 'assets/scenery/castle.png');
 
     this.load.spritesheet('lava', 'assets/scenery/lava1.png', { frameWidth: 64, frameHeight: 64 });
 
@@ -240,15 +236,15 @@ function preload() {
     cargarSonidos(this);
 
     // bolas de fuego que saltan de la lava
-    this.load.spritesheet('bola', 'assets/entities/fireball.png', { frameWidth: 8, frameHeight: 8 });
 
 
 }
 
 function create() {
-    // las trampas se reparten al azar en cada intento (no se pueden memorizar);
-    // en el nivel 1 la primera parte hecha a mano no se toca
+    // las trampas se reparten al azar en cada intento (el nivel se siente nuevo cada vez,
+    // pero con reglas para que sea justo: ver azar.js); en el nivel 1 la parte hecha a mano no se toca
     const nivel = aleatorizarNivel(NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : []);
+    console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     guardarPartida(); // para no tener que volver al inicio
     prepararAnimaciones(this);
     this.nivelTerminado = false;
@@ -259,6 +255,10 @@ function create() {
     this.atacando = false;
     this.dashHasta = 0;
     this.escudoHasta = 0;
+    this.volteretaHasta = 0;
+    this.paradaHasta = 0;
+    this.empujadoHasta = 0;
+    this.recogiendoFlechas = 0;
     this.tieneEscudo = true; // cada vida empieza con escudo (aguanta un golpe)
     this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
@@ -298,6 +298,8 @@ function create() {
 
     // carteles, monedas trampa, rocas, estatuas falsas, plataformas que muerden, banderas falsas y gigantes
     crearSorpresas(this, nivel, checkpointX ?? 0);
+    // cada tipo de trampa tiene su señal visible (grietas, temblores, destellos, ojos rojos)
+    crearSenales(this);
 
     // corazones que aparecen al azar cuando te faltan vidas
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
@@ -307,7 +309,8 @@ function create() {
     // jefe al final del nivel
     this.peleaJefe = false;
     this.limiteDerecho = null;
-    this.protegido = () => protegido(this);
+    // al chocar con el jefe solo la embestida de Leo le hace daño (ver jefes.js)
+    this.protegido = () => this.time.now < this.dashHasta;
     this.reaparecerEnArena = x => { checkpointX = Math.max(checkpointX ?? 0, x); };
     // al empezar la pelea: flechas y maná llenos para poder usar los poderes contra el jefe
     this.recargarParaJefe = () => {
@@ -362,7 +365,7 @@ function create() {
     this.physics.add.collider(this.lavaes, this.floor)
 
     // Configurar la colisión entre el jugador y los enemigos
-    this.physics.add.collider(this.mascotaGesi, this.enemies, onHitEnemy, vivo, this);// muerte con enemigo
+    this.physics.add.collider(this.mascotaGesi, this.enemies, onHitEnemy, tocaEnemigos, this);// muerte con enemigo
 
     this.physics.add.collider(this.mascotaGesi, this.lavaes, onlava, null, this);// muere con lava
 
@@ -392,9 +395,10 @@ function create() {
 
     // disparos de los enemigos
     this.physics.add.overlap(this.mascotaGesi, this.balasEnemigas, (_g, bala) => {
-        if (protegido(this)) { bala.destroy(); return; }
+        const d = defensa(this, bala.x);
+        if (d) { bala.destroy(); aplicarDefensa(this, d); return; }
         bala.destroy();
-        killgesi(this, undefined, 20);
+        killgesi(this, undefined, 20, bala.x);
     });
     this.physics.add.collider(this.balasEnemigas, this.floor, bala => bala.destroy());
     this.physics.add.collider(this.flechasGrupo, this.moviles, flecha => flecha.destroy());
@@ -488,6 +492,7 @@ function pixelArtNitido(scene) {
 }
 
 function prepararAnimaciones(scene) {
+    crearArteOriginal(scene); // antes de las animaciones: el bloque rúnico y la bola de fuego se animan
     pixelArtNitido(scene);
     if (!scene.anims.exists('enemy-walk')) createAnimations(scene);
     crearAnimacionesPersonajes(scene);
@@ -717,6 +722,7 @@ function recibirDaño(scene, daño) {
     // empujón y un momento sin recibir más daño
     const lado = scene.jefe?.sprite && g.body.center.x < scene.jefe.sprite.body.center.x ? -1 : 1;
     g.setVelocity(lado * 230, -220);
+    scene.empujadoHasta = scene.time.now + EMPUJON_MS;
     g.setTintFill(0xff4444);
     scene.time.delayedCall(100, () => g.clearTint());
     scene.invulnerableHasta = scene.time.now + 700;
@@ -972,10 +978,10 @@ function construirNivel(scene, nivel) {
         scene.add.image(x, y, 'brillo').setDepth(41).setScale(0.8).setTint(0xc77dff).setAlpha(0.35).setBlendMode('ADD');
     });
 
-    // meta: mástil, bandera y castillo
+    // meta: el Faro del Alba (columna con un cristal que se enciende al llegar) y el castillo
     const mx = nivel.meta;
     scene.add.image(mx, SUELO_Y, 'mastil').setOrigin(0.5, 1);
-    scene.bandera = scene.add.image(mx - 6, SUELO_Y - 160, 'bandera').setOrigin(1, 0).setScale(2);
+    scene.bandera = scene.add.image(mx, SUELO_Y - 165, 'bandera').setOrigin(0.5, 1).setScale(2);
     crearCastilloMeta(scene, mx + 50, nivelActual, 0xb4b4bc);
     scene.zonaMeta = scene.add.zone(mx, SUELO_Y / 2, 24, SUELO_Y);
     scene.physics.add.existing(scene.zonaMeta, true);
@@ -1031,6 +1037,11 @@ function crearEnemigo(scene, x, y, tipo) {
     if (def.corre) enemy.anims.play(`${tipo}-run`, true);
     enemy.setVelocityX(-enemy.velBase);
     enemy.flipX = true; // los sprites miran a la derecha
+    // si cae del cielo (emboscada, moneda trampa...), su sombra avisa dónde va a aterrizar
+    // (un instante después: quien lo crea a veces lo recoloca, como la moneda trampa)
+    if (y <= 0 && def.tipo !== 'volador') {
+        scene.time.delayedCall(0, () => enemy.active && sombraDeCaida(scene, enemy.x + (ox + w / 2) * (def.escala ?? 1), 1000));
+    }
     return enemy;
 }
 
@@ -1086,7 +1097,7 @@ function golpeDeEnemigo(scene, enemy) {
     const zona = new Phaser.Geom.Rectangle(x0, eb.top - 10, alcance, eb.height + 10);
     const gb = scene.mascotaGesi.body;
     if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) {
-        killgesi(scene);
+        killgesi(scene, undefined, 20, eb.center.x);
     }
 }
 
@@ -1215,22 +1226,26 @@ function crearzombis() {
     this.zombis.push(crearEnemigo(this, 1090, 195));
 }
 
+// una pieza de suelo falso tiembla y se cae (al pisarla, o al tomar un cebo de suelo)
+function derrumbarSuelo(scene, pieza) {
+    if (pieza.cayendo) return;
+    pieza.cayendo = true;
+    const partes = [pieza, ...(pieza.visuales || [])];
+    scene.tweens.add({ targets: partes, x: '+=3', yoyo: true, repeat: 2, duration: 40 });
+    scene.time.delayedCall(180, () => {
+        pieza.body.enable = false;
+        scene.sound.play('romper');
+        scene.tweens.add({ targets: partes, y: '+=300', alpha: 0, duration: 700 });
+    });
+}
+
 function golpearBloque(mascotaGesi, pieza) {
     const cuerpo = mascotaGesi.body;
 
     if (pieza.muerde) pisarMordedora(this, pieza, apiSorpresas);
 
     // suelo falso: tiembla y se cae
-    if (pieza.esFalso && !pieza.cayendo && cuerpo.touching.down) {
-        pieza.cayendo = true;
-        const partes = [pieza, ...(pieza.visuales || [])];
-        this.tweens.add({ targets: partes, x: '+=3', yoyo: true, repeat: 2, duration: 40 });
-        this.time.delayedCall(180, () => {
-            pieza.body.enable = false;
-            this.sound.play('romper');
-            this.tweens.add({ targets: partes, y: '+=300', alpha: 0, duration: 700 });
-        });
-    }
+    if (pieza.esFalso && cuerpo.touching.down) derrumbarSuelo(this, pieza);
 
     if (!cuerpo.touching.up && !cuerpo.blocked.up) return;
 
@@ -1272,6 +1287,8 @@ function revelarBloque(_mascotaGesi, bloque) {
 
 function recogerPremio(_mascotaGesi, premio) {
     premio.disableBody(true, true);
+    // cebo: el mímico no da nada; los demás pagan el premio... y activan su trampa
+    if (premio.cebo && activarCebo(this, premio, apiSorpresas) === 'sin_premio') return;
     if (premio.tipoPremio === 'corazon' && this.peleaJefe && this.salud < SALUD_MAXIMA) {
         // en la pelea el corazón cura la barra de vida
         const cura = this.curacionArena || 45;
@@ -1357,6 +1374,8 @@ function usarHabilidad(scene, tecla) {
     scene.enfriamientos[tecla] = scene.time.now + h.enfriamiento;
 
     const g = scene.mascotaGesi;
+    // la parada de Leo empieza en cuanto aprieta la tecla (no cuando sale el golpe)
+    if (h.parada) scene.paradaHasta = scene.time.now + h.parada;
     const clave = `${scene.pj.id}-${h.anim}`;
     const anim = scene.anims.get(clave);
     scene.atacando = true;
@@ -1406,11 +1425,56 @@ function ejecutarHabilidad(scene, h) {
         scene.escudoHasta = scene.time.now + h.duracion;
         if (scene.escudoFx) scene.escudoFx.destroy();
         scene.escudoFx = scene.add.circle(g.x, b.center.y, 46, 0x66ccff, 0.25).setStrokeStyle(3, 0x99ddff).setDepth(20);
+    } else if (h.tipo === 'voltereta') {
+        // rueda hacia donde mira; mientras dura, los enemigos y disparos la atraviesan
+        scene.volteretaHasta = scene.time.now + h.duracion;
+        scene.volteretaVel = dir * h.vel;
+        g.setAlpha(0.55);
+        scene.time.delayedCall(h.duracion, () => g.active && !g.isDead && g.setAlpha(1));
     }
 }
 
-function protegido(scene) {
-    return scene.time.now < scene.escudoHasta || scene.time.now < scene.dashHasta;
+// ---------- Defensas de cada personaje ----------
+// Devuelve cómo se salva de un golpe (o null si no se salva):
+//   'esquiva'  voltereta de Gesi o embestida de Leo: el golpe no la toca
+//   'parada'   espadazo de Leo a tiempo y de frente: anula el golpe
+//   'escudo'   escudo mágico de Zeno: absorbe este golpe y se rompe
+// origenX: de dónde viene el golpe (para saber si es de frente); si no se sabe (trampas), no se puede parar
+function defensa(scene, origenX) {
+    const ahora = scene.time.now, g = scene.mascotaGesi;
+    if (ahora < (scene.volteretaHasta || 0) || ahora < (scene.dashHasta || 0)) return 'esquiva';
+    // la parada solo sirve contra ataques que vienen de frente (no contra rocas, pinchos u ondas)
+    if (ahora < (scene.paradaHasta || 0) && origenX !== undefined) {
+        const dir = g.flipX ? -1 : 1;
+        if ((origenX - g.body.center.x) * dir > -12) return 'parada';
+    }
+    if (ahora < (scene.escudoHasta || 0)) return 'escudo';
+    return null;
+}
+
+// efectos de una defensa que funcionó
+function aplicarDefensa(scene, tipo) {
+    const g = scene.mascotaGesi;
+    if (tipo === 'parada') {
+        scene.paradaHasta = 0;
+        scene.invulnerableHasta = scene.time.now + 400;
+        scene.sound.play('espada', { volume: 0.7, rate: 1.8 });
+        const dir = g.flipX ? -1 : 1;
+        const chispa = scene.add.image(g.body.center.x + dir * 22, g.body.center.y - 6, 'brillo').setDepth(41)
+            .setScale(0.7).setTint(0xfff2a0).setBlendMode('ADD');
+        scene.tweens.add({ targets: chispa, scale: 1.4, alpha: 0, duration: 250, onComplete: () => chispa.destroy() });
+        scene.mostrarMensajeCorto?.('¡PARADA!');
+    } else if (tipo === 'escudo') {
+        // el escudo mágico se gasta con este golpe
+        scene.escudoHasta = 0;
+        scene.invulnerableHasta = scene.time.now + 600;
+        scene.sound.play('escudo_roto', { volume: 0.5, rate: 1.3 });
+        if (scene.escudoFx) {
+            const fx = scene.escudoFx;
+            scene.escudoFx = null;
+            scene.tweens.add({ targets: fx, scale: 1.6, alpha: 0, duration: 250, onComplete: () => fx.destroy() });
+        }
+    }
 }
 
 function matarEnemigo(scene, enemy) {
@@ -1456,13 +1520,23 @@ function actualizarTrampas(scene) {
         }
     });
 
-    // pinchos ocultos salen cuando Gesi se acerca
+    // pinchos ocultos: al acercarte asoman las puntas (con un destello y un sonido) y
+    // un momento después salen del todo; da tiempo de verlos y saltar aunque vayas corriendo
     scene.pinchos.forEach(p => {
-        if (p.oculto && !p.salio && g.right > p.x - 50 && g.left < p.x + 82) {
-            p.salio = true;
-            scene.tweens.add({ targets: p.img, y: SUELO_Y, duration: 70 });
-            if (scene.time.now - (scene.ultimoPincho || 0) > 200) scene.sound.play('pinchos', { volume: 0.5 });
+        if (p.oculto && !p.avisado && g.right > p.x - AVISO_PINCHOS && g.left < p.x + 82) {
+            p.avisado = true;
+            scene.tweens.add({ targets: p.img, y: SUELO_Y + 9, duration: 90 });
+            const brillo = scene.add.image(p.x + 16, SUELO_Y - 4, 'brillo').setDepth(41).setScale(0.6, 0.25)
+                .setTint(0xffe0a0).setAlpha(0.7).setBlendMode('ADD');
+            scene.tweens.add({ targets: brillo, alpha: 0, duration: ESPERA_PINCHOS + 200, onComplete: () => brillo.destroy() });
+            if (scene.time.now - (scene.ultimoPincho || 0) > 200) scene.sound.play('pinchos', { volume: 0.25, rate: 1.4 });
             scene.ultimoPincho = scene.time.now;
+            scene.time.delayedCall(ESPERA_PINCHOS, () => {
+                p.salio = true;
+                scene.tweens.add({ targets: p.img, y: SUELO_Y, duration: 70 });
+                if (scene.time.now - (scene.ultimoPincho || 0) > 200) scene.sound.play('pinchos', { volume: 0.5 });
+                scene.ultimoPincho = scene.time.now;
+            });
         }
         const arriba = p.img.y <= SUELO_Y + 4;
         if (arriba && g.right > p.x + 4 && g.left < p.x + 28 && g.bottom > SUELO_Y - 14) killgesi(scene);
@@ -1522,8 +1596,8 @@ function onHitEnemy(mascotaGesi, enemy) {
     // Verificar si el enemigo ya está muerto
     if (enemy.isDead || this.nivelTerminado) return;
 
-    // con el escudo o durante la embestida, los enemigos reciben daño al tocarlos
-    if (protegido(this)) {
+    // durante la embestida de Leo, los enemigos reciben daño al tocarlos
+    if (this.time.now < this.dashHasta) {
         dañarEnemigo(this, enemy, 1);
         return;
     }
@@ -1536,9 +1610,25 @@ function onHitEnemy(mascotaGesi, enemy) {
         }
         dañarEnemigo(this, enemy, 1);
         mascotaGesi.setVelocityY(-280); // rebote al pisar al enemigo
-    } else {
-        killgesi(this);
+        return;
     }
+    // parada de Leo o escudo mágico de Zeno: el golpe no entra y el enemigo retrocede
+    const d = defensa(this, enemy.body.center.x);
+    if (d) {
+        aplicarDefensa(this, d);
+        apartarEnemigo(this, enemy);
+        return;
+    }
+    killgesi(this, undefined, 20, enemy.body.center.x);
+}
+
+// el enemigo retrocede un poco y tarda en volver a atacar (después de una parada o del escudo mágico)
+function apartarEnemigo(scene, enemy) {
+    const lado = enemy.body.center.x < scene.mascotaGesi.body.center.x ? -1 : 1;
+    scene.tweens.add({ targets: enemy, x: enemy.x + lado * 28, duration: 120 });
+    enemy.proxAtaque = scene.time.now + 900;
+    enemy.setTintFill(0xffffff);
+    scene.time.delayedCall(80, () => enemy.active && enemy.clearTint());
 }
 
 function onlava(mascotaGesi, lava) {
@@ -1547,6 +1637,18 @@ function onlava(mascotaGesi, lava) {
         killgesi(this, 'caida');
     }
 
+}
+
+// al llegar a la meta el cristal del faro se enciende: un poco de luz vuelve al reino
+function encenderFaro(scene) {
+    const c = scene.bandera;
+    c.setTint(0xffe27a);
+    scene.tweens.add({ targets: c, scale: 2.6, yoyo: true, duration: 260, ease: 'Back.out' });
+    const halo = scene.add.image(c.x, c.y - 16, 'brillo').setDepth(41).setScale(0.5).setTint(0xffd27a).setAlpha(0).setBlendMode('ADD');
+    scene.tweens.add({ targets: halo, scale: 4, alpha: 0.75, duration: 900, ease: 'Sine.out' });
+    const rayo = scene.add.rectangle(c.x, c.y - 30, 10, 380, 0xffe9a8, 0.35).setOrigin(0.5, 1).setDepth(41).setBlendMode('ADD').setScale(1, 0);
+    scene.tweens.add({ targets: rayo, scaleY: 1, duration: 700, delay: 200, ease: 'Quad.out' });
+    scene.tweens.add({ targets: rayo, alpha: 0.12, yoyo: true, repeat: -1, delay: 900, duration: 700 });
 }
 
 function completarNivel(mascotaGesi) {
@@ -1559,7 +1661,7 @@ function completarNivel(mascotaGesi) {
     this.musica.stop();
     this.musicaBatalla?.stop();
     this.sound.play('victoria');
-    this.tweens.add({ targets: this.bandera, y: SUELO_Y - 40, duration: 1200 });
+    encenderFaro(this);
     addToScore(1000, mascotaGesi, this);
 
     const ultimo = nivelActual === NIVELES.length - 1;
@@ -1702,6 +1804,15 @@ function update(time, delta) {
         this.mana = Math.min(MANA_MAXIMO, this.mana + delta * 0.012);
         actualizarRecurso(this);
     }
+    // Gesi recoge flechas del suelo poco a poco mientras le queden pocas (nunca se queda sin atacar)
+    if (this.pj.regeneraFlechas && flechas < FLECHAS_RECOGIDAS) {
+        this.recogiendoFlechas = (this.recogiendoFlechas || 0) + delta;
+        if (this.recogiendoFlechas >= this.pj.regeneraFlechas) {
+            this.recogiendoFlechas = 0;
+            flechas++;
+            actualizarRecurso(this);
+        }
+    }
 
     // escudo mágico
     if (this.escudoFx) {
@@ -1712,6 +1823,12 @@ function update(time, delta) {
     if (time < this.dashHasta) {
         // embestida: avanza rápido en línea recta
         g.setVelocity(this.dashVel, 0);
+    } else if (time < (this.volteretaHasta || 0)) {
+        // voltereta: rueda rápido (con gravedad: no sirve para cruzar huecos volando)
+        g.setVelocityX(this.volteretaVel);
+    } else if (time < (this.empujadoHasta || 0)) {
+        // lo acaban de empujar (escudo roto, golpe, mímico): las flechas no anulan el empujón
+        if (!g.body.allowGravity) g.body.setAllowGravity(true);
     } else {
         if (!g.body.allowGravity) g.body.setAllowGravity(true);
 
@@ -1779,6 +1896,8 @@ function moveFloorPiece(floorPiece, newX) {
 // daño: cuánta salud quita durante la pelea con el jefe (fuera de la pelea, cualquier golpe mata)
 // los enemigos, las gotas y los premios dejan de interactuar con el cuerpo después de morir
 const vivo = g => !g.isDead;
+// durante la voltereta de Gesi los enemigos no la tocan: los atraviesa
+const tocaEnemigos = g => !g.isDead && !(g.scene.time.now < (g.scene.volteretaHasta || 0));
 
 // Cómo queda el cuerpo al morir (sin saltos ni atravesar el suelo):
 // - lava o hueco: se hunde despacio en la lava, brillando, y desaparece
@@ -1805,24 +1924,32 @@ function caerMuerto(game, causa) {
     g.setDragX(500);
 }
 
-function killgesi(game, causa, daño = 20) {
+// origenX: de dónde vino el golpe (enemigos, disparos, troll); las trampas no lo pasan
+function killgesi(game, causa, daño = 20, origenX) {
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
     if (game.cinematica && causa !== 'caida') return;
     if (game.peleaJefe && causa !== 'caida' && causa !== 'sin_salud') {
-        // contra el jefe ninguna protección anula el golpe: solo lo reduce
+        // contra el jefe solo esquivar a tiempo evita el golpe del todo; las demás defensas lo reducen
         if (estaInvulnerable(game)) return; // un instante después de cada golpe
+        const d = defensa(game, origenX);
+        if (d === 'esquiva') return; // voltereta o embestida en el momento justo
         let factor = 1;
         if (game.tieneEscudo) {
             romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
             factor *= 0.5; // el escudo absorbe la mitad y se rompe
         }
-        if (protegido(game)) factor *= 0.5; // escudo mágico del mago o embestida del espadachín
-        recibirDaño(game, Math.max(10, daño * factor));
+        if (d === 'parada') factor *= 0.25; // la parada de Leo frena casi todo el garrotazo
+        if (d === 'escudo') factor *= 0.5;  // el escudo mágico absorbe la mitad y se rompe
+        if (d) aplicarDefensa(game, d);
+        recibirDaño(game, Math.max(d === 'parada' ? 5 : 10, daño * factor));
         return;
     }
-    // el escudo y la embestida protegen de todo menos de caer a la lava
-    if (causa !== 'caida' && protegido(game)) return;
+    // las defensas de cada personaje protegen de todo menos de caer a la lava
+    if (causa !== 'caida') {
+        const d = defensa(game, origenX);
+        if (d) { aplicarDefensa(game, d); return; }
+    }
     if (causa !== 'caida') {
         // recién roto el escudo: unos instantes sin recibir daño
         if (estaInvulnerable(game)) return;
@@ -1835,6 +1962,8 @@ function killgesi(game, causa, daño = 20) {
     mascotaGesi.isDead = true;
     game.atacando = false;
     game.dashHasta = 0;
+    game.volteretaHasta = 0;
+    game.paradaHasta = 0;
     mascotaGesi.anims.play(`${game.pj.id}-dead`);
     caerMuerto(game, causa);
     game.musica.stop();
