@@ -106,6 +106,7 @@ export function crearMapa(scene, data) {
     });
 
     const teclas = scene.input.keyboard.addKeys({ enter: 'ENTER', espacio: 'SPACE' });
+    scene.input.on('pointerdown', empezar); // en el celular: tocar la pantalla
     scene.saltarMapa = () => {
         const JD = Phaser.Input.Keyboard.JustDown;
         if (JD(teclas.enter) || JD(teclas.espacio)) empezar();

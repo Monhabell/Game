@@ -1,0 +1,17 @@
+{
+  "name": "monhabell-aventura",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monhabell Aventura: La Noche Eterna — versión Android (Capacitor)",
+  "type": "module",
+  "scripts": {
+    "web": "node scripts/copiar-web.mjs",
+    "sync": "npm run web && npx cap sync android",
+    "apk": "powershell -ExecutionPolicy Bypass -File scripts/construir-apk.ps1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/cli": "8.5.3",
+    "@capacitor/core": "8.5.3"
+  }
+}

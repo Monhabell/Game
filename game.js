@@ -9,6 +9,7 @@ import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, vestirTecho, crearLava, moverLava,
     decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero
 } from "./mazmorra.js"
+import { iniciarTactil } from "./tactil.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
@@ -134,6 +135,9 @@ const config = {
 }
 
 const juego = new Phaser.Game(config)
+
+// en celulares: botones táctiles sobre el juego (tactil.js)
+iniciarTactil(juego);
 
 // botones de la página: agrandar (tecla G) y pantalla completa (tecla F); Esc sale
 const botonAgrandar = document.getElementById('btn-agrandar');

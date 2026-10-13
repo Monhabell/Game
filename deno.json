@@ -1,11 +1,11 @@
 {
   "lint": {
-    "exclude": ["phaser.min.js", "assets/"],
+    "exclude": ["phaser.min.js", "assets/", "www/", "node_modules/", "android/"],
     "rules": {
       "exclude": ["no-window"]
     }
   },
   "fmt": {
-    "exclude": ["phaser.min.js", "assets/"]
+    "exclude": ["phaser.min.js", "assets/", "www/", "node_modules/", "android/"]
   }
 }

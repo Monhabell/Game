@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Monhabell Aventura</string>
+    <string name="title_activity_main">Monhabell Aventura</string>
+    <string name="package_name">com.monhabell.aventura</string>
+    <string name="custom_url_scheme">com.monhabell.aventura</string>
+</resources>
