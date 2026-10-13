@@ -6,14 +6,14 @@
   "4": "azar.js",
   "5": "historia.js",
   "6": "jefes.js",
-  "7": "construirNivel",
+  "7": "niveles.js",
   "8": "exclude",
-  "9": "empezarJuego",
-  "10": "mazmorra.js",
-  "11": "prepararAnimaciones",
+  "9": "completarNivel",
+  "10": "locuras.js",
+  "11": "arte.js",
   "12": "update",
   "13": "escudo.js",
   "14": "addToScore",
-  "15": "recogerPremio",
-  "16": "senales.js"
+  "15": "actualizarEnemigo",
+  "16": "dañarEnemigo"
 }

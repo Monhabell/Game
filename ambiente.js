@@ -453,13 +453,17 @@ export function actualizarAmbiente(scene, time, objetivo) {
     const cam = scene.cameras.main;
     if (!objetivo.isDead) revisarEventos(scene, time, objetivo.x);
     aplicarNiebla(scene);
+    // cuánto subió la cámara sobre el suelo (niveles con altura): los fondos fijos en pantalla
+    // bajan según su profundidad, así al trepar se siente la altura (lo lejano se mueve poco)
+    const subida = Math.max(0, (ALTO - ALTO * 2 / cam.zoom) - cam.scrollY);
+    const bajar = (capa, factor) => { capa.yBase ??= capa.y; capa.y = capa.yBase + subida * factor; };
     scene.nieblaDensa.tilePositionX = cam.scrollX * 0.7 + time * 0.02;
-    scene.capasNiebla.forEach(({ capa, factor, vel }) => { capa.tilePositionX = cam.scrollX * factor + time * vel; });
-    (scene.capasMontanas || []).forEach(({ capa, factor }) => { capa.tilePositionX = cam.scrollX * factor; });
-    moverFondoCueva(scene, time);
+    scene.capasNiebla.forEach(({ capa, factor, vel }) => { capa.tilePositionX = cam.scrollX * factor + time * vel; bajar(capa, factor); });
+    (scene.capasMontanas || []).forEach(({ capa, factor }) => { capa.tilePositionX = cam.scrollX * factor; bajar(capa, factor); });
+    moverFondoCueva(scene, time, subida);
     scene.nieblaAlta.tilePositionX = cam.scrollX * 0.5 + time * 0.012;
     scene.nieblaBaja.tilePositionX = cam.scrollX * 1.1 + time * 0.03;
-    scene.nieblaBaja.y = ALTO - 140 + Math.sin(time / 1500) * 5; // sube y baja suavemente
+    scene.nieblaBaja.y = ALTO - 140 + Math.sin(time / 1500) * 5 + subida; // sube y baja suavemente (y se queda con el suelo)
 
     // la luz sigue al personaje (con un leve parpadeo, como una antorcha)
     const parpadeo = 1 + Math.sin(time / 90) * 0.012 + Math.sin(time / 37) * 0.008;

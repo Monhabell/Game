@@ -63,6 +63,15 @@ export function vestirMuro(scene, pieza) {
     pieza.setVisible(false);
 }
 
+// techo de túnel: roca maciza con el borde de roca por abajo (usa el cuerpo de física)
+export function vestirTecho(scene, pieza) {
+    const b = pieza.body;
+    const relleno = scene.add.tileSprite(b.x, b.y, b.width, b.height - 30, 'mz_relleno').setOrigin(0).setTint(0xb0a8a0);
+    const borde = scene.add.tileSprite(b.x, b.bottom - 64 + BORDE, b.width, 64, 'mz_suelo').setOrigin(0).setFlipY(true);
+    pieza.visuales = [relleno, borde];
+    pieza.setVisible(false);
+}
+
 // lava que fluye en los huecos
 export function crearLava(scene, x0, x1) {
     scene.lavasFluyen = scene.lavasFluyen || [];
@@ -88,14 +97,18 @@ export function crearFondoCueva(scene, tinte) {
     ].map(([key, factor, alpha]) => {
         const capa = scene.add.tileSprite(0, 0, 790, 380, key).setOrigin(0).setScrollFactor(0)
             .setTileScale(escala).setTint(tinte).setAlpha(alpha);
-        return { capa, factor: factor / escala, vel: key === 'mz_fondo_myst' ? 0.01 : 0 };
+        return { capa, factor: factor / escala, fy: factor, vel: key === 'mz_fondo_myst' ? 0.01 : 0 };
     });
 }
 
-export function moverFondoCueva(scene, time) {
+// subida: cuánto subió la cámara (niveles con altura): las capas bajan según su profundidad
+export function moverFondoCueva(scene, time, subida = 0) {
     if (!scene.capasCueva) return;
     const x = scene.cameras.main.scrollX;
-    scene.capasCueva.forEach(({ capa, factor, vel }) => { capa.tilePositionX = x * factor + time * vel; });
+    scene.capasCueva.forEach(({ capa, factor, fy, vel }) => {
+        capa.tilePositionX = x * factor + time * vel;
+        capa.y = subida * fy;
+    });
 }
 
 // ---------- Decoración ----------

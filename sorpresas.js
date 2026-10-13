@@ -5,6 +5,7 @@
 //   { killgesi(scene), crearEnemigo(scene, x, y, tipo), mostrarMensaje(scene, texto, ms) }
 
 import { crearEstatua } from "./mazmorra.js"
+import { crearLocuras, actualizarLocuras } from "./locuras.js"
 
 const SUELO_Y = 332;
 // tiempos de aviso (a 220 px/s, la velocidad de carrera)
@@ -66,6 +67,9 @@ export function crearSorpresas(scene, nivel, inicioX = 0) {
     });
 
     scene.persecuciones = (nivel.persecuciones || []).filter(adelante).map(x => ({ x, hecha: false }));
+
+    // trampas nuevas de cada nivel (locuras.js)
+    crearLocuras(scene, nivel, inicioX);
 }
 
 // roca colgando del techo; cae cuando el jugador se acerca (ver actualizarSorpresas)
@@ -88,7 +92,8 @@ export function activarCebo(scene, premio, api) {
         g.setVelocity(lado * 220, -220);
         scene.empujadoHasta = scene.time.now + 250; // las flechas no anulan el empujón
         scene.invulnerableHasta = scene.time.now + 700;
-        const e = api.crearEnemigo(scene, x, SUELO_Y - 2);
+        // (el de la cornisa secreta aparece sobre la cornisa, no en el suelo)
+        const e = api.crearEnemigo(scene, x, Math.min(SUELO_Y - 2, premio.y + 40));
         e.x = x - (e.def.cuerpo[2] + e.def.cuerpo[0] / 2) * (e.def.escala ?? 1);
         e.flipX = lado < 0; // mira hacia el jugador
         e.setVelocityX(lado < 0 ? -e.velBase : e.velBase);
@@ -222,6 +227,8 @@ export function actualizarSorpresas(scene, api) {
         scene.tweens.add({ targets: f.partes, y: '-=30', yoyo: true, repeat: 5, duration: 150 });
         [120, 230].forEach((dx, i) => scene.time.delayedCall(300 + i * 250, () => api.crearEnemigo(scene, f.x + dx, 0)));
     });
+
+    actualizarLocuras(scene, api);
 
     // persecución: un zombie gigante aparece detrás
     scene.persecuciones.forEach(p => {

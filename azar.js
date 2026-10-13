@@ -58,18 +58,31 @@ const DESCANSO_CADA = 1400;       // cada ~1400 px hay un tramo de descanso...
 const DESCANSO_LARGO = 320;       // ...de este largo, en una posición al azar
 
 // cantidad mínima de trampas por nivel: siempre sube (los primeros niveles son para aprender)
-const MINIMO_TRAMPAS = [10, 13, 17, 24, 50, 70];
+const MINIMO_TRAMPAS = [20, 26, 34, 42, 64, 84];
 // cebos por nivel: premios tentadores que esconden una trampa (castigo a la codicia)
 const CEBOS = [1, 1, 2, 2, 3, 3];
 const ALTURA_CEBO = 225; // y del cristal: caminando no se alcanza (la cabeza llega a ~263), hay que saltar
 const ATERRIZAJE_CEBO = 300; // suelo firme que tiene que haber después de un cebo que se toma saltando
+
+// locuras (locuras.js): trampas nuevas que trae cada nivel; los siguientes mezclan las de antes
+const LOCURAS_POR_NIVEL = [
+    ['monedaHuye', 'cartelCae', 'seta'],
+    ['estalactita'],                       // + olas de lava, túnel que se derrumba
+    ['viento'],                            // + plataformas que se caen, ascensor que baja de golpe
+    ['quieto', 'antorcha', 'puerta'],
+    ['cadena'],                            // + géiseres
+    ['runaMaldita', 'sombra', 'gravedad'],
+];
+const CUANTAS_LOCURAS = [7, 8, 10, 12, 15, 18];
+// remixes que no hacen daño (no cuentan como trampas)
+const INOFENSIVAS = ['monedaBuena', 'estatuaRoja', 'runaDerrumba', 'ascensor'];
 
 export function contarTrampas(n) {
     const c = ch => (n.bloques || []).reduce((a, b) => a + [...b[2]].filter(x => x === ch).length, 0);
     const L = k => (n[k] || []).length;
     return c('H') + c('E') + c('C') + c('F') + L('falsos') + L('pinchos') + L('emboscadas') + L('plantas') +
         L('monedasTrampa') + L('rocas') + L('estatuasFalsas') + L('mordedoras') + L('banderasFalsas') + L('persecuciones') +
-        L('cebos');
+        L('cebos') + (n.locuras || []).filter(([, t]) => !INOFENSIVAS.includes(t)).length;
 }
 
 const BURLAS_CARTEL = ['¡SALTA AQUÍ!', 'ATAJO →', 'TODO BIEN :)', 'NO HAY TRAMPAS', 'CONFÍA EN MÍ', '¡CASI LLEGAS!', 'ZONA SEGURA', 'NO CORRAS'];
@@ -93,10 +106,24 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     const inicioArena = meta - 1010;
 
     // zonas donde no puede haber trampas que necesitan espacio arriba (bloques bajos y escaleras)
-    const bloquesBajos = (nivel.bloques || []).filter(([, y]) => y >= 200).map(([x, , p]) => [x - 40, x + p.length * 32 + 40]);
-    // trampas que se esquivan saltando (pinchos, plantas): no debajo ni justo después de bloques bajos,
+    // "techos bajos": filas de bloques bajos y plataformas flotantes a poca altura del suelo
+    const techosBajos = [
+        ...(nivel.bloques || []).filter(([, y]) => y >= 200).map(([x, , p]) => [x, x + p.length * 32]),
+        ...(nivel.plataformas || []).filter(([, arriba]) => arriba >= 150 && arriba < 320).map(([x, , ancho]) => [x, x + ancho]),
+        ...(nivel.runas || []).map(([x]) => [x - 40, x + 72]), // hay que ponerse debajo de la runa para golpearla
+    ];
+    const bloquesBajos = techosBajos.map(([a, b]) => [a - 40, b + 40]);
+    // trampas que se esquivan saltando (pinchos, plantas): no debajo ni justo después de un techo bajo,
     // porque al saltar te golpearías la cabeza y caerías encima
-    const zonasDeSalto = (nivel.bloques || []).filter(([, y]) => y >= 200).map(([x, , p]) => [x - 100, x + p.length * 32 + 180]);
+    // (desde 64 px antes: un grupo de dos pinchos ocupa 64 px a la derecha de donde empieza)
+    const zonasDeSalto = techosBajos.map(([a, b]) => [a - 164, b + 180]);
+    // ni donde baja un ascensor ni pegadas a un muro
+    const ascensores = (nivel.moviles || []).filter(([, , eje]) => eje === 'y').map(([x]) => [x - 130, x + 130]);
+    // (a la derecha del muro se aterriza tras una caída larga: ese tramo también queda libre)
+    const muros = (nivel.muros || []).map(([x, , ancho]) => [x - 60, x + ancho + 220]);
+    // túneles: sin trampas de suelo dentro (casi no se puede saltar) ni justo a la salida
+    // (los enemigos que caen del cielo o el gigante que persigue aparecerían dentro del techo)
+    const tuneles = (nivel.techos || []).map(([a, b]) => [a - 60, b + 500]);
     const escaleras = (nivel.escaleras || []).map(([x, h]) => [x - 60, x + h * 32 + 60]);
     const falsos = (nivel.falsos || []).map(([a, b]) => [a - 60, b + 60]);
     const dentro = (x, rangos) => rangos.some(([a, b]) => x >= a && x <= b);
@@ -117,6 +144,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
             if (x < ZONA_INICIO || x > inicioArena - ANTESALA_JEFE) continue;
             if (checkpoints.some(cp => x > cp - ANTES_CHECKPOINT && x < cp + DESPUES_CHECKPOINT)) continue;
             if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos)) continue;
+            if (dentro(x, ascensores) || dentro(x, muros) || dentro(x, tuneles)) continue;
             candidatos.push(x);
         }
     });
@@ -125,8 +153,9 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     // separación: suficiente para ver la señal de la trampa siguiente (más juntas en niveles altos)
     const separacion = Math.max(150, 200 - 10 * indice);
     // evitar: rangos donde esta trampa no puede ir (bloquesBajos, zonasDeSalto)
-    const tomar = (evitar = [], desde = 0) => {
-        const i = candidatos.findIndex(x => x >= desde && !usados.some(u => Math.abs(u - x) < separacion) && !dentro(x, evitar));
+    // cumple: condición extra del lugar (por ejemplo, que haya suelo firme alrededor)
+    const tomar = (evitar = [], desde = 0, cumple = () => true) => {
+        const i = candidatos.findIndex(x => x >= desde && !usados.some(u => Math.abs(u - x) < separacion) && !dentro(x, evitar) && cumple(x));
         if (i < 0) return null;
         const x = candidatos.splice(i, 1)[0];
         usados.push(x);
@@ -209,6 +238,94 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
         ...repartir(Math.max(2, largo(nivel.carteles)), x => [x, Math.round(azar(130, 180)), BURLAS_CARTEL[Math.floor(rnd() * BURLAS_CARTEL.length)]]),
     ];
 
+    // ---------- Locuras: las trampas nuevas de cada nivel (ver locuras.js) ----------
+    n.locuras = [];
+    n.cristales = [...(nivel.cristales || [])];
+    const firme = (a, b) => [...n.suelo, ...sueloExtra].some(([s, e]) => a >= s && b <= e);
+    const flotantes = (nivel.plataformas || []).map(([x, , ancho]) => [x - 60, x + ancho + 60]);
+    const enJuego = x => x > ZONA_INICIO && x < inicioArena - ANTESALA_JEFE;
+    // dónde puede ir cada una (además de las reglas de siempre)
+    const LUGAR = {
+        monedaHuye: () => tomar([], 0, x => firme(x - 40, x + 560)),          // salta 3 veces hacia adelante
+        cartelCae: () => tomar([], 0, x => firme(x - 220, x + 120)),          // cae hacia atrás
+        seta: () => tomar([...bloquesBajos, ...flotantes], 0, x => firme(x - 100, x + 520)), // vuela alto y lejos
+        estalactita: () => tomar([...bloquesBajos, ...flotantes]),
+        viento: () => tomar([], 0, x => firme(x - 220, x + 220)),             // nunca empuja a un hueco
+        quieto: () => tomar(zonasDeSalto, 0, x => firme(x - 100, x + 100)),
+        antorcha: () => tomar(),
+        puerta: () => tomar(bloquesBajos, 0, x => firme(x - 80, x + 420)),   // los enemigos caen delante
+        cadena: () => tomar(zonasDeSalto, 0, x => n.suelo.some(([s, e]) => x - 280 >= s && x + 280 <= e)),
+        runaMaldita: () => tomar(zonasDeSalto),                               // se esquiva saltando
+        sombra: () => tomar([], meta * 0.2),
+        gravedad: () => tomar([...zonasDeSalto, ...flotantes], 0, x => firme(x - 160, x + 160)),
+    };
+    const ponerLocura = (tipo) => {
+        const x = LUGAR[tipo]();
+        if (x === null) return false;
+        if (tipo === 'cadena') {
+            // tres losas de suelo falso que se hunden en cadena (con lava debajo)
+            const i = n.suelo.findIndex(([s, e]) => x - 280 >= s && x + 280 <= e);
+            const [s, e] = n.suelo[i];
+            n.suelo.splice(i, 1, [s, x - 150], [x + 150, e]);
+            n.falsos.push([x - 150, x - 50], [x - 50, x + 50], [x + 50, x + 150]);
+            usados.push(x - 150, x + 150); // nada pegado a la cadena
+        }
+        if (tipo === 'seta') usados.push(x + 250, x + 450); // donde se aterriza, sin trampas
+        if (tipo === 'monedaHuye') usados.push(x + 250, x + 480);
+        n.locuras.push(tipo === 'viento' ? [x, tipo, moneda(0.5) ? 1 : -1] : [x, tipo]);
+        return true;
+    };
+    const desbloqueadas = LOCURAS_POR_NIVEL.slice(0, Math.min(indice, LOCURAS_POR_NIVEL.length - 1) + 1).flat();
+    const nuevas = LOCURAS_POR_NIVEL[Math.min(indice, LOCURAS_POR_NIVEL.length - 1)];
+    const cuantas = CUANTAS_LOCURAS[Math.min(indice, CUANTAS_LOCURAS.length - 1)];
+    for (let k = 0; k < cuantas; k++) {
+        // la mitad son las novedades del nivel; las demás, cualquiera de las ya vistas
+        const tipo = k < cuantas / 2 ? nuevas[k % nuevas.length] : desbloqueadas[Math.floor(rnd() * desbloqueadas.length)];
+        ponerLocura(tipo);
+    }
+
+    // fosos de lava "simples" (se cruzan de un salto, sin nada encima): olas y géiseres
+    const cerca = (x, a, b) => x > a - 60 && x < b + 60;
+    const encima = (a, b) => [...(nivel.plataformas || []), ...(nivel.moviles || []), ...(nivel.bloques || [])].some(([x]) => cerca(x, a, b)) ||
+        (nivel.runas || []).some(([, , losas]) => losas.some(([x]) => cerca(x, a, b)));
+    const fosos = mezclar((nivel.lava || []).filter(([a, b]) => b - a >= 90 && b - a <= 300 && enJuego(a) && !encima(a, b)));
+    if (indice >= 1) fosos.splice(0, indice >= 3 ? 2 : 1).forEach(([a, b]) => n.locuras.push([a, 'ola', b]));
+    if (indice >= 4) fosos.splice(0, 2).forEach(([a, b]) => n.locuras.push([a, 'geiser', b]));
+
+    // túneles: a veces se derrumban detrás de ti, o una estatua falsa espera en la entrada
+    (nivel.techos || []).forEach(([a, b]) => {
+        if (!enJuego(a) || indice < 1) return;
+        const r = rnd();
+        if (r < 0.45) n.locuras.push([a, 'techoBaja', b]);
+        else if (r < 0.75) n.estatuasFalsas.push(a + 60);
+    });
+    // plataformas flotantes que se caen al pisarlas (no junto a una plataforma móvil: ahí se espera)
+    if (indice >= 2) {
+        const moviles = nivel.moviles || [];
+        const lejosDeMoviles = ([x, , ancho]) => !moviles.some(([mx, , eje, rec]) => mx - 300 < x + ancho && (eje === 'x' ? mx + rec : mx) + 300 > x);
+        mezclar((nivel.plataformas || []).filter(p => enJuego(p[0]) && lejosDeMoviles(p)))
+            .slice(0, indice >= 4 ? 3 : 2).forEach(([x]) => n.locuras.push([x, 'puente']));
+    }
+    // ascensores que bajan de golpe (el del mirador del nivel 1 también, a veces)
+    (nivel.moviles || []).filter(([, , eje]) => eje === 'y').forEach(([x, , , rec]) => {
+        if (moneda(indice >= 2 ? 0.6 : rec === 236 ? 0.5 : 0)) n.locuras.push([x, 'ascensor']);
+    });
+    // el cristal de la cornisa secreta a veces es un mímico
+    (nivel.posiblesMimicos || []).forEach(([x, y]) => {
+        if (!moneda(0.5)) return;
+        n.cristales = n.cristales.filter(([cx, cy]) => cx !== x || cy !== y);
+        n.cebos.push([x, y, 'mimico']);
+    });
+
+    // remixes: después de tantas mentiras, un cartel que dice la verdad; una moneda que parece trampa
+    // y es buena; un punto de control de verdad con ojos rojos; una runa que se rompe la primera vez
+    if (indice >= 1) {
+        n.pinchos.slice(0, 2).forEach(([x]) => n.carteles.push([x - 70, 150, '¡OJO! PINCHOS']));
+        for (let k = 0; k < 2; k++) { const x = tomar(); if (x !== null) n.locuras.push([x, 'monedaBuena']); }
+    }
+    if (indice >= 2 && checkpoints.length && moneda(0.6)) n.locuras.push([checkpoints[Math.floor(rnd() * checkpoints.length)], 'estatuaRoja']);
+    if (indice >= 4) (nivel.runas || []).forEach(([x]) => { if (moneda(0.5)) n.locuras.push([x, 'runaDerrumba']); });
+
     // bloques: cualquier "?" puede soltar un enemigo y cualquier ladrillo bajo puede caer
     const pE = 0.15 + 0.05 * indice, pC = 0.1 + 0.04 * indice;
     n.bloques = (nivel.bloques || []).filter(([, , p]) => p !== 'H' || moneda(0.6)).map(([x, y, patron]) => {
@@ -247,6 +364,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
         () => { const x = tomar(); return x !== null && n.monedasTrampa.push([x, 300]); },
         () => { const x = tomar(zonasDeSalto); return x !== null && n.plantas.push(x); },
         () => { const x = tomar(); return x !== null && n.emboscadas.push([x, [x + 200, x + 330]]); },
+        () => ponerLocura(desbloqueadas[Math.floor(rnd() * desbloqueadas.length)]),
     ];
     for (let i = 0, fallos = 0; contarTrampas(n) < minimo && fallos < extras.length; i++) {
         fallos = extras[i % extras.length]() ? 0 : fallos + 1;

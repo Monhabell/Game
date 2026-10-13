@@ -6,9 +6,10 @@ import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos } from "./enemigos.j
 import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
 import { cargarCastillos, crearCastilloMeta } from "./castillos.js"
 import {
-    cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, crearLava, moverLava,
-    decorarNivel, crearEstatua, encenderEstatua
+    cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, vestirTecho, crearLava, moverLava,
+    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha
 } from "./mazmorra.js"
+import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
@@ -56,6 +57,10 @@ const VEL_DERIVA = 100;  // px/s que conserva en el aire al soltar la flecha
 // (corriendo a 220 px/s quedan ~90 px para saltarlos)
 // tiempo en que un empujón (escudo roto, golpe, mímico) no se puede anular con las flechas
 const EMPUJON_MS = 250;
+// cámara vertical (niveles con altura): dónde queda el personaje en la pantalla y qué tan rápido lo sigue
+const CAMARA_ALTURA_PJ = 0.62; // fracción de la pantalla desde arriba
+const CAMARA_SUAVIDAD_MS = 140; // más alto = sigue más lento
+const PAUSA_ASCENSOR = 1500; // ms que el ascensor espera en cada parada
 const AVISO_PINCHOS = 190;
 const ESPERA_PINCHOS = 450;
 // El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja al doble
@@ -334,7 +339,9 @@ function create() {
         }
     });
 
-    this.mascotaGesi = this.physics.add.sprite(checkpointX ?? 50, 100, `${this.pj.id}-idle`)
+    // aparece en el último punto de control; si no hay, donde diga el nivel (p. ej. arriba del cráter)
+    const [inicioX, inicioY] = checkpointX == null && nivel.inicio ? nivel.inicio : [checkpointX ?? 50, 100];
+    this.mascotaGesi = this.physics.add.sprite(inicioX, inicioY, `${this.pj.id}-idle`)
         .setScale(1)
         .setCollideWorldBounds(true)// asegura que no salga de los limites del juego
         .setGravityY(480); // aplicar garvedad vertical
@@ -405,7 +412,11 @@ function create() {
     this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (_f, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
 
-    this.physics.world.setBounds(0, 0, nivel.ancho, VISTA.height);
+    // el mundo crece hacia ARRIBA en los niveles con altura (torres, puentes colgantes):
+    // el suelo, la lava y el jefe siguen en su sitio y las secciones altas quedan en y negativa
+    this.altoNivel = nivel.alto || 0;
+    this.camaraVerticalLista = false;
+    this.physics.world.setBounds(0, -this.altoNivel, nivel.ancho, VISTA.height + this.altoNivel);
 
     // camara
     this.anchoNivel = nivel.ancho;
@@ -461,7 +472,18 @@ function moverCamara(scene) {
         const centro = scene.camaraArena ?? g.x;
         cam.scrollX = Phaser.Math.Clamp(centro - anchoVista / 2, 0, Math.max(0, scene.anchoNivel - anchoVista));
     }
-    cam.scrollY = VISTA.height - altoVista; // el suelo siempre queda abajo; lo extra se ve arriba (cielo)
+    const abajo = VISTA.height - altoVista; // el suelo abajo del todo; lo extra se ve arriba (cielo)
+    if (!scene.altoNivel || scene.camaraArena) {
+        cam.scrollY = abajo;
+    } else if (!g.isDead) {
+        // en los niveles con altura la cámara sigue al personaje en vertical, con suavidad
+        // (lo deja algo por debajo del centro: se ve más de lo que hay arriba, adonde se va)
+        const objetivo = Phaser.Math.Clamp(g.y - altoVista * CAMARA_ALTURA_PJ, abajo - scene.altoNivel, abajo);
+        // al empezar (o reaparecer) se coloca de golpe; después lo sigue con suavidad
+        const k = scene.camaraVerticalLista ? 1 - Math.exp(-scene.game.loop.delta / CAMARA_SUAVIDAD_MS) : 1;
+        cam.scrollY += (objetivo - cam.scrollY) * k;
+        scene.camaraVerticalLista = true;
+    }
 }
 
 // Lo que se dibuja fijo en la pantalla (HUD, cielo, niebla, oscuridad) está pensado para zoom 2.
@@ -901,6 +923,40 @@ function construirNivel(scene, nivel) {
         });
     });
 
+    // plataformas flotantes de roca (torres, puentes colgantes): [x, arriba, ancho]
+    (nivel.plataformas || []).forEach(([x, arriba, ancho]) => { crearPlataforma(scene, x, arriba, ancho).esPlataforma = true; });
+    // piedras rúnicas doradas: al golpearlas desde abajo aparecen sus losas sobre el abismo.
+    // Antes de activarlas, las losas se ven como contornos fantasma (la pista de que hay un camino)
+    (nivel.runas || []).forEach(([x, y, losas]) => {
+        const runa = scene.floor.create(x, y, 'misterio' + scene.sufijo).setOrigin(0, 0.5).setScale(2).refreshBody();
+        runa.anims.play(`misterio${scene.sufijo}-brillo`, true);
+        runa.setTint(0xffd27a);
+        runa.esRuna = true;
+        runa.brillo = scene.add.image(x + 16, y, 'brillo').setDepth(41).setScale(0.9).setTint(0xffd27a).setAlpha(0.4).setBlendMode('ADD');
+        scene.tweens.add({ targets: runa.brillo, alpha: 0.15, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.inOut' });
+        runa.losas = losas.map(([lx, arriba, ancho]) => {
+            const losa = crearPlataforma(scene, lx, arriba, ancho);
+            losa.body.enable = false;
+            losa.visuales.forEach(v => v.setAlpha(0.22).setTint(0xffe9a8));
+            return losa;
+        });
+    });
+
+    // muros de roca maciza desde el suelo hasta 'arriba' (cortan el paso: hay que subir por encima)
+    (nivel.muros || []).forEach(([x, arriba, ancho]) => {
+        const pieza = scene.floor.create(x, arriba, 'suelo' + scene.sufijo)
+            .setOrigin(0, 0).setScale(ancho / 128, (SUELO_Y - arriba) / 32).refreshBody();
+        vestirMuro(scene, pieza);
+    });
+    // techos de túnel: roca maciza desde arriba hasta 'abajo' (queda poco espacio para saltar)
+    (nivel.techos || []).forEach(([x0, x1, abajo]) => {
+        const pieza = scene.floor.create(x0, -40, 'suelo' + scene.sufijo)
+            .setOrigin(0, 0).setScale((x1 - x0) / 128, (abajo + 40) / 32).refreshBody();
+        vestirTecho(scene, pieza);
+    });
+    // antorchas en las paredes (su luz se ve a través de la oscuridad)
+    (nivel.antorchas || []).forEach(([x, y]) => crearAntorcha(scene, x, y));
+
     (nivel.escaleras || []).forEach(([x, altura]) => {
         for (let col = 0; col < altura; col++) {
             for (let f = 0; f <= col; f++) {
@@ -998,6 +1054,14 @@ function crearSuelo(scene, x0, x1, textura) {
         tiles.push(pieza);
     }
     return tiles;
+}
+
+// plataforma flotante: 'arriba' es la altura donde se pisa (16 px de grosor físico)
+function crearPlataforma(scene, x, arriba, ancho) {
+    const pieza = scene.floor.create(x, arriba + 8, 'suelo' + scene.sufijo)
+        .setOrigin(0, 0.5).setScale(ancho / 128, 0.5).refreshBody();
+    vestirSuelo(scene, pieza, { izq: true, der: true, flotante: true });
+    return pieza;
 }
 
 function activarCheckpoint(scene, cp) {
@@ -1239,6 +1303,24 @@ function derrumbarSuelo(scene, pieza) {
     });
 }
 
+function activarRuna(scene, runa) {
+    runa.usado = true;
+    runa.anims.stop();
+    runa.setTexture('vacio' + scene.sufijo).setTint(0xb8a070);
+    runa.brillo?.destroy();
+    scene.tweens.add({ targets: runa, y: runa.y - 8, yoyo: true, duration: 80 });
+    scene.sound.play('aparece', { volume: 0.6 });
+    scene.cameras.main.shake(200, 0.004);
+    runa.losas.forEach((losa, i) => scene.time.delayedCall(150 + i * 220, () => {
+        losa.body.enable = true;
+        losa.refreshBody();
+        losa.visuales.forEach(v => { v.clearTint(); scene.tweens.add({ targets: v, alpha: 1, duration: 250 }); });
+        scene.sound.play('romper', { volume: 0.35, rate: 1.4 });
+    }));
+    mostrarMensaje(scene, '¡UN PUENTE DE PIEDRA!', 1100);
+    engañoDeRuna(scene, runa, apiSorpresas); // a veces las losas se rompen la primera vez (locuras.js)
+}
+
 function golpearBloque(mascotaGesi, pieza) {
     const cuerpo = mascotaGesi.body;
 
@@ -1248,6 +1330,12 @@ function golpearBloque(mascotaGesi, pieza) {
     if (pieza.esFalso && cuerpo.touching.down) derrumbarSuelo(this, pieza);
 
     if (!cuerpo.touching.up && !cuerpo.blocked.up) return;
+
+    // piedra rúnica dorada golpeada desde abajo: aparecen las losas
+    const runa = this.floor.getChildren().find(b => b.esRuna && !b.usado &&
+        cuerpo.center.x >= b.body.left - 4 && cuerpo.center.x <= b.body.right + 4 &&
+        Math.abs(b.body.bottom - cuerpo.top) < 10);
+    if (runa) { activarRuna(this, runa); return; }
 
     // el bloque golpeado es el que está justo encima del centro de Gesi
     // (Phaser puede reportar el choque con el ladrillo de al lado)
@@ -1715,8 +1803,36 @@ function actualizarMundo(scene) {
             if (p.x >= p.max) p.setVelocityX(-p.vel);
             else if (p.x <= p.min) p.setVelocityX(p.vel);
         } else {
-            if (p.y <= p.min) p.setVelocityY(p.vel);
-            else if (p.y >= p.max) p.setVelocityY(-p.vel);
+            // ascensor tramposo (locuras.js): si lo pisas, arriba no espera y baja de golpe
+            if (p.tramposo && !p.armado) {
+                const gb = scene.mascotaGesi.body, pb = p.body;
+                if (gb.touching.down && Math.abs(gb.bottom - pb.top) < 5 && gb.right > pb.left && gb.left < pb.right) {
+                    p.armado = true;
+                    scene.tweens.add({ targets: p, alpha: 0.6, yoyo: true, repeat: 5, duration: 120 });
+                    p.setTint(0xffb0b0);
+                }
+            }
+            // ascensor: se detiene un momento en cada parada para subir y bajar con calma
+            if (p.paradoHasta) {
+                if (scene.time.now >= p.paradoHasta) { p.paradoHasta = 0; p.setVelocityY(p.siguiente); }
+                return;
+            }
+            const vy = p.body.velocity.y;
+            if ((p.y <= p.min && vy < 0) || (p.y >= p.max && vy > 0)) {
+                p.y = Phaser.Math.Clamp(p.y, p.min, p.max);
+                p.setVelocityY(0);
+                p.siguiente = vy < 0 ? p.vel : -p.vel;
+                p.paradoHasta = scene.time.now + PAUSA_ASCENSOR;
+                if (p.armado && vy < 0) {
+                    // ¡se pasa de largo! casi sin parar, baja cuatro veces más rápido
+                    p.armado = false;
+                    p.tramposo = false;
+                    p.clearTint();
+                    p.siguiente = p.vel * 4;
+                    p.paradoHasta = scene.time.now + 450;
+                    mostrarMensaje(scene, '¡SALTA YA!', 600);
+                }
+            }
         }
     });
 
@@ -1833,11 +1949,15 @@ function update(time, delta) {
         if (!g.body.allowGravity) g.body.setAllowGravity(true);
 
         // la velocidad va en px/s: el personaje corre igual en pantallas de 60 Hz o de 144 Hz
-        if (this.keys.left.isDown) {
+        // (la runa maldita y la sombra invierten izquierda y derecha un rato: locuras.js)
+        const invertido = time < (this.invertidoHasta || 0);
+        const izquierda = invertido ? this.keys.right.isDown : this.keys.left.isDown;
+        const derecha = invertido ? this.keys.left.isDown : this.keys.right.isDown;
+        if (izquierda) {
             enSuelo && animar(this, 'run');
             g.setVelocityX(-VEL_CARRERA * v);
             g.flipX = true;
-        } else if (this.keys.right.isDown) {
+        } else if (derecha) {
             enSuelo && animar(this, 'run');
             g.setVelocityX(VEL_CARRERA * v);
             g.flipX = false;

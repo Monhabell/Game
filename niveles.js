@@ -29,13 +29,26 @@
 // suelo / lava: rangos [xInicio, xFin]
 // enemigos: x (aparece en el suelo) o [x, y]
 // goteros: [x, cadaCuantosMs] (gotas de lava que caen del techo)
-// moviles: [x, y, eje 'x'|'y', recorrido, velocidad]
+// moviles: [x, y, eje 'x'|'y', recorrido, velocidad]  (eje 'y' = ascensor: sube desde y hasta y - recorrido)
+// plataformas: [x, arriba, ancho]  plataformas flotantes de roca a cualquier altura
+// muros: [x, arriba, ancho]  columna de roca maciza desde el suelo (corta el paso: se sube por encima)
+// antorchas: [x, y]  antorchas en la pared
+// techos: [x0, x1, abajo]  túnel: roca maciza desde arriba hasta 'abajo' (ver tramos.js)
+// runas: [x, y, [losas]]  piedra rúnica: al golpearla desde abajo aparecen las losas [x, arriba, ancho]
+// inicio: [x, y]  dónde aparece el jugador al empezar el nivel (por defecto, en el suelo al inicio)
+// alto: px que el nivel crece hacia ARRIBA (torres, puentes colgantes); la cámara sube con el jugador.
+//   Las secciones altas usan y negativa. Las pruebas comprueban que se llegue a todo (alcance.js)
 // escaleras: [x, altura en bloques]
 // meta: x de la bandera
 // checkpoints: x donde reaparece Gesi si muere después de pasar por ahí
 // velEnemigos: velocidad de los enemigos (sube en cada nivel)
 // Una gota de lava golpea en x + 31 respecto a su gotero: los goteros se ponen
 // sobre huecos o suelo, nunca sobre una plataforma en la que haya que pararse.
+
+import {
+    colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
+    tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico,
+} from "./tramos.js"
 
 export const SUELO_Y = 332;
 
@@ -151,13 +164,17 @@ export const NIVELES = [
     {
         nombre: 'Puentes sobre la Lava',
         ancho: 6300,
+        // ruta alta sobre el lago de lava (2800-3400): un ascensor sube a los puentes colgantes y al
+        // final se baja de un salto a la otra orilla. La ruta de abajo (plataforma móvil) sigue ahí.
+        alto: 450,
+        plataformas: [[2720, -96, 150], [2900, -150, 120], [3300, -150, 140]],
         nubes: true,
         tinte: 0xffb38a,
         velEnemigos: 55,
         checkpoints: [2350, 3450],
         mezcla: ['alien_green', 'alien_blue', 'esqueleto', 'zombie3'],
         plantas: [1550, 2550],
-        espiritus: [[850, 140], [2000, 150], [4350, 150]],
+        espiritus: [[850, 140], [2000, 150], [4350, 150], [3150, -60]],
         suelo: [[0, 600], [1100, 1700], [2300, 2700], [3400, 4000], [4700, 6300]],
         falsos: [[2700, 2800]],
         bolas: [[1000, 2400], [2000, 2100], [3330, 2200], [4300, 2000]],
@@ -165,7 +182,7 @@ export const NIVELES = [
         emboscadas: [[5000, [5150, 5250]]],
         carcajes: [[1150, 290], [4750, 290]],
         corazones: [[5358, 35]],
-        cristales: [[3700, 60]],
+        cristales: [[3700, 60], [3150, -240]], // el segundo, premio de la ruta alta
         carteles: [[590, 185, 'SALTA AQUÍ ↓'], [5180, 120, '¡META!'], [1640, 200, 'TODO BIEN :)']],
         monedasTrampa: [[282, 300], [1120, 300], [4780, 300]],
         rocas: [1460, 3530, 4880],
@@ -178,6 +195,8 @@ export const NIVELES = [
             [694, 300, 'x', 312, 70],
             [1794, 300, 'x', 412, 90],
             [2894, 300, 'x', 150, 60],
+            [2640, 316, 'y', 396, 55], // ascensor a la ruta alta (descansa en el suelo)
+            [3090, -174, 'x', 120, 60], // puente móvil en lo alto
             [4094, 290, 'x', 250, 90],
             [5350, 236, 'y', 110, 45], // ascensor de bonus
         ],
@@ -188,7 +207,7 @@ export const NIVELES = [
             [1290, 136, '?B?'],
             [1690, 232, 'H'],
             [3990, 232, 'H'],
-            [2400, 232, '?BEB?'],
+            [2330, 232, '?BEB?'], // (deja sitio para saltar al ascensor de la ruta alta)
             [3140, 280, 'BBBB'],
             [3480, 232, 'BB'],
             [3600, 136, 'BBBBBB'],
@@ -205,16 +224,30 @@ export const NIVELES = [
             ...fila(1466, 190, 5),
             ...fila(1900, 230, 8),
             ...fila(3156, 245, 4),
+            ...fila(2735, -130, 4), // ruta alta
+            ...fila(2915, -185, 3),
+            ...fila(3315, -185, 3),
             ...fila(3616, 100, 6),
             ...fila(4180, 220, 5),
             ...fila(5310, 75, 4),
         ],
-        goteros: [[2600, 1600], [3550, 1500], [4900, 1500]],
+        goteros: [[2760, 1600], [3550, 1500], [4900, 1500]], // (el primero, lejos del ascensor)
         meta: 5900,
     },
     {
         nombre: 'La Fortaleza',
         ancho: 6900,
+        // torre (2850-3500): un muro de roca de casi 600 px corta el paso; se sube en zigzag por la
+        // izquierda, se cruza por arriba (con premio) y se baja de un salto por la derecha.
+        // El apagón de la Fortaleza ocurre justo al empezar a subir (ver regiones.js)
+        alto: 650,
+        muros: [[3240, -260, 90]],
+        plataformas: [
+            [2890, 236, 120], [3100, 140, 130],
+            [2890, 44, 120], [3100, -52, 130],
+            [2890, -148, 120], [3100, -244, 130],
+        ],
+        antorchas: [[3226, 200], [3226, 10], [3226, -180]],
         cueva: true,
         tinte: 0x7a5aa8,
         velEnemigos: 65,
@@ -222,14 +255,14 @@ export const NIVELES = [
         mezcla: ['esqueleto', 'alien_armor', 'alien_red', 'zombie1', 'alien_predator_mask'],
         plantas: [1000, 2100, 4700, 5850],
         espiritus: [[1600, 140], [3850, 150], [5075, 180]],
-        suelo: [[0, 500], [640, 1300], [1900, 2400], [2600, 2700], [2850, 3500], [4200, 5000], [5150, 6900]],
+        suelo: [[0, 500], [640, 1300], [1900, 2400], [2600, 2700], [2850, 3600], [4200, 5000], [5150, 6900]], // (2850-3600: torre y aterrizaje amplio al bajar)
         falsos: [[2550, 2600]],
-        bolas: [[570, 1800], [1600, 2200], [2475, 1700], [2775, 1700], [3550, 2000], [5075, 1700]],
+        bolas: [[570, 1800], [1600, 2200], [2475, 1700], [2775, 1700], [3680, 2000], [5075, 1700]],
         pinchos: [[5450, 2, true], [6050, 1, true]],
         emboscadas: [[4300, [4500, 4650, 4800]], [5600, [5800, 5950]]],
         carcajes: [[700, 290], [4250, 280]],
-        corazones: [[3150, 60]],
-        cristales: [[2475, 200]],
+        corazones: [[3285, -300]], // en la cima de la torre
+        cristales: [[2475, 200], [3285, -340]],
         carteles: [[480, 180, 'SALTA AQUÍ'], [2250, 150, 'PUNTO DE CONTROL →'], [5700, 120, '¡LLEGASTE!']],
         monedasTrampa: [[1050, 300], [3300, 300], [4900, 300]],
         rocas: [720, 2200, 4550],
@@ -237,7 +270,7 @@ export const NIVELES = [
         mordedoras: [[2475, 280], [5075, 280]],
         banderasFalsas: [5720],
         persecuciones: [2900, 4300],
-        lava: [[500, 640], [1300, 1900], [2400, 2550], [2700, 2850], [3500, 4200], [5000, 5150]],
+        lava: [[500, 640], [1300, 1900], [2400, 2550], [2700, 2850], [3600, 4200], [5000, 5150]],
         moviles: [
             [1394, 300, 'x', 412, 100],
             [3810, 250, 'x', 230, 80],
@@ -246,23 +279,22 @@ export const NIVELES = [
             [490, 232, 'H'],
             [850, 232, '?BEB?'],
             [2000, 232, 'B?B'],
-            [2950, 232, 'BBB'],
-            [3080, 136, 'BBBB'],
-            [3250, 232, '?E?'],
-            [3490, 232, 'H'],
-            [3620, 280, 'BBB'],
+            [3590, 232, 'H'],
+            [3640, 280, 'BBB'],
             [4400, 232, 'BC?C?CB'],
             [5500, 232, 'BCCB'],
         ],
         escaleras: [[5300, 3], [6100, 5]],
-        enemigos: [350, 800, 950, 1100, 1250, 2050, 2200, 2600, 3000, 3200, 3350, 3450,
+        enemigos: [350, 800, 950, 1100, 1250, 2050, 2200, 2600, 3450,
             4350, 4500, 4650, 4800, 4950, 5600, 5750, 5900, 6000],
         monedas: [
             ...arco(540, 230),
             ...fila(1450, 230, 10),
             ...arco(2445, 230),
             ...arco(2745, 230),
-            ...fila(3096, 100, 4),
+            ...fila(3115, 105, 3), // por la torre
+            ...fila(3115, -87, 3),
+            ...fila(3115, -279, 3),
             ...fila(3636, 245, 3),
             ...fila(3850, 200, 5),
             ...fila(5516, 190, 4),
@@ -271,15 +303,42 @@ export const NIVELES = [
         goteros: [[539, 1500], [1600, 2000], [2444, 1400], [2744, 1400], [3950, 2000], [4600, 1400], [5044, 1400]],
         meta: 6450,
     },
+    // el Volcán empieza arriba, en el borde del cráter, y se baja por cornisas sobre la lava;
+    // tiene una torre y el primer abismo rúnico (golpear la runa crea el puente)
     generarNivel({
-        nombre: 'El Volcán', semilla: 7, dificultad: 0.75, tramos: 11, cueva: true, tinte: 0xb8503a,
+        nombre: 'El Volcán', semilla: 7, dificultad: 0.75, tramos: 12, cueva: true, tinte: 0xb8503a,
         mezcla: ['esqueleto', 'zombie1', 'alien_dark_gray', 'zombie3', 'alien_gray', 'esqueleto'],
+        bajadaInicial: true, especiales: ['runa', 'tunel', 'torre4'],
     }),
+    // las Nubes combinan todo lo aprendido: puentes altos, abismos rúnicos y una torre alta
     generarNivel({
-        nombre: 'El Reino de las Nubes', semilla: 21, dificultad: 1, tramos: 14, nubes: true, tinte: 0x9fb8ff,
+        nombre: 'El Reino de las Nubes', semilla: 21, dificultad: 1, tramos: 16, nubes: true, tinte: 0x9fb8ff,
         mezcla: ['alien_green', 'alien_blue', 'alien_red', 'alien_predator_mask', 'alien_armor', 'esqueleto'],
+        especiales: ['puentesAltos', 'tunel', 'runa', 'torre6', 'dobleCamino', 'runa', 'tunel'],
     }),
 ];
+
+// ---------- Niveles más largos a medida que se avanza ----------
+// Los niveles hechos a mano se alargan con piezas (tramos.js) colocadas justo antes de la arena
+// del jefe: cada nivel suma lo nuevo que enseña (túneles, ascensores, doble camino, torres).
+// En x hay suelo firme; todo lo que estaba a la derecha (arena, meta) se corre.
+extender(NIVELES[0], 3850, [ // Bosque: primer túnel, primer ascensor (corto y opcional) y una cornisa secreta
+    tramoLlano(300), // (antes de un túnel siempre hay llano: saltar un foso hacia su techo sería injusto)
+    tramoTunel(700, { enemigos: 1 }), tramoLlano(300), tramoAscensorMirador(), tramoLlano(250, { enemigos: 1 }),
+    tramoCornisaSecreta(),
+]);
+extender(NIVELES[1], 4660, [ // Cueva: doble camino sobre la lava y un túnel largo
+    tramoLlano(200), tramoDobleCamino(), tramoLlano(400, { enemigos: 1 }), tramoTunel(900),
+    tramoLlano(300), tramoCornisaSecreta(),
+]);
+extender(NIVELES[2], 4710, [ // Puentes: túnel, una torre y otro doble camino
+    tramoLlano(300), tramoTunel(600), tramoLlano(300, { enemigos: 1 }), tramoTorre(4), tramoLlano(400),
+    tramoDobleCamino(), tramoLlano(300),
+]);
+extender(NIVELES[3], 5160, [ // Fortaleza: túneles, doble camino y una torre alta
+    tramoLlano(300), tramoTunel(900), tramoLlano(700, { enemigos: 2 }), tramoDobleCamino(), tramoLlano(400),
+    tramoTorre(6), tramoLlano(400, { enemigos: 1 }), tramoTunel(600), tramoLlano(300),
+]);
 
 // Generador de niveles grandes a partir de "tramos" que siempre se pueden pasar.
 // dificultad va de 0 (fácil) a 1 (difícil): huecos más anchos, más enemigos,
@@ -294,7 +353,9 @@ function azar(semilla) {
     };
 }
 
-function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, nubes = false, tinte, mezcla }) {
+// especiales: tramos con altura que se reparten a lo largo del nivel ('torre4', 'torre6', 'puentesAltos', 'runa')
+// bajadaInicial: el nivel empieza arriba y se baja por cornisas sobre la lava
+function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, nubes = false, tinte, mezcla, especiales = [], bajadaInicial = false }) {
     const r = azar(semilla);
     const entre = (a, b) => Math.round(a + r() * (b - a));
     const n = {
@@ -304,6 +365,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         monedas: [], goteros: [], moviles: [], checkpoints: [],
         falsos: [], pinchos: [], bolas: [], emboscadas: [], carcajes: [], corazones: [], cristales: [],
         carteles: [], monedasTrampa: [], rocas: [], estatuasFalsas: [], mordedoras: [], banderasFalsas: [], persecuciones: [],
+        plataformas: [], muros: [], antorchas: [], runas: [], alto: 0,
     };
     const BURLAS_CARTEL = ['¡SALTA AQUÍ!', 'ATAJO →', 'TODO BIEN :)', 'NO HAY TRAMPAS', 'CONFÍA', '¡CASI LLEGAS!'];
     const intervaloGota = () => Math.round(2200 - 800 * d);
@@ -399,17 +461,46 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         n.escaleras.push([inicio + 200, d > 0.5 ? 4 : 3]);
     };
 
+    // tramos especiales: piezas compartidas (tramos.js), las mismas que alargan los niveles hechos a mano
+    const especial = t => { colocar(n, t, x); x += t.ancho; };
+    const TRAMOS_ESPECIALES = {
+        torre4: () => especial(tramoTorre(4)), torre6: () => especial(tramoTorre(6)),
+        puentesAltos: () => especial(tramoPuentesAltos()), dobleCamino: () => especial(tramoDobleCamino()),
+        runa: () => especial(tramoAbismoRunico()), tunel: () => especial(tramoTunel(800)),
+    };
+    // en qué tramo va cada especial: repartidos a lo largo del nivel
+    const posEspecial = new Map(especiales.map((e, k) => [Math.floor(((k + 1) * tramos) / (especiales.length + 1)), e]));
+
+    // bajada inicial: se aparece en el borde del cráter y se baja por cornisas en zigzag sobre la lava
+    if (bajadaInicial) {
+        n.inicio = [60, -450]; // (el personaje cae un poco y se posa en la primera cornisa)
+        n.plataformas.push([0, -300, 200], [250, -204, 120], [40, -108, 120], [250, -12, 120], [40, 84, 120], [250, 180, 120]);
+        n.lava.push([0, 480]);
+        n.alto = Math.max(n.alto, 520);
+        x = 480;
+    }
+
     const obstaculos = [hueco, hueco, islas, puente, escalera];
+    const CHECKPOINT_CADA = 2400; // un punto de control cada ~2400 px (los niveles generados son largos)
+    let ultimoCheckpoint = 0;
+    const ponerCheckpoint = cx => {
+        if (r() < d) n.estatuasFalsas.push(cx - 30); // una estatua falsa justo antes de la real
+        n.checkpoints.push(cx);
+        ultimoCheckpoint = cx;
+        if (r() < d) n.persecuciones.push(cx + 60); // y después, un gigante
+        n.corazones.push([cx + 50, 290]); // un corazón junto a cada punto de control
+    };
     llano(700, { enemigos: false, trampas: false });
     for (let i = 0; i < tramos; i++) {
-        obstaculos[entre(0, obstaculos.length - 1)]();
-        if (i === Math.floor(tramos / 3) || i === Math.floor((2 * tramos) / 3)) {
-            if (r() < d) n.estatuasFalsas.push(x + 30); // una estatua falsa justo antes de la real
-            n.checkpoints.push(x + 60);
-            if (r() < d) n.persecuciones.push(x + 120); // y después, un gigante
-            n.corazones.push([x + 110, 290]); // un corazón junto a cada punto de control
-        }
+        // un tramo especial reemplaza al obstáculo al azar (el punto de control y el llano siguen igual)
+        if (posEspecial.has(i)) TRAMOS_ESPECIALES[posEspecial.get(i)]();
+        else obstaculos[entre(0, obstaculos.length - 1)]();
+        // después del obstáculo empieza un llano: el punto de control va al comienzo
+        if (x - ultimoCheckpoint >= CHECKPOINT_CADA) ponerCheckpoint(x + 60);
         llano(entre(450, 800));
+        // y al final del llano también se revisa (por si el obstáculo siguiente es largo)
+        // (a 120 px del final: un suelo falso del llano termina como mucho a 164 px del final)
+        if (x - ultimoCheckpoint >= CHECKPOINT_CADA) ponerCheckpoint(x - 120);
     }
 
     // meta falsa antes de la verdadera
