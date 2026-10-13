@@ -7,7 +7,7 @@ import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSe
 import { cargarCastillos, crearCastilloMeta } from "./castillos.js"
 import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, vestirTecho, crearLava, moverLava,
-    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha
+    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero
 } from "./mazmorra.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
@@ -843,6 +843,7 @@ function construirNivel1(scene) {
     // goteros del techo (solo decoración, las gotas se crean con los timers)
     // las gotas caen en los huecos entre plataformas (golpean en x + 31)
     [1579, 1979].forEach(x => {
+        crearMuroGotero(scene, x);
         const gotero = scene.floor.create(x, VISTA.height - 370, 'lava_falling').setOrigin(0, 0.5).anims.play('lavacaer', true)
             .setScale(0.5).refreshBody()
             .setSize(20, 60).setOffset(55, 1);
@@ -990,6 +991,7 @@ function construirNivel(scene, nivel) {
     (nivel.espiritus || []).forEach(([x, y]) => crearEnemigo(scene, x, y, 'espiritu'));
 
     (nivel.goteros || []).forEach(([x, delay]) => {
+        crearMuroGotero(scene, x);
         scene.add.sprite(x, VISTA.height - 370, 'lava_falling').setOrigin(0, 0.5).setScale(0.5).anims.play('lavacaer', true);
         scene.time.addEvent({ delay, callback: () => crearGota(scene, x), loop: true });
     });

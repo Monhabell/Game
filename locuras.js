@@ -27,7 +27,7 @@
 //
 // api: { killgesi(scene), crearEnemigo(scene, x, y, tipo), mostrarMensaje(scene, texto, ms) }
 
-import { crearAntorcha } from "./mazmorra.js"
+import { crearAntorcha, colgarRoca } from "./mazmorra.js"
 
 const SUELO_Y = 332;
 const PROFUNDIDAD = 41; // por encima de la oscuridad
@@ -87,7 +87,7 @@ export function crearLocuras(scene, nivel, inicioX) {
     const adelante = x => x > inicioX + 40;
     scene.locuras = [];
     scene.invertidoHasta = 0;
-    scene.gravedadBase = scene.mascotaGesi.body.gravity.y;
+    scene.gravedadBase = null; // se toma de Gesi al entrar a la gravedad loca (aún no existe aquí)
 
     (nivel.locuras || []).forEach(([x, tipo, extra]) => {
         if (!adelante(tipo === 'techoBaja' ? extra : x)) return;
@@ -125,6 +125,7 @@ const CREAR = {
         l.img = scene.cueva
             ? scene.add.image(l.x, -8, 'mz_stalactite5').setOrigin(0.5, 0).setScale(1.4).setTint(0xc8a0a0)
             : scene.add.image(l.x, 10, 'mz_bloque').setOrigin(0.5, 0).setScale(2.2).setTint(0xa08a8a);
+        l.muro = colgarRoca(scene, l.img); // se mueve junto con la estalactita
     },
     ola(scene, l) { prepararLava(scene, l, l.x, l.extra); },
     geiser(scene, l) { prepararLava(scene, l, l.x, l.extra); },
@@ -276,11 +277,14 @@ const ACTUALIZAR = {
         if (Math.abs(d) < 10) {
             l.hecha = true;
             l.img.destroy();
+            l.muro.forEach(p => p.destroy());
             scene.rocas.push(crearRocaEn(scene, l.x));
             return;
         }
-        l.x += Math.sign(d) * Math.min(Math.abs(d), SIGUE_ESTALACTITA * scene.game.loop.delta / 1000);
+        const paso = Math.sign(d) * Math.min(Math.abs(d), SIGUE_ESTALACTITA * scene.game.loop.delta / 1000);
+        l.x += paso;
         l.img.x = l.x;
+        l.muro.forEach(p => { p.x += paso; });
     },
     ola: cicloLava,
     geiser: cicloLava,
@@ -489,6 +493,7 @@ const ACTUALIZAR = {
             return;
         }
         if (!l.dentro) {
+            scene.gravedadBase ??= g.body.gravity.y;
             l.dentro = true;
             l.cambio = ahora + TURNO_GRAVEDAD;
             if (!l.avisado) { l.avisado = true; api.mostrarMensaje(scene, '¡GRAVEDAD LOCA!', 900); }
@@ -559,6 +564,7 @@ function crearRocaEn(scene, x) {
     const img = scene.cueva
         ? scene.add.image(x, -8, 'mz_stalactite5').setOrigin(0.5, 0).setScale(1.4).setTint(0xc8a0a0)
         : scene.add.image(x, 10, 'mz_bloque').setOrigin(0.5, 0).setScale(2.2).setTint(0xa08a8a);
+    colgarRoca(scene, img);
     return { x, img, estado: null };
 }
 

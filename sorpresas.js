@@ -4,7 +4,7 @@
 // api: funciones de game.js que se necesitan aquí
 //   { killgesi(scene), crearEnemigo(scene, x, y, tipo), mostrarMensaje(scene, texto, ms) }
 
-import { crearEstatua } from "./mazmorra.js"
+import { crearEstatua, colgarRoca } from "./mazmorra.js"
 import { crearLocuras, actualizarLocuras } from "./locuras.js"
 
 const SUELO_Y = 332;
@@ -77,6 +77,7 @@ function crearRoca(scene, x) {
     const img = scene.cueva
         ? scene.add.image(x, -8, 'mz_stalactite5').setOrigin(0.5, 0).setScale(1.4).setTint(0xa89888)
         : scene.add.image(x, 10, 'mz_bloque').setOrigin(0.5, 0).setScale(2.2).setTint(0x8a8aa0);
+    colgarRoca(scene, img);
     return { x, img, estado: null };
 }
 

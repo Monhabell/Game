@@ -82,6 +82,59 @@ export function crearLava(scene, x0, x1) {
 
 export function moverLava(scene, time) {
     (scene.lavasFluyen || []).forEach((t, i) => { t.tilePositionX = time * (i % 2 ? 0.006 : 0.015); });
+    (scene.chorrosLava || []).forEach(t => { t.tilePositionY = -time * 0.04; });
+}
+
+// ---------- Muros que bajan del techo ----------
+// En los niveles con altura la cámara sube: lo que cuelga del techo (estalactitas, rocas, goteros)
+// necesita un muro de roca que baje desde lo alto del nivel, o se ve flotando en el aire.
+// Se dibujan en scene.capaTecho (creada en decorarNivel) para quedar detrás de todo lo jugable.
+
+// muro de roca desde arriba del nivel hasta 'abajo', centrado en x; termina en punta
+export function colgarDelTecho(scene, x, abajo, ancho, factorX = 1) {
+    const arriba = -(scene.altoTecho || 0) - 80;
+    const tinte = scene.tinteTecho ?? 0x6a5c54;
+    const capa = scene.capaTecho || scene.add.layer();
+    const muro = scene.add.tileSprite(x, arriba, ancho, abajo - arriba, 'mz_relleno').setOrigin(0.5, 0).setTint(tinte);
+    muro.tilePositionX = x;
+    // sombra en los bordes para que se vea redondo
+    const sombraIzq = scene.add.rectangle(x - ancho / 2, arriba, 3, abajo - arriba, 0x000000, 0.35).setOrigin(0, 0);
+    const sombraDer = scene.add.rectangle(x + ancho / 2, arriba, 3, abajo - arriba, 0x000000, 0.35).setOrigin(1, 0);
+    const punta = scene.add.triangle(x, abajo, 0, 0, ancho, 0, ancho / 2, ancho * 0.7, oscuro(tinte)).setOrigin(0.5, 0);
+    const partes = [muro, sombraIzq, sombraDer, punta];
+    partes.forEach(p => p.setScrollFactor(factorX, 1));
+    capa.add(partes);
+    return partes;
+}
+
+// muro encima de una roca trampa (estalactita en la cueva, bloque afuera); al caer la roca el muro queda
+export function colgarRoca(scene, img) {
+    return scene.cueva
+        ? colgarDelTecho(scene, img.x, img.y + img.displayHeight * 0.15, Math.max(10, img.displayWidth * 0.22))
+        : colgarDelTecho(scene, img.x, img.y + 4, img.displayWidth * 0.6);
+}
+
+// gotero de lava: la lava baja por un muro y gotea donde el muro se acaba
+// (x es la del sprite 'lava_falling' a escala 0.5: la mancha de lava queda en x + 32, desde y = -12)
+export function crearMuroGotero(scene, x) {
+    if (!scene.textures.exists('chorro_lava')) {
+        const g = scene.make.graphics({ add: false });
+        g.fillStyle(0xd9341b).fillRect(0, 0, 8, 24);
+        g.fillStyle(0xff7a1a).fillRect(1, 0, 6, 24);
+        g.fillStyle(0xffc23a).fillRect(3, 2, 2, 7).fillRect(2, 13, 2, 6);
+        g.fillStyle(0xfff0a0).fillRect(3, 4, 1, 3);
+        g.generateTexture('chorro_lava', 8, 24);
+        g.destroy();
+    }
+    const cx = x + 32, abajo = -10;
+    colgarDelTecho(scene, cx, abajo, 24);
+    const arriba = -(scene.altoTecho || 0) - 80;
+    const chorro = scene.add.tileSprite(cx, arriba, 8, abajo - arriba + 4, 'chorro_lava').setOrigin(0.5, 0);
+    (scene.capaTecho || scene.add.layer()).add(chorro);
+    scene.chorrosLava = scene.chorrosLava || [];
+    scene.chorrosLava.push(chorro);
+    // brillo de la lava a través de la oscuridad
+    scene.add.image(cx, abajo - 10, 'brillo').setDepth(41).setScale(0.9).setTint(0xff7a1a).setAlpha(0.28).setBlendMode('ADD');
 }
 
 // ---------- Fondo de cueva en capas (parallax) ----------
@@ -128,11 +181,18 @@ export function decorarNivel(scene, nivel, indice, sobreSuelo) {
     const cueva = !nivel.nubes;
     const tinte = cueva ? 0x8a7a70 : 0x6a7088;
 
-    // estalactitas colgando del techo (solo en cuevas)
+    // capa para los muros que bajan del techo (ver colgarDelTecho): queda detrás de todo lo jugable
+    scene.capaTecho = scene.add.layer();
+    scene.altoTecho = nivel.alto || 0;
+    scene.tinteTecho = oscuro(tinte);
+    scene.chorrosLava = [];
+
+    // estalactitas colgando del techo (solo en cuevas), cada una con su muro de roca encima
     if (cueva) {
         for (let x = 60; x < nivel.ancho; x += 120 + azar() * 260) {
-            scene.add.image(x, -10 - azar() * 20, `mz_stalactite${1 + Math.floor(azar() * 5)}`)
-                .setOrigin(0.5, 0).setScale(0.8 + azar() * 0.6).setTint(tinte).setScrollFactor(0.95);
+            const img = scene.add.image(x, -10 - azar() * 20, `mz_stalactite${1 + Math.floor(azar() * 5)}`)
+                .setOrigin(0.5, 0).setScale(0.8 + azar() * 0.6).setTint(tinte).setScrollFactor(0.95, 1);
+            colgarDelTecho(scene, x, img.y + img.displayHeight * 0.15, Math.max(10, img.displayWidth * 0.22), 0.95);
         }
     }
 
