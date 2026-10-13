@@ -90,8 +90,9 @@ export function moverLava(scene, time) {
 // necesita un muro de roca que baje desde lo alto del nivel, o se ve flotando en el aire.
 // Se dibujan en scene.capaTecho (creada en decorarNivel) para quedar detrás de todo lo jugable.
 
-// muro de roca desde arriba del nivel hasta 'abajo', centrado en x; termina en punta
-export function colgarDelTecho(scene, x, abajo, ancho, factorX = 1) {
+// muro de roca desde arriba del nivel hasta 'abajo', centrado en x; con punta, termina en pico
+// (la punta solo se ve si lo que colgaba se cae)
+export function colgarDelTecho(scene, x, abajo, ancho, factorX = 1, conPunta = true) {
     const arriba = -(scene.altoTecho || 0) - 80;
     const tinte = scene.tinteTecho ?? 0x6a5c54;
     const capa = scene.capaTecho || scene.add.layer();
@@ -100,19 +101,51 @@ export function colgarDelTecho(scene, x, abajo, ancho, factorX = 1) {
     // sombra en los bordes para que se vea redondo
     const sombraIzq = scene.add.rectangle(x - ancho / 2, arriba, 3, abajo - arriba, 0x000000, 0.35).setOrigin(0, 0);
     const sombraDer = scene.add.rectangle(x + ancho / 2, arriba, 3, abajo - arriba, 0x000000, 0.35).setOrigin(1, 0);
-    const punta = scene.add.triangle(x, abajo, 0, 0, ancho, 0, ancho / 2, ancho * 0.7, oscuro(tinte)).setOrigin(0.5, 0);
-    const partes = [muro, sombraIzq, sombraDer, punta];
+    const partes = [muro, sombraIzq, sombraDer];
+    if (conPunta) partes.push(scene.add.triangle(x, abajo, 0, 0, ancho, 0, ancho / 2, ancho * 0.7, oscuro(tinte)).setOrigin(0.5, 0));
     partes.forEach(p => p.setScrollFactor(factorX, 1));
     capa.add(partes);
     return partes;
 }
 
-// muro encima de una roca trampa (estalactita en la cueva, bloque afuera); al caer la roca el muro queda
-export function colgarRoca(scene, img) {
-    return scene.cueva
-        ? colgarDelTecho(scene, img.x, img.y + img.displayHeight * 0.15, Math.max(10, img.displayWidth * 0.22))
-        : colgarDelTecho(scene, img.x, img.y + 4, img.displayWidth * 0.6);
+// dónde empieza de verdad la roca en una textura (las imágenes traen filas transparentes arriba
+// y la roca no siempre está centrada): primera fila visible y el ancho de la roca un poco más abajo
+const bordes = new Map();
+function bordeSuperior(scene, key) {
+    if (bordes.has(key)) return bordes.get(key);
+    const src = scene.textures.get(key).getSourceImage();
+    const w = src.width, h = src.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(src, 0, 0);
+    const datos = ctx.getImageData(0, 0, w, h).data;
+    const opaco = (x, y) => datos[(y * w + x) * 4 + 3] > 128;
+    let borde = { fila: 0, x0: 0, x1: w };
+    for (let y = 0; y < h; y++) {
+        let hay = false;
+        for (let x = 0; x < w && !hay; x++) hay = opaco(x, y);
+        if (!hay) continue;
+        const fila = Math.min(h - 1, y + 4); // el ancho se mide un poco más abajo (la primera fila es muy fina)
+        let x0 = w, x1 = 0;
+        for (let x = 0; x < w; x++) if (opaco(x, fila)) { x0 = Math.min(x0, x); x1 = x + 1; }
+        borde = { fila: y, x0, x1 };
+        break;
+    }
+    bordes.set(key, borde);
+    return borde;
 }
+
+// muro pegado justo encima de una imagen que cuelga (origen 0.5, 0): se mete unos px dentro de la roca
+export function colgarSobre(scene, img, factorX = 1, conPunta = true) {
+    const { fila, x0, x1 } = bordeSuperior(scene, img.texture.key);
+    const s = img.scaleX, izq = img.x - img.displayWidth / 2;
+    const ancho = Math.max(8, (x1 - x0) * s * 0.92);
+    return colgarDelTecho(scene, izq + (x0 + x1) / 2 * s, img.y + (fila + 6) * s, ancho, factorX, conPunta);
+}
+
+// muro encima de una roca trampa (estalactita en la cueva, bloque afuera); al caer la roca el muro queda
+export const colgarRoca = (scene, img) => colgarSobre(scene, img);
 
 // gotero de lava: la lava baja por un muro y gotea donde el muro se acaba
 // (x es la del sprite 'lava_falling' a escala 0.5: la mancha de lava queda en x + 32, desde y = -12)
@@ -192,7 +225,7 @@ export function decorarNivel(scene, nivel, indice, sobreSuelo) {
         for (let x = 60; x < nivel.ancho; x += 120 + azar() * 260) {
             const img = scene.add.image(x, -10 - azar() * 20, `mz_stalactite${1 + Math.floor(azar() * 5)}`)
                 .setOrigin(0.5, 0).setScale(0.8 + azar() * 0.6).setTint(tinte).setScrollFactor(0.95, 1);
-            colgarDelTecho(scene, x, img.y + img.displayHeight * 0.15, Math.max(10, img.displayWidth * 0.22), 0.95);
+            colgarSobre(scene, img, 0.95, false);
         }
     }
 
