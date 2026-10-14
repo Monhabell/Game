@@ -19,7 +19,7 @@
 //
 // api: { killgesi(scene, daño, origenX), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
 
-import { zoomCamara } from "./ajustes.js"
+import { zoomCamara, RESOLUCION } from "./ajustes.js"
 
 const SUELO_Y = 332;
 export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para verla entera)
@@ -139,7 +139,7 @@ function empezarPelea(scene, api) {
 
     // la cámara se aleja para ver toda la arena
     scene.camaraArena = (j.arenaIni + j.arenaFin) / 2;
-    scene.tweens.add({ targets: scene.cameras.main, zoom: Math.min(ZOOM_ARENA, zoomCamara()), duration: 900, ease: 'Sine.inOut' });
+    scene.tweens.add({ targets: scene.cameras.main, zoom: Math.min(ZOOM_ARENA * RESOLUCION / 2, zoomCamara()), duration: 900, ease: 'Sine.inOut' });
 
     // los enemigos normales que estaban en la arena se desvanecen: el troll pelea solo
     scene.enemies.getChildren().slice().forEach(e => {

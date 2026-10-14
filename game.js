@@ -13,12 +13,15 @@ import { iniciarTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
 import { crearCadena, actualizarCadena } from "./cadena.js"
 import { iniciarSala } from "./sala.js"
+import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps } from "./rendimiento.js"
 import { red, enLinea, salirSala } from "./red.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
-    avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder
+    avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder,
+    soyReplica, soyAnfitrion, hacerReplica, avisarGolpeEnemigo, avisarZona, avisarBala,
+    fantasmas, comoJugador, fantasmaMasCercano
 } from "./multijugador.js"
-import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara } from "./ajustes.js"
+import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
@@ -73,9 +76,10 @@ const CAMARA_SUAVIDAD_MS = 140; // más alto = sigue más lento
 const PAUSA_ASCENSOR = 1500; // ms que el ascensor espera en cada parada
 const AVISO_PINCHOS = 190;
 const ESPERA_PINCHOS = 450;
-// El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja al doble
-// (1580x760) con la cámara en zoom x2: así se ve nítido aunque la pantalla sea grande.
-const ZOOM = 2;
+// El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja más grande
+// (al doble en el PC: 1580x760) con la cámara en zoom: así se ve nítido aunque la pantalla sea grande.
+// En el celular se dibuja a tamaño normal (mucho más rápido); se cambia en ⚙ → Gráficos.
+const ZOOM = RESOLUCION;
 const VISTA = { width: 790, height: 380 };
 
 // los textos se dibujan con la misma resolución para que no se vean borrosos
@@ -146,6 +150,7 @@ const config = {
 }
 
 const juego = new Phaser.Game(config)
+globalThis.juegoMonhabell = juego; // para revisar el juego desde la consola del navegador (pruebas)
 
 // en celulares: botones táctiles sobre el juego (tactil.js)
 iniciarTactil(juego);
@@ -184,6 +189,10 @@ iniciarMultijugador(juego, {
     matarEnemigo: (scene, e) => { e.muerteRemota = true; matarEnemigo(scene, e); },
     dañarJefe: (scene, cantidad) => dañarJefe(scene, cantidad, apiJefe, undefined, true),
     completar: scene => { scene.metaRemota = true; completarNivel.call(scene, scene.mascotaGesi); },
+    crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo),
+    dañarEnemigo: (scene, e, cantidad) => dañarEnemigo(scene, e, cantidad),
+    golpeEnZona: (scene, zona, x) => golpeEnZona(scene, zona, x),
+    bala: (scene, m) => balaRemota(scene, m),
 });
 
 // aplica lo que cambia al momento (la dificultad se aplica al empezar o reiniciar un nivel)
@@ -200,6 +209,9 @@ function aplicarAjustes() {
         moverCamara(nivel);
     }
     verColisiones(nivel);
+    // contador de FPS (se crea o se quita al momento)
+    if (ajustes.fps && !nivel.textoFps) crearContadorFps(nivel);
+    else if (!ajustes.fps && nivel.textoFps) { nivel.textoFps.destroy(); nivel.textoFps = null; }
 }
 // el volumen guardado se aplica cuando el sonido ya existe
 juego.events.once('ready', aplicarAjustes);
@@ -570,6 +582,11 @@ function create() {
 
     // multijugador en línea: los demás jugadores y la cadena entre todos (multijugador.js)
     this.idsCerrados = true; // los enemigos que aparezcan de aquí en adelante no se sincronizan
+    // rendimiento: lista de lo fijo en pantalla y contador de FPS (opcional)
+    vigilarFijos(this);
+    this.textoFps = null;
+    if (ajustes.fps) crearContadorFps(this);
+    this.proxRecorte = 0;
     prepararNivelEnLinea(this);
     this.alDañarJefe = avisarJefe;
     if (enLinea()) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
@@ -611,8 +628,9 @@ function compensarZoom(scene) {
     const k = ZOOM / cam.zoom;
     scene.objetosCompensados = [];
     if (Math.abs(k - 1) < 0.001) return;
-    scene.children.list.forEach(o => {
-        if (o.scrollFactorX === undefined || o.scrollFactorX > 0.1 || o.scrollFactorY > 0.1) return;
+    // solo los fijos en pantalla (lista guardada: no se recorre todo el nivel en cada fotograma)
+    fijosEnPantalla(scene).forEach(o => {
+        if (!o.scene) return; // ya destruido
         scene.objetosCompensados.push([o, o.x, o.y, o.scaleX, o.scaleY]);
         o.x *= k; o.y *= k;
         o.setScale(o.scaleX * k, o.scaleY * k);
@@ -1207,7 +1225,13 @@ function crearEnemigo(scene, x, y, tipo) {
     enemy.body.setSize(w, h).setOffset(ox, oy);
     enemy.tipoId = tipo;
     enemy.def = def;
-    if (!scene.idsCerrados) enemy.redId = scene.contIds++; // mismo número en todas las pantallas
+    // número de red: los del armado del nivel salen iguales en todas las pantallas; los que aparecen
+    // después (trampas, zombis) los numera el anfitrión, que es quien los crea
+    if (!scene.idsCerrados || (soyAnfitrion() && !scene.creandoReplica)) enemy.redId = scene.contIds++;
+    if (soyReplica()) {
+        hacerReplica(enemy); // en esta pantalla lo mueve el anfitrión
+        if (scene.idsCerrados && !scene.creandoReplica) descartarEnemigo(scene, enemy);
+    }
     enemy.vida = def.vida;
     enemy.velBase = scene.velEnemigos * def.vel;
     enemy.proxAtaque = scene.time.now + 800 + Math.random() * 800;
@@ -1235,6 +1259,15 @@ function crearEnemigo(scene, x, y, tipo) {
 // el enemigo pierde vida; devuelve true si lo golpeó
 function dañarEnemigo(scene, enemy, cantidad = 1) {
     if (enemy.isDead || scene.time.now < (enemy.invulHasta || 0)) return false;
+    if (enemy.replica) {
+        // la vida de los enemigos la lleva el anfitrión: aquí solo se ve el golpe
+        enemy.invulHasta = scene.time.now + 350;
+        avisarGolpeEnemigo(enemy.redId, cantidad);
+        enemy.setTintFill(0xffffff);
+        scene.time.delayedCall(90, () => { if (enemy.active) enemy.gigante ? enemy.setTint(0xff9a9a) : enemy.clearTint(); });
+        scene.sound.play('bump', { volume: 0.4 });
+        return true;
+    }
     enemy.vida = (enemy.vida ?? 1) - cantidad;
     if (enemy.vida <= 0) {
         matarEnemigo(scene, enemy);
@@ -1282,14 +1315,43 @@ function golpeDeEnemigo(scene, enemy) {
     sonarCerca(scene, enemy.def.tipo === 'planta' ? 'latigo' : 'golpe_enemigo', eb.center.x, { volume: 0.5 });
     const x0 = enemy.flipX ? eb.left - alcance : eb.right;
     const zona = new Phaser.Geom.Rectangle(x0, eb.top - 10, alcance, eb.height + 10);
+    avisarZona(zona, eb.center.x); // en línea: cada jugador revisa si el golpe lo alcanzó
+    golpeEnZona(scene, zona, eb.center.x);
+}
+
+function golpeEnZona(scene, zona, origenX) {
     const gb = scene.mascotaGesi.body;
     if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) {
-        killgesi(scene, undefined, 20, eb.center.x);
+        killgesi(scene, undefined, 20, origenX);
     }
 }
 
+// réplica: un enemigo que apareció aquí por una trampa, pero que en línea crea el anfitrión
+// (llega por la red); la copia local queda invisible y sin cuerpo por si alguien la sigue usando
+function descartarEnemigo(scene, enemy) {
+    enemy.isDead = true;
+    enemy.setVisible(false);
+    enemy.body.enable = false;
+    scene.time.delayedCall(4000, () => enemy.active && enemy.destroy());
+}
+
+// disparo de un enemigo hecho en la pantalla del anfitrión
+function balaRemota(scene, m) {
+    if (m.k === 'bola') {
+        const bola = scene.balasEnemigas.create(m.x, m.y, 'bola_espiritu').anims.play('bola_espiritu-giro', true);
+        bola.body.setSize(16, 16);
+        bola.setVelocity(m.vx, m.vy).setRotation(m.rot || 0);
+        scene.time.delayedCall(3500, () => bola.active && bola.destroy());
+    } else {
+        const laser = scene.balasEnemigas.create(m.x, m.y, 'laser');
+        laser.setVelocityX(m.vx);
+        scene.time.delayedCall(2500, () => laser.active && laser.destroy());
+    }
+    sonarCerca(scene, m.k === 'bola' ? 'fuego' : 'laser', m.x, { volume: 0.4 });
+}
+
 function dispararEnemigo(scene, enemy) {
-    const eb = enemy.body, gb = scene.mascotaGesi.body;
+    const eb = enemy.body, gb = (fantasmaMasCercano(scene, enemy) || scene.mascotaGesi).body;
     if (enemy.def.tipo === 'volador') {
         // bola de fuego apuntada a Gesi
         const bola = scene.balasEnemigas.create(eb.center.x, eb.center.y, 'bola_espiritu').anims.play('bola_espiritu-giro', true);
@@ -1298,12 +1360,14 @@ function dispararEnemigo(scene, enemy) {
         scene.physics.velocityFromRotation(ang, 190, bola.body.velocity);
         bola.setRotation(ang + Math.PI);
         scene.time.delayedCall(3500, () => bola.active && bola.destroy());
+        avisarBala({ k: 'bola', x: Math.round(bola.x), y: Math.round(bola.y), vx: Math.round(bola.body.velocity.x), vy: Math.round(bola.body.velocity.y), rot: bola.rotation });
     } else {
         // láser horizontal desde la pistola
         const dir = enemy.flipX ? -1 : 1;
         const laser = scene.balasEnemigas.create(eb.center.x + dir * 30, eb.top + 34, 'laser');
         laser.setVelocityX(dir * 320);
         scene.time.delayedCall(2500, () => laser.active && laser.destroy());
+        avisarBala({ k: 'laser', x: Math.round(laser.x), y: Math.round(laser.y), vx: dir * 320 });
     }
     sonarCerca(scene, enemy.def.tipo === 'volador' ? 'fuego' : 'laser', eb.center.x, { volume: 0.4 });
 }
@@ -1378,6 +1442,7 @@ function actualizarEnemigo(scene, enemy, time) {
 
 // el enemigo está dentro de la pantalla (no disparan desde fuera de la cámara)
 function enSu(scene, enemy) {
+    if (scene.soloActivar) return true; // apuntando a otro jugador: su cámara no es esta
     const izq = scene.cameras.main.scrollX;
     return enemy.x > izq - 40 && enemy.x < izq + VISTA.width;
 }
@@ -1406,6 +1471,7 @@ function crearGota(scene, x) {
 }
 
 function crearzombis() {
+    if (soyReplica()) return; // en línea los crea el anfitrión
     // no aparecen encima de Gesi y como máximo hay 3 a la vez
     if (Math.abs(this.mascotaGesi.x - 1110) < 300) return;
     this.zombis = (this.zombis || []).filter(z => z.active && !z.isDead);
@@ -1970,9 +2036,12 @@ function actualizarMundo(scene) {
             enemy.destroy();
             return;
         }
-        if (enemy.isDead) return;
+        if (enemy.isDead || enemy.replica) return; // las réplicas las mueve el anfitrión
         if (enemy.def) {
-            actualizarEnemigo(scene, enemy, ahora);
+            // en línea persigue al jugador más cercano de la sala (puede ser el de otra pantalla)
+            const otro = fantasmaMasCercano(scene, enemy);
+            if (otro) comoJugador(scene, otro, () => actualizarEnemigo(scene, enemy, ahora));
+            else actualizarEnemigo(scene, enemy, ahora);
         } else if (enemy.body.blocked.left) {
             enemy.setVelocityX(scene.velEnemigos);
             enemy.flipX = false;
@@ -2022,6 +2091,8 @@ function update(time, delta) {
     actualizarJugador.call(this, time, delta);
     if (this.compa || this.cadenaRed) actualizarCadena(this, time);
     actualizarEnLinea(this, time, delta);
+    recortarVista(this, time); // solo se dibuja lo que está cerca de la cámara
+    actualizarContadorFps(this, time);
 }
 
 function actualizarJugador(time, delta) {
@@ -2132,6 +2203,12 @@ function actualizarJugador(time, delta) {
     if (nivelActual === 0) trampasNivel1(this);
     actualizarTrampas(this);
     actualizarSorpresas(this, apiSorpresas);
+    // en línea las trampas también se activan cuando pasa otro jugador (sin hacerte daño a ti)
+    fantasmas(this).forEach(f => comoJugador(this, f, () => {
+        if (nivelActual === 0) trampasNivel1(this);
+        actualizarTrampas(this);
+        actualizarSorpresas(this, apiSorpresas);
+    }));
 
     // puntos de control
     this.checkpoints.forEach(cp => {
@@ -2179,6 +2256,7 @@ function caerMuerto(game, causa) {
 
 // origenX: de dónde vino el golpe (enemigos, disparos, troll); las trampas no lo pasan
 function killgesi(game, causa, daño = 20, origenX) {
+    if (game.soloActivar) return; // trampa o enemigo revisado con otro jugador (fantasma): el daño no es aquí
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
     if (game.cinematica && causa !== 'caida') return;

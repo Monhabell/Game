@@ -10,11 +10,20 @@ export const DIFICULTADES = {
     dificil: { nombre: 'Difícil', detalle: '3 vidas · enemigos rápidos', vidas: 3, velEnemigos: 1.25 },
 };
 
-// zoom de la cámara (el juego se dibuja en zoom 2: menos zoom = se ve más mundo)
+// zoom de la cámara, en medidas de la resolución alta (2): menos zoom = se ve más mundo
 export const CAMARAS = {
     cerca: { nombre: 'Cerca', zoom: 1.85 },
     normal: { nombre: 'Normal', zoom: 1.6 },
     lejos: { nombre: 'Lejos', zoom: 1.4 },
+};
+
+// calidad de los gráficos: a qué resolución se dibuja el juego (790x380 por este número).
+// Se aplica al volver a abrir el juego. Auto: nítidos en el PC, rápidos en el celular.
+export const GRAFICOS = {
+    auto: { nombre: 'Auto' },
+    rapida: { nombre: 'Rápidos', resolucion: 1 },
+    media: { nombre: 'Medios', resolucion: 1.5 },
+    alta: { nombre: 'Nítidos', resolucion: 2 },
 };
 
 export const BOTONES = {
@@ -25,7 +34,7 @@ export const BOTONES = {
 
 // version: sube cuando cambia un valor por defecto que debe aplicarse también a quien ya tenía ajustes
 const VERSION = 2;
-const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false, cadena: false };
+const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false, cadena: false, graficos: 'auto', fps: false };
 
 export const ajustes = leer();
 
@@ -40,6 +49,7 @@ function leer() {
         if (!DIFICULTADES[a.dificultad]) a.dificultad = POR_DEFECTO.dificultad;
         if (!CAMARAS[a.camara]) a.camara = POR_DEFECTO.camara;
         if (!BOTONES[a.botones]) a.botones = POR_DEFECTO.botones;
+        if (!GRAFICOS[a.graficos]) a.graficos = POR_DEFECTO.graficos;
         if (!(a.volumen >= 0 && a.volumen <= 100)) a.volumen = POR_DEFECTO.volumen;
         return a;
     } catch (_e) {
@@ -54,4 +64,8 @@ export function guardarAjustes(cambios) {
 
 export const vidasMaximas = () => DIFICULTADES[ajustes.dificultad].vidas;
 export const factorEnemigos = () => DIFICULTADES[ajustes.dificultad].velEnemigos;
-export const zoomCamara = () => CAMARAS[ajustes.camara].zoom;
+// resolución con la que arrancó el juego (cambiarla pide volver a abrirlo)
+const esCelular = () => !!globalThis.matchMedia?.('(pointer: coarse)').matches;
+export const RESOLUCION = GRAFICOS[ajustes.graficos].resolucion ?? (esCelular() ? 1 : 2);
+
+export const zoomCamara = () => CAMARAS[ajustes.camara].zoom * RESOLUCION / 2;

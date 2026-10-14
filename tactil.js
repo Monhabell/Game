@@ -113,9 +113,11 @@ export function iniciarTactil(juego) {
             poderes.forEach(p => {
                 const { carga, sinRecurso } = nivel.estadoHabilidad(p.tecla);
                 const listo = carga >= 1;
-                p.b.style.setProperty('--carga', carga.toFixed(3));
-                p.b.classList.toggle('cargando', !listo);
-                p.b.classList.toggle('sin-recurso', sinRecurso);
+                // solo se toca el botón si cambió algo (cambiar estilos en cada fotograma cuesta en el celular)
+                const valor = listo ? 1 : Math.floor(carga * 50) / 50;
+                if (valor !== p.valor) { p.b.style.setProperty('--carga', valor); p.valor = valor; }
+                if (listo !== p.listo) p.b.classList.toggle('cargando', !listo);
+                if (sinRecurso !== p.sinRecurso) { p.b.classList.toggle('sin-recurso', sinRecurso); p.sinRecurso = sinRecurso; }
                 if (listo && !p.listo) {
                     // destello al quedar listo (se reinicia la animación)
                     p.b.classList.remove('recien');
@@ -144,7 +146,10 @@ export function iniciarTactil(juego) {
             pjActual = nivel.pj;
             poderes.forEach(p => {
                 p.b.querySelector('small').textContent = pjActual.habilidades[p.tecla].nombre.split(' / ')[0];
+                // personaje nuevo: el botón empieza limpio
                 p.listo = true;
+                p.valor = p.sinRecurso = undefined;
+                p.b.classList.remove('cargando', 'sin-recurso');
             });
         }
     }, 250);

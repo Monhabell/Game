@@ -18,6 +18,7 @@
 import { crearPaisaje, crearRuinas } from "./castillos.js"
 import { crearFondoCueva, moverFondoCueva } from "./mazmorra.js"
 import { regionDe, eventosDeRegion, PAUSA_ENTRE_EVENTOS, OSCURIDAD_MAXIMA } from "./regiones.js"
+import { RESOLUCION } from "./ajustes.js"
 
 const ANCHO = 790;
 const ALTO = 380;
@@ -455,7 +456,7 @@ export function actualizarAmbiente(scene, time, objetivo) {
     aplicarNiebla(scene);
     // cuánto subió la cámara sobre el suelo (niveles con altura): los fondos fijos en pantalla
     // bajan según su profundidad, así al trepar se siente la altura (lo lejano se mueve poco)
-    const subida = Math.max(0, (ALTO - ALTO * 2 / cam.zoom) - cam.scrollY);
+    const subida = Math.max(0, (ALTO - ALTO * RESOLUCION / cam.zoom) - cam.scrollY);
     const bajar = (capa, factor) => { capa.yBase ??= capa.y; capa.y = capa.yBase + subida * factor; };
     scene.nieblaDensa.tilePositionX = cam.scrollX * 0.7 + time * 0.02;
     scene.capasNiebla.forEach(({ capa, factor, vel }) => { capa.tilePositionX = cam.scrollX * factor + time * vel; bajar(capa, factor); });
@@ -468,8 +469,8 @@ export function actualizarAmbiente(scene, time, objetivo) {
     // la luz sigue al personaje (con un leve parpadeo, como una antorcha)
     const parpadeo = 1 + Math.sin(time / 90) * 0.012 + Math.sin(time / 37) * 0.008;
     const radio = scene.estadoLuz.radio;
-    // posición en pantalla (en medidas de zoom 2, para que funcione también con la cámara alejada)
-    const z = cam.zoom / 2;
+    // posición en pantalla (en medidas de la resolución del juego, para que funcione con la cámara alejada)
+    const z = cam.zoom / RESOLUCION;
     scene.oscuridad.setPosition((objetivo.x - cam.scrollX) * z, (objetivo.y - cam.scrollY + 10) * z).setScale(parpadeo * radio);
     scene.luzCalida.setPosition(objetivo.x, objetivo.y + 8).setScale(2.6 * parpadeo * Math.sqrt(radio));
 }

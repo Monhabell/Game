@@ -212,11 +212,20 @@ function prepararLava(scene, l, a, b) {
 export function actualizarLocuras(scene, api) {
     const g = scene.mascotaGesi;
     if (!scene.locuras || g.isDead || scene.nivelTerminado) return;
-    const ahora = scene.time.now, dt = scene.game.loop.delta / 1000;
+    // con otro jugador (en línea, ver multijugador.js) solo se activan las trampas que se disparan una vez;
+    // las que siguen a un jugador en particular se quedan con el de esta pantalla, y nada avanza dos veces
+    const fantasma = !!scene.soloActivar;
+    const ahora = scene.time.now, dt = fantasma ? 0 : scene.game.loop.delta / 1000;
     const gb = g.body, gx = gb.center.x;
     const rGesi = rect(gb);
-    scene.locuras.forEach(l => ACTUALIZAR[l.tipo]?.(scene, l, api, { g, gb, gx, rGesi, ahora, dt }));
+    scene.locuras.forEach(l => {
+        if (fantasma && DE_CADA_JUGADOR.has(l.tipo)) return;
+        ACTUALIZAR[l.tipo]?.(scene, l, api, { g, gb, gx, rGesi, ahora, dt });
+    });
 }
+
+// trampas que dependen de un jugador en particular (lo siguen, lo empujan, miden si está quieto)
+const DE_CADA_JUGADOR = new Set(['seta', 'estalactita', 'viento', 'quieto', 'sombra', 'gravedad', 'monedaHuye']);
 
 const ACTUALIZAR = {
     monedaHuye(scene, l, api, { gx }) {

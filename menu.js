@@ -2,7 +2,7 @@
 // Son capas HTML encima del juego: funcionan igual con mouse, teclado y en el celular.
 // Pausar detiene la escena del nivel (física, enemigos, temporizadores) y los sonidos que sonaban.
 
-import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES } from "./ajustes.js"
+import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION } from "./ajustes.js"
 import { enLinea } from "./red.js"
 
 // dentro del APK (Capacitor): se puede cerrar la app y usar el botón "atrás" de Android
@@ -67,6 +67,15 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
                 ${grupo('dificultad', 'Dificultad', DIFICULTADES, ' ')}
                 ${grupo('camara', 'Cámara', CAMARAS, 'Lejos: ves más plataformas al saltar')}
                 <fieldset class="menu-grupo">
+                    <legend>Gráficos</legend>
+                    <div class="menu-opciones">
+                        ${Object.entries(GRAFICOS).map(([v, o]) =>
+                            `<button type="button" class="menu-opcion" data-clave="graficos" data-valor="${v}">${o.nombre}</button>`).join('')}
+                    </div>
+                    <p class="menu-nota">Rápidos: mejor para celulares · Nítidos: se ve mejor pero pesa más</p>
+                    <button type="button" class="menu-boton" data-accion="reabrir" hidden>↻ Aplicar (vuelve a abrir el juego)</button>
+                </fieldset>
+                <fieldset class="menu-grupo">
                     <legend>Volumen</legend>
                     <div class="menu-volumen">
                         <input type="range" min="0" max="100" step="5" id="ajuste-volumen" aria-label="Volumen">
@@ -79,6 +88,10 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
                     <div class="menu-opciones">
                         <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="false">Normal</button>
                         <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="true">Ver colisiones</button>
+                    </div>
+                    <div class="menu-opciones">
+                        <button type="button" class="menu-opcion" data-clave="fps" data-valor="false">Sin FPS</button>
+                        <button type="button" class="menu-opcion" data-clave="fps" data-valor="true">Ver FPS</button>
                     </div>
                 </fieldset>
                 <fieldset class="menu-grupo">
@@ -163,6 +176,9 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         });
         const notaDificultad = capaAjustes.querySelector('[data-nota="dificultad"]');
         notaDificultad.textContent = `${DIFICULTADES[ajustes.dificultad].detalle}${enNivel() ? ' · se aplica al reiniciar el nivel' : ''}`;
+        // la resolución cambia al volver a abrir el juego: se ofrece hacerlo ya
+        const resolucionElegida = GRAFICOS[ajustes.graficos].resolucion ?? (matchMedia('(pointer: coarse)').matches ? 1 : 2);
+        capaAjustes.querySelector('[data-accion="reabrir"]').hidden = resolucionElegida === RESOLUCION;
         volumen.value = ajustes.volumen;
         valorVolumen.textContent = `${ajustes.volumen}%`;
     }
@@ -195,6 +211,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         }
     });
     capaAjustes.querySelector('[data-accion="volver"]').addEventListener('click', cerrarAjustes);
+    capaAjustes.querySelector('[data-accion="reabrir"]').addEventListener('click', () => location.reload());
 
     // salir del juego (solo en el APK): pide un segundo toque para confirmar
     [capaPausa, capaAjustes].forEach(capa => capa.querySelector('[data-accion="cerrar"]')?.addEventListener('click', e => {

@@ -8,15 +8,25 @@
 //   - puntos de control, enemigos derrotados, daño al jefe y llegar a la meta
 //   - la cadena: todos atados en fila, en el orden en que entraron a la sala (cadena.js)
 //
+// Los ENEMIGOS los mueve solo el anfitrión: persiguen al jugador más cercano de la sala y su
+// pantalla manda dónde está cada uno (~8 veces por segundo). En las demás pantallas son copias
+// ("réplicas") que siguen esas posiciones; un golpe a una réplica se le avisa al anfitrión.
+// Las TRAMPAS se activan con cualquier jugador: cada pantalla las revisa también con "fantasmas"
+// de los demás (copias de su posición que no reciben daño: ver comoJugador).
+//
 // ganchos (game.js): { morir(scene), activarCheckpoint(scene, cp), matarEnemigo(scene, e),
-//                      dañarJefe(scene, cantidad), completar(scene), nivelActual() }
+//                      dañarJefe(scene, cantidad), completar(scene), nivelActual(),
+//                      crearEnemigo(scene, x, y, tipo), dañarEnemigo(scene, e, cantidad),
+//                      golpeEnZona(scene, zona, x), bala(scene, datos) }
 
 import { PERSONAJES } from "./personajes.js"
-import { red, alRecibir, enviarEstado, enviarEvento, enLinea } from "./red.js"
+import { red, alRecibir, enviarEstado, enviarEvento, enLinea, esAnfitrion } from "./red.js"
 
 const ENVIO_MS = 66;          // ~15 estados por segundo
 const OLVIDO_MS = 3000;       // sin noticias de un jugador: se oculta (se fue a otro nivel o se cortó)
 const SUAVIDAD = 14;          // qué tan rápido el dibujo alcanza la posición recibida
+const ENEMIGOS_MS = 125;      // el anfitrión manda los enemigos ~8 veces por segundo
+const SIN_NOTICIAS_MS = 1500; // réplica que el anfitrión ya no manda (murió, cayó): se quita
 
 let juego = null, ganchos = null;
 
@@ -55,6 +65,16 @@ export function iniciarMultijugador(juegoPhaser, g) {
             case 'jefe': ganchos.dañarJefe(scene, m.cantidad); break;
             case 'meta': ganchos.completar(scene); break;
             case 'poder': poderRemoto(scene, m); break;
+            case 'enemigos': if (!esAnfitrion()) recibirEnemigos(scene, m.l); break;
+            case 'golpe': {
+                // golpe de otro jugador a una réplica: lo aplica el anfitrión
+                if (!esAnfitrion()) break;
+                const e = enemigoPorId(scene, m.id);
+                if (e && !e.isDead) ganchos.dañarEnemigo(scene, e, m.cantidad || 1);
+                break;
+            }
+            case 'zona': ganchos.golpeEnZona(scene, new Phaser.Geom.Rectangle(m.x, m.y, m.w, m.h), m.ox); break;
+            case 'bala': ganchos.bala(scene, m); break;
         }
     });
 }
@@ -128,6 +148,8 @@ export function actualizarEnLinea(scene, time, delta) {
         return;
     }
     enviarMiEstado(scene, time);
+    if (esAnfitrion()) { enviarEnemigos(scene, time); soltarReplicas(scene); }
+    else moverReplicas(scene, delta);
 
     const ahora = performance.now(), k = Math.min(1, delta / 1000 * SUAVIDAD);
     scene.remotos.forEach(r => {
@@ -196,4 +218,151 @@ function poderRemoto(scene, m) {
         scene.tweens.add({ targets: p, x: x + m.dir * h.vel * h.vida / 1000, duration: h.vida, onComplete: () => p.destroy() });
         if (h.sonido) scene.sound.play(h.sonido, { volume: 0.3, rate: h.rate || 1 });
     });
+}
+
+// ---------- quién manda en los enemigos ----------
+export const soyReplica = () => enLinea() && !esAnfitrion();
+export const soyAnfitrion = () => enLinea() && esAnfitrion();
+
+const enemigoPorId = (scene, id) => scene.enemies.getChildren().find(e => e.redId === id);
+
+// anfitrión: posición de cada enemigo vivo
+function enviarEnemigos(scene, time) {
+    if (time < (scene.proxEnemigos || 0)) return;
+    scene.proxEnemigos = time + ENEMIGOS_MS;
+    const r = n => Math.round(n);
+    const l = [];
+    scene.enemies.getChildren().forEach(e => {
+        if (e.isDead || e.redId == null || !e.body) return;
+        l.push([e.redId, e.tipoId || '', r(e.x), r(e.y), r(e.body.velocity.x), r(e.body.velocity.y),
+            e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0]);
+    });
+    enviarEvento('enemigos', { l, nivel: nivel() });
+}
+
+// réplica: se crean las que faltan y se guarda a dónde tiene que ir cada una
+function recibirEnemigos(scene, lista) {
+    const ahora = performance.now();
+    lista.forEach(([id, tipo, x, y, vx, vy, flip, anim, escala, gigante]) => {
+        let e = enemigoPorId(scene, id);
+        if (e && tipo && e.tipoId !== tipo) { e.destroy(); e = null; } // no coincide: se rehace
+        if (!e) {
+            if (!tipo) return;
+            scene.creandoReplica = true;
+            try { e = ganchos.crearEnemigo(scene, x, y, tipo); } finally { scene.creandoReplica = false; }
+            if (!e) return;
+            e.redId = id;
+            e.setPosition(x, y);
+            if (gigante) { e.gigante = true; e.setTint(0xff9a9a); }
+        }
+        if (e.isDead) return;
+        hacerReplica(e);
+        e.red = { x, y, vx, vy, t: ahora };
+        e.flipX = !!flip;
+        if (e.scaleX !== escala) e.setScale(escala);
+        if (anim && e.anims.currentAnim?.key !== anim && scene.anims.exists(anim)) e.anims.play(anim, true);
+    });
+}
+
+export function hacerReplica(e) {
+    if (e.replica || !e.body) return;
+    e.replica = true;
+    e.body.moves = false;     // la mueve la red, no la física
+    e.body.setImmovable(true);
+}
+
+function moverReplicas(scene, delta) {
+    const ahora = performance.now(), k = Math.min(1, delta / 1000 * SUAVIDAD);
+    scene.enemies.getChildren().slice().forEach(e => {
+        if (!e.replica || e.isDead || !e.red) return; // sin noticias todavía: se queda quieta
+        if (ahora - e.red.t > SIN_NOTICIAS_MS) { e.destroy(); return; }
+        const adelanto = Math.min(0.2, (ahora - e.red.t) / 1000);
+        const x = e.red.x + e.red.vx * adelanto, y = e.red.y + e.red.vy * adelanto;
+        if (Math.hypot(x - e.x, y - e.y) > 200) e.setPosition(x, y);
+        else e.setPosition(e.x + (x - e.x) * k, e.y + (y - e.y) * k);
+    });
+}
+
+// si este jugador pasó a ser el anfitrión (el anterior se fue), sus réplicas vuelven a tener física
+function soltarReplicas(scene) {
+    scene.enemies.getChildren().forEach(e => {
+        if (!e.replica || !e.body) return;
+        e.replica = false;
+        e.red = null;
+        e.body.moves = true;
+        e.body.setImmovable(false);
+        if (!e.isDead) e.setVelocityX(e.flipX ? -e.velBase : e.velBase);
+    });
+}
+
+export const avisarGolpeEnemigo = (id, cantidad) => enLinea() && enviarEvento('golpe', { id, cantidad, para: red.anfitrion, nivel: nivel() });
+export const avisarZona = (zona, ox) => soyAnfitrion() && enviarEvento('zona', {
+    x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), ox: Math.round(ox), nivel: nivel(),
+});
+export const avisarBala = datos => soyAnfitrion() && enviarEvento('bala', { ...datos, nivel: nivel() });
+
+// ---------- fantasmas: los demás jugadores, para trampas y enemigos ----------
+// Un fantasma tiene lo que el código de trampas y enemigos lee del jugador (posición, cuerpo,
+// velocidad, si está en el suelo); cualquier otra cosa que se le pida no hace nada.
+const nada = new Proxy(function () {}, {
+    get: (_t, p) => (p === Symbol.toPrimitive ? () => 0 : nada),
+    apply: () => nada,
+});
+const sinEfecto = obj => new Proxy(obj, {
+    get: (t, p) => (p in t ? t[p] : nada),
+    set: (t, p, v) => { t[p] = v; return true; },
+});
+
+const ANCHO_CUERPO = 20, ALTO_CUERPO = 69;
+
+export function fantasmas(scene) {
+    if (!scene.remotos) return [];
+    const cuadro = scene.game.loop.frame;
+    if (scene.fantasmasCuadro === cuadro) return scene.listaFantasmas;
+    scene.fantasmasCuadro = cuadro;
+    scene.listaFantasmas = [];
+    scene.remotos.forEach(r => {
+        if (!r.visible) return;
+        const e = r.estado;
+        const cx = r.s.x + (e.cx - e.x), cy = r.s.y + (e.cy - e.y);
+        const body = sinEfecto({
+            center: { x: cx, y: cy }, x: cx - ANCHO_CUERPO / 2, y: cy - ALTO_CUERPO / 2,
+            left: cx - ANCHO_CUERPO / 2, right: cx + ANCHO_CUERPO / 2, top: cy - ALTO_CUERPO / 2, bottom: cy + ALTO_CUERPO / 2,
+            width: ANCHO_CUERPO, height: ALTO_CUERPO, velocity: { x: e.vx, y: e.vy },
+            blocked: { down: !!e.suelo, left: false, right: false, up: false },
+            touching: { down: !!e.suelo, left: false, right: false, up: false }, gravity: { y: 480 },
+        });
+        scene.listaFantasmas.push(sinEfecto({ x: r.s.x, y: r.s.y, isDead: false, flipX: !!e.flip, body, active: true, fantasma: true }));
+    });
+    return scene.listaFantasmas;
+}
+
+// ejecuta fn como si el jugador fuera el fantasma f: lo que active, se activa; el daño no cuenta
+// (game.js ignora killgesi con scene.soloActivar) y no cambia nada del jugador de esta pantalla
+export function comoJugador(scene, f, fn) {
+    const propio = scene.mascotaGesi;
+    const guardado = { invertidoHasta: scene.invertidoHasta, empujadoHasta: scene.empujadoHasta };
+    scene.mascotaGesi = f;
+    scene.soloActivar = true;
+    try { return fn(); }
+    catch (e) { if (!scene.avisoFantasma) { scene.avisoFantasma = true; console.warn('[multijugador] trampa con fantasma', e); } }
+    finally {
+        scene.mascotaGesi = propio;
+        scene.soloActivar = false;
+        Object.assign(scene, guardado);
+    }
+}
+
+// el jugador más cercano a un enemigo: null si es el de esta pantalla (o no hay nadie más)
+export function fantasmaMasCercano(scene, enemigo) {
+    const lista = fantasmas(scene);
+    if (!lista.length) return null;
+    const ex = enemigo.body.center.x, ey = enemigo.body.center.y;
+    const g = scene.mascotaGesi;
+    let mejor = null, dist = g.isDead ? Infinity : Math.hypot(g.body.center.x - ex, g.body.center.y - ey);
+    lista.forEach(f => {
+        const d = Math.hypot(f.body.center.x - ex, f.body.center.y - ey);
+        if (d < dist) { dist = d; mejor = f; }
+    });
+    return mejor;
 }
