@@ -197,6 +197,8 @@ iniciarMultijugador(juego, {
     golpeEnZona: (scene, zona, x) => golpeEnZona(scene, zona, x),
     bala: (scene, m) => balaRemota(scene, m),
     datosJefe: scene => datosJefe(scene),
+    reloj: scene => Math.round(relojSala(scene)),
+    ajustarReloj: (scene, reloj) => ajustarReloj(scene, reloj),
     jefe: (scene, datos) => recibirJefe(scene, datos, apiJefe),
     jefeFx: (scene, m) => efectoJefe(scene, m, apiJefe),
 });
@@ -348,6 +350,11 @@ function create() {
     console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
+    // reloj del nivel: las gotas, las bolas de fuego y las plataformas se guían por él (en línea,
+    // todas las pantallas lo ajustan al del anfitrión: ver relojSala)
+    this.inicioNivel = this.time.now;
+    this.desfaseReloj = 0;
+    this.ciclos = [];
     // multijugador: los enemigos creados al armar el nivel llevan un número (igual en todas las pantallas)
     this.contIds = 0;
     this.idsCerrados = false;
@@ -1010,8 +1017,8 @@ function construirNivel1(scene) {
         gotero.esGotero = true;
     });
 
-    scene.time.addEvent({ delay: 2400, callback: () => crearGota(scene, 1579), loop: true });
-    scene.time.addEvent({ delay: 2700, callback: () => crearGota(scene, 1979), loop: true });
+    agregarCiclo(scene, 2400, () => crearGota(scene, 1579));
+    agregarCiclo(scene, 2700, () => crearGota(scene, 1979));
 
     scene.time.addEvent({
         delay: 5000,    // 5000 ms = 5 segundos
@@ -1153,19 +1160,17 @@ function construirNivel(scene, nivel) {
     (nivel.goteros || []).forEach(([x, delay]) => {
         crearMuroGotero(scene, x);
         scene.add.sprite(x, VISTA.height - 370, 'lava_falling').setOrigin(0, 0.5).setScale(0.5).anims.play('lavacaer', true);
-        scene.time.addEvent({ delay, callback: () => crearGota(scene, x), loop: true });
+        agregarCiclo(scene, delay, () => crearGota(scene, x));
     });
 
     // bolas de fuego que saltan de la lava
     (nivel.bolas || []).forEach(([x, delay]) => {
         const bola = scene.bolas.create(x, 400, 'bola').setScale(3).anims.play('bola-giro', true);
         bola.disableBody(true, true);
-        scene.time.addEvent({
-            delay, loop: true, callback: () => {
-                bola.enableBody(true, x, 372, true, true);
-                bola.setVelocityY(-400);
-                sonarCerca(scene, 'fuego', x, { volume: 0.2, rate: 0.8 });
-            }
+        agregarCiclo(scene, delay, () => {
+            bola.enableBody(true, x, 372, true, true);
+            bola.setVelocityY(-400);
+            sonarCerca(scene, 'fuego', x, { volume: 0.2, rate: 0.8 });
         });
     });
 
@@ -1503,6 +1508,71 @@ function salpicar(gota) {
     gota.anims.play('lavacaergotaSplash', true);
     gota.setScale(0.5);
     this.time.delayedCall(500, () => gota.destroy());
+}
+
+// ascensor tramposo (locuras.js): si lo pisas, arriba no espera y baja de golpe
+function armarAscensorTramposo(scene, p) {
+    if (!p.tramposo || p.armado) return;
+    const gb = scene.mascotaGesi.body, pb = p.body;
+    if (gb.touching.down && Math.abs(gb.bottom - pb.top) < 5 && gb.right > pb.left && gb.left < pb.right) {
+        p.armado = true;
+        scene.tweens.add({ targets: p, alpha: 0.6, yoyo: true, repeat: 5, duration: 120 });
+        p.setTint(0xffb0b0);
+    }
+}
+
+// ---------- Reloj del nivel (gotas, bolas de fuego y plataformas) ----------
+// Lo periódico no usa temporizadores propios de cada pantalla sino este reloj: en línea el anfitrión
+// manda el suyo y las demás pantallas lo copian, así las gotas caen y las bolas saltan a la vez para todos.
+function relojSala(scene) {
+    return scene.time.now - scene.inicioNivel + (scene.desfaseReloj || 0);
+}
+
+// en línea: el reloj del anfitrión (llega con los enemigos)
+function ajustarReloj(scene, relojAnfitrion) {
+    if (scene.inicioNivel == null) return;
+    scene.desfaseReloj = relojAnfitrion - (scene.time.now - scene.inicioNivel);
+}
+
+// algo que pasa cada 'cada' ms (como un temporizador en bucle)
+function agregarCiclo(scene, cada, disparar) {
+    scene.ciclos.push({ cada, disparar, ultimo: null });
+}
+
+function actualizarCiclos(scene) {
+    const t = relojSala(scene);
+    scene.ciclos.forEach(c => {
+        const n = Math.floor(t / c.cada);
+        if (c.ultimo === null) { c.ultimo = n; return; }
+        if (n === c.ultimo + 1) c.disparar();
+        // si el reloj saltó (se ajustó al del anfitrión) se retoma sin disparar de golpe
+        if (n !== c.ultimo) c.ultimo = n;
+    });
+}
+
+// en línea: plataforma o ascensor donde le toca estar según el reloj (con su velocidad, para que
+// quien está encima se mueva con ella); los ascensores paran PAUSA_ASCENSOR arriba y abajo
+function seguirReloj(scene, p) {
+    const t = relojSala(scene);
+    const recorrido = p.max - p.min, T = recorrido / p.vel * 1000;
+    let objetivo, vel;
+    if (p.eje === 'x') {
+        const c = t % (2 * T), ida = c < T;
+        objetivo = ida ? p.min + p.vel * c / 1000 : p.max - p.vel * (c - T) / 1000;
+        vel = ida ? p.vel : -p.vel;
+    } else {
+        const P = PAUSA_ASCENSOR, c = t % (2 * T + 2 * P);
+        if (c < T) { objetivo = p.max - p.vel * c / 1000; vel = -p.vel; }
+        else if (c < T + P) { objetivo = p.min; vel = 0; }
+        else if (c < 2 * T + P) { objetivo = p.min + p.vel * (c - T - P) / 1000; vel = p.vel; }
+        else { objetivo = p.max; vel = 0; }
+    }
+    const pos = p.eje === 'x' ? p.x : p.y;
+    if (Math.abs(objetivo - pos) > 200) { // muy lejos (recién ajustado): se pone en su lugar
+        if (p.eje === 'x') p.x = objetivo; else p.y = objetivo;
+    }
+    const correccion = Phaser.Math.Clamp((objetivo - pos) * 6, -120, 120);
+    if (p.eje === 'x') p.setVelocityX(vel + correccion); else p.setVelocityY(vel + correccion);
 }
 
 function crearGota(scene, x) {
@@ -2045,24 +2115,21 @@ function mostrarMensaje(scene, texto, duracion) {
 function actualizarMundo(scene) {
     // plataformas móviles: cambian de sentido al llegar al final de su recorrido
     scene.moviles.getChildren().forEach(p => {
+        // en línea siguen el reloj de la sala (mismo lugar en todas las pantallas);
+        // el ascensor tramposo, mientras hace su truco, se maneja como siempre
+        if (p.eje !== 'x') armarAscensorTramposo(scene, p);
+        if (scene.remotos && !p.armado && !p.paradoHasta) { seguirReloj(scene, p); return; }
         if (p.eje === 'x') {
             if (p.x >= p.max) p.setVelocityX(-p.vel);
             else if (p.x <= p.min) p.setVelocityX(p.vel);
         } else {
-            // ascensor tramposo (locuras.js): si lo pisas, arriba no espera y baja de golpe
-            if (p.tramposo && !p.armado) {
-                const gb = scene.mascotaGesi.body, pb = p.body;
-                if (gb.touching.down && Math.abs(gb.bottom - pb.top) < 5 && gb.right > pb.left && gb.left < pb.right) {
-                    p.armado = true;
-                    scene.tweens.add({ targets: p, alpha: 0.6, yoyo: true, repeat: 5, duration: 120 });
-                    p.setTint(0xffb0b0);
-                }
-            }
             // ascensor: se detiene un momento en cada parada para subir y bajar con calma
             if (p.paradoHasta) {
                 if (scene.time.now >= p.paradoHasta) { p.paradoHasta = 0; p.setVelocityY(p.siguiente); }
                 return;
             }
+            // (en línea pudo armarse mientras estaba detenido en una parada: arranca hacia arriba)
+            if (p.armado && Math.abs(p.body.velocity.y) < 1) p.setVelocityY(-p.vel);
             const vy = p.body.velocity.y;
             if ((p.y <= p.min && vy < 0) || (p.y >= p.max && vy > 0)) {
                 p.y = Phaser.Math.Clamp(p.y, p.min, p.max);
@@ -2141,6 +2208,7 @@ function trampasNivel1(scene) {
 }
 
 function update(time, delta) {
+    actualizarCiclos(this);
     actualizarJugador.call(this, time, delta);
     if (this.compa || this.cadenaRed) actualizarCadena(this, time);
     actualizarEnLinea(this, time, delta);

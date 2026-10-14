@@ -18,7 +18,8 @@
 //                      dañarJefe(scene, cantidad), completar(scene), nivelActual(),
 //                      crearEnemigo(scene, x, y, tipo), dañarEnemigo(scene, e, cantidad),
 //                      golpeEnZona(scene, zona, x), bala(scene, datos),
-//                      datosJefe(scene), jefe(scene, datos), jefeFx(scene, m) }
+//                      datosJefe(scene), jefe(scene, datos), jefeFx(scene, m),
+//                      reloj(scene), ajustarReloj(scene, reloj) }
 // El troll (jefes.js) sigue el mismo esquema: lo maneja el anfitrión, viaja junto con los enemigos
 // y cada ataque se avisa con un "jefeFx".
 
@@ -70,6 +71,7 @@ export function iniciarMultijugador(juegoPhaser, g) {
             case 'poder': poderRemoto(scene, m); break;
             case 'enemigos':
                 if (esAnfitrion()) break;
+                if (m.reloj != null) ganchos.ajustarReloj(scene, m.reloj); // gotas, bolas y plataformas a la vez
                 recibirEnemigos(scene, m.l);
                 if (m.jefe) ganchos.jefe(scene, m.jefe);
                 break;
@@ -247,7 +249,9 @@ function enviarEnemigos(scene, time) {
             scene.time.now < (e.congeladoHasta || 0) ? 1 : 0]);
     });
     const jefe = ganchos.datosJefe(scene);
-    enviarEvento('enemigos', jefe ? { l, jefe, nivel: nivel() } : { l, nivel: nivel() });
+    const datos = { l, reloj: ganchos.reloj(scene), nivel: nivel() };
+    if (jefe) datos.jefe = jefe;
+    enviarEvento('enemigos', datos);
 }
 
 // réplica: se crean las que faltan y se guarda a dónde tiene que ir cada una
