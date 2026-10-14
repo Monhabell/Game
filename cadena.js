@@ -1,5 +1,5 @@
-// Modo cadena (prototipo local, 2 jugadores en el mismo teclado).
-// Los dos personajes van atados por una cadena: si uno cae, el otro siente el tirón.
+// Modo cadena: los jugadores van atados en fila por una cadena; si uno cae, el otro siente el tirón.
+// En el mismo teclado (2 jugadores, se activa en la configuración) o en línea (hasta 8, multijugador.js).
 //
 //   Jugador 1: flechas para moverse y saltar, ↓ para anclarse (más ESPACIO, X y C: sus poderes)
 //   Jugador 2: A / D para moverse, W para saltar, S para anclarse
@@ -59,25 +59,42 @@ export function crearCadena(scene, { x, y, api }) {
         fontFamily: '"Press Start 2P", monospace', fontSize: '7px', color: '#ffe066', stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(35);
 
-    scene.dibujoCadena = scene.add.graphics().setDepth(33);
 }
 
-// se llama al final de update(), después de mover al jugador 1
+// se llama al final de update(), después de mover al jugador 1.
+// Los eslabones unen una FILA de jugadores: [J1, J2] en el mismo teclado, o los de la sala en línea
+// (hasta 8). Cada pantalla solo mueve a sus jugadores locales: los de otros dispositivos se mueven
+// en su propia pantalla con las mismas reglas, así que el tirón se siente igual de los dos lados.
 export function actualizarCadena(scene, time) {
-    const a = scene.mascotaGesi, c = scene.compa;
-    if (!c?.active) return;
+    const a = scene.mascotaGesi, c = scene.compa?.active ? scene.compa : null;
     const quieto = a.isDead || scene.nivelTerminado || scene.cinematica;
-    if (quieto) {
-        c.setVelocityX(0);
-    } else {
-        moverCompa(scene, c);
-        anclarJugador1(scene, a);
-        tensar(scene, a, c);
-        // caer fuera del mundo
-        if (c.y >= 300) scene.cadenaApi.morir('caida');
+    if (c) {
+        if (quieto) c.setVelocityX(0);
+        else {
+            moverCompa(scene, c);
+            if (c.y >= 300) scene.cadenaApi.morir('caida'); // caer fuera del mundo
+        }
+        c.etiqueta.setPosition(c.x, c.body.top - 4);
     }
-    c.etiqueta.setPosition(c.x, c.body.top - 4);
-    dibujar(scene, a, c, time);
+
+    const nodos = (c ? [{ local: true, s: a }, { local: true, s: c }] : scene.cadenaRed?.() || []).map(nodo);
+    if (nodos.length < 2) { scene.dibujoCadena?.clear(); return; }
+    if (!quieto) {
+        anclarJugador1(scene, a);
+        for (let i = 0; i + 1 < nodos.length; i++) tensar(nodos[i], nodos[i + 1]);
+    }
+    if (!scene.dibujoCadena) scene.dibujoCadena = scene.add.graphics().setDepth(33);
+    dibujar(scene.dibujoCadena, nodos, time);
+}
+
+// cadena activa en este nivel (para mostrar el botón de anclar en el celular)
+export const hayCadena = scene => !!(scene.compa?.active || scene.cadenaRed);
+
+// un jugador de la fila: los locales tienen cuerpo de física; los remotos, lo que mandó la red
+function nodo(n) {
+    if (!n.local) return n;
+    const s = n.s, b = s.body;
+    return { local: true, s, cx: b.center.x, cy: b.center.y, v: b.velocity, suelo: enSuelo(s), anclado: !!s.anclado };
 }
 
 function moverCompa(scene, c) {
@@ -125,63 +142,64 @@ function anclarJugador1(scene, a) {
 }
 
 // la cadena solo actúa cuando está tensa
-function tensar(scene, a, c) {
-    const pa = a.body.center, pc = c.body.center;
-    const dx = pc.x - pa.x, dy = pc.y - pa.y;
+function tensar(a, c) {
+    const dx = c.cx - a.cx, dy = c.cy - a.cy;
     const dist = Math.hypot(dx, dy);
     if (dist <= LARGO || dist === 0) return;
     const nx = dx / dist, ny = dy / dist;
 
-    // cuánto absorbe cada uno del tirón (0 = no se mueve, 1 = se lleva todo)
-    const sueloA = enSuelo(a), sueloC = enSuelo(c);
+    // cuánto absorbe cada uno del tirón (0 = no se mueve, 1 = se lleva todo);
+    // las reglas son simétricas: cada pantalla calcula lo mismo y aplica solo su parte
     let wa = 0.5, wc = 0.5;
     if (a.anclado && !c.anclado) { wa = 0; wc = 1; }
     else if (c.anclado && !a.anclado) { wa = 1; wc = 0; }
     else if (a.anclado && c.anclado) { wa = 0; wc = 0; }
-    else if (sueloA && !sueloC) { wa = 0; wc = 1; arrastrar(a, dx); }
-    else if (sueloC && !sueloA) { wa = 1; wc = 0; arrastrar(c, -dx); }
+    else if (a.suelo && !c.suelo) { wa = 0; wc = 1; arrastrar(a, dx); }
+    else if (c.suelo && !a.suelo) { wa = 1; wc = 0; arrastrar(c, -dx); }
 
-    const va = a.body.velocity, vc = c.body.velocity;
+    const va = a.v, vc = c.v;
     // velocidad con la que se separan: esa se anula (la cadena no se estira)
     const separan = (vc.x - va.x) * nx + (vc.y - va.y) * ny;
     // y un poco más para recuperar el largo si ya se estiró
     const extra = Math.min(400, (dist - LARGO) * CORRECCION);
     const total = Math.max(0, separan) + extra;
-    va.x += nx * total * wa; va.y += ny * total * wa;
-    vc.x -= nx * total * wc; vc.y -= ny * total * wc;
+    if (a.local) { va.x += nx * total * wa; va.y += ny * total * wa; }
+    if (c.local) { vc.x -= nx * total * wc; vc.y -= ny * total * wc; }
 
-    // estirón demasiado grande (choques, ascensores): se corrige la posición de golpe
+    // estirón demasiado grande (choques, ascensores, retraso de la red): se corrige la posición de golpe
     const sobra = dist - LARGO - ESTIRON_MAX;
     if (sobra > 0) {
-        const quien = wc >= wa ? c : a, signo = quien === c ? -1 : 1;
-        quien.x += nx * sobra * signo;
-        quien.y += ny * sobra * signo;
+        const quien = a.local && c.local ? (wc >= wa ? c : a) : a.local && wa > 0 ? a : c.local && wc > 0 ? c : null;
+        if (!quien) return;
+        const signo = quien === c ? -1 : 1;
+        quien.s.x += nx * sobra * signo;
+        quien.s.y += ny * sobra * signo;
     }
 }
 
 // el del suelo es arrastrado hacia el que cuelga (si camina en contra, el que cuelga sube)
-function arrastrar(s, haciaX) {
-    s.body.velocity.x += Math.sign(haciaX) * ARRASTRE;
+function arrastrar(n, haciaX) {
+    if (n.local) n.v.x += Math.sign(haciaX) * ARRASTRE;
 }
 
-// eslabones a lo largo de una curva: floja cuelga, tensa queda recta
-function dibujar(scene, a, c, time) {
-    const g = scene.dibujoCadena;
+// eslabones a lo largo de una curva entre cada par: floja cuelga, tensa queda recta
+function dibujar(g, nodos, time) {
     g.clear();
-    const x0 = a.body.center.x, y0 = a.body.center.y - 6;
-    const x1 = c.body.center.x, y1 = c.body.center.y - 6;
-    const dist = Math.hypot(x1 - x0, y1 - y0);
-    const comba = dist < LARGO ? Math.sqrt(LARGO * LARGO - dist * dist) * 0.5 : 0;
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 + comba;
-    const tensa = dist > LARGO + 4;
-    for (let i = 0; i <= ESLABONES; i++) {
-        const t = i / ESLABONES, u = 1 - t;
-        const x = u * u * x0 + 2 * u * t * cx + t * t * x1;
-        const y = u * u * y0 + 2 * u * t * cy + t * t * y1;
-        // tensa: tiembla un poco y se pone rojiza
-        const temblor = tensa ? Math.sin(time * 0.05 + i) * 0.8 : 0;
+    for (let k = 0; k + 1 < nodos.length; k++) {
+        const x0 = nodos[k].cx, y0 = nodos[k].cy - 6, x1 = nodos[k + 1].cx, y1 = nodos[k + 1].cy - 6;
+        const dist = Math.hypot(x1 - x0, y1 - y0);
+        const comba = dist < LARGO ? Math.sqrt(LARGO * LARGO - dist * dist) * 0.5 : 0;
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 + comba;
+        const tensa = dist > LARGO + 4;
         g.lineStyle(2, tensa ? 0xc9a090 : 0x9aa0aa, 1);
-        if (i % 2) g.strokeEllipse(x, y + temblor, 6, 4);
-        else g.strokeEllipse(x, y + temblor, 4, 6);
+        for (let i = 0; i <= ESLABONES; i++) {
+            const t = i / ESLABONES, u = 1 - t;
+            const x = u * u * x0 + 2 * u * t * cx + t * t * x1;
+            const y = u * u * y0 + 2 * u * t * cy + t * t * y1;
+            // tensa: tiembla un poco y se pone rojiza
+            const temblor = tensa ? Math.sin(time * 0.05 + i + k * 7) * 0.8 : 0;
+            if (i % 2) g.strokeEllipse(x, y + temblor, 6, 4);
+            else g.strokeEllipse(x, y + temblor, 4, 6);
+        }
     }
 }

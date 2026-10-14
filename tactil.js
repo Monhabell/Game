@@ -7,7 +7,7 @@
 // - Poderes: un anillo se llena mientras el poder se recarga (o mientras juntas maná/flechas);
 //   el botón destella cuando vuelve a estar listo.
 
-const TECLA = { izq: 37, arriba: 38, der: 39, espacio: 32, x: 88, c: 67 };
+const TECLA = { izq: 37, arriba: 38, der: 39, abajo: 40, espacio: 32, x: 88, c: 67 };
 const ZONA_MUERTA = 0.28; // fracción del radio del joystick que no mueve al personaje
 
 export const esTactil = () =>
@@ -40,7 +40,8 @@ export function iniciarTactil(juego) {
             <button type="button" class="t-btn t-hab" data-tecla="x"><b>X</b><small></small></button>
             <button type="button" class="t-btn t-hab" data-tecla="espacio"><b>●</b><small></small></button>
             <button type="button" class="t-btn t-salto" data-tecla="arriba"><b>▲</b><small>SALTAR</small></button>
-        </div>`;
+        </div>
+        <button type="button" class="t-btn t-anclar" data-tecla="abajo"><b>⚓</b><small>ANCLAR</small></button>`;
     document.getElementById('game').appendChild(capa);
 
     // ---------- botones: se mantienen presionados mientras el dedo esté encima ----------
@@ -133,6 +134,8 @@ export function iniciarTactil(juego) {
     setInterval(() => {
         const nivel = juego.scene.isActive('juego') ? juego.scene.getScene('juego') : null;
         const visible = !!nivel?.pj;
+        // con cadena (mismo teclado o en línea) aparece el botón de anclarse
+        capa.classList.toggle('con-cadena', !!(nivel?.compa?.active || nivel?.cadenaRed));
         if (capa.classList.contains('visible') !== visible) {
             capa.classList.toggle('visible', visible);
             if (!visible) { soltarTodo(); soltarJoy(); }

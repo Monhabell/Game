@@ -49,7 +49,7 @@ function fondoNoche(scene, zoom) {
 
 // ---------- Pantalla de título ----------
 // alJugar(): ir a elegir personaje   alHistoria(): ver la historia
-export function crearTitulo(scene, { zoom, alJugar, alHistoria }) {
+export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     fondoNoche(scene, zoom);
     const quieto = reducirMovimiento();
 
@@ -101,8 +101,8 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria }) {
 
     // menú: botones con marco, el elegido se ilumina
     const opciones = historiaVista()
-        ? [['JUGAR', alJugar], ['VER LA HISTORIA', alHistoria]]
-        : [['NUEVA AVENTURA', alHistoria]];
+        ? [['JUGAR', alJugar], ['JUGAR CON AMIGOS', alAmigos], ['VER LA HISTORIA', alHistoria]]
+        : [['NUEVA AVENTURA', alHistoria], ['JUGAR CON AMIGOS', alAmigos]];
     let sel = 0, elegido = false;
     const BOTON = { w: 230, h: 30 };
     const items = opciones.map(([nombre, accion], i) => {
@@ -144,7 +144,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria }) {
 
     // ayuda de teclas
     const ayuda = opciones.length > 1 ? '↑↓ ELEGIR  ·  ENTER JUGAR  ·  F PANTALLA COMPLETA' : 'ENTER EMPEZAR  ·  F PANTALLA COMPLETA';
-    scene.add.text(ANCHO / 2, 300, ayuda, texto('7px', '#9fb4d8', { strokeThickness: 3 })).setOrigin(0.5).setDepth(5);
+    scene.add.text(ANCHO / 2, 212 + opciones.length * 40 - 4, ayuda, texto('7px', '#9fb4d8', { strokeThickness: 3 })).setOrigin(0.5).setDepth(5);
 
     scene.add.text(ANCHO / 2, ALTO - 8, '© 2026 Monhabell', texto('7px', '#8fa3bf', { strokeThickness: 3 })).setOrigin(0.5, 1).setDepth(5);
 

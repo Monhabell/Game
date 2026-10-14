@@ -3,6 +3,7 @@
 // Pausar detiene la escena del nivel (física, enemigos, temporizadores) y los sonidos que sonaban.
 
 import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES } from "./ajustes.js"
+import { enLinea } from "./red.js"
 
 // dentro del APK (Capacitor): se puede cerrar la app y usar el botón "atrás" de Android
 const APP = !!window.Capacitor?.isNativePlatform?.();
@@ -42,6 +43,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
             <button type="button" class="menu-boton" data-accion="ajustes">⚙ Configuración</button>
             <button type="button" class="menu-boton menu-salir" data-accion="salir">⌂ Salir al menú</button>
             ${APP ? '<button type="button" class="menu-boton menu-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
+            <p class="menu-nota" data-en-linea hidden>Juego en línea: los demás siguen jugando</p>
             <p class="menu-nota">El progreso se guarda al empezar cada nivel</p>
         </div>`;
 
@@ -98,15 +100,21 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
 
     // ---------- estado ----------
     let pausado = false;
+    let enLineaAlPausar = false;
     let sonando = []; // sonidos que se pausaron (para no despertar los que ya estaban en pausa)
     const enNivel = () => juego.scene.isActive('juego') || juego.scene.isPaused('juego');
 
     function pausar() {
         if (pausado || !juego.scene.isActive('juego')) return;
         pausado = true;
-        juego.scene.pause('juego');
-        sonando = juego.sound.getAllPlaying();
-        sonando.forEach(s => s.pause());
+        // en línea el mundo no se detiene (los demás siguen jugando): solo se abre el menú
+        enLineaAlPausar = enLinea();
+        capaPausa.querySelector('[data-en-linea]').hidden = !enLineaAlPausar;
+        if (!enLineaAlPausar) {
+            juego.scene.pause('juego');
+            sonando = juego.sound.getAllPlaying();
+            sonando.forEach(s => s.pause());
+        }
         mostrar(capaPausa);
     }
 
@@ -117,7 +125,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         pausado = false;
         const nivel = juego.scene.getScene('juego');
         nivel.input.keyboard?.resetKeys(); // ninguna tecla queda "pegada" de antes de la pausa
-        juego.scene.resume('juego');
+        if (!enLineaAlPausar) juego.scene.resume('juego');
         sonando.forEach(s => s.resume());
         sonando = [];
     }
@@ -215,7 +223,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
 
     // teclado: P pausa; Esc pausa o cierra (si el juego está agrandado, Esc solo lo achica: game.js)
     document.addEventListener('keydown', e => {
-        if (e.repeat) return;
+        if (e.repeat || e.target.closest?.('input[type="text"], textarea, select')) return;
         const esc = e.key === 'Escape';
         if (esc && !capaAjustes.hidden) { cerrarAjustes(); return; }
         if (e.key.toLowerCase() === 'p' || (esc && !document.body.classList.contains('modo-grande'))) {

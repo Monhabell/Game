@@ -272,15 +272,17 @@ function contactoConJefe(scene, api) {
 }
 
 // origenX: desde dónde llega el golpe (para la coraza); los pisotones desde arriba no lo pasan
-export function dañarJefe(scene, cantidad, api, origenX) {
+// remoto: el golpe lo dio otro jugador (en línea) y ya pasó su coraza e invulnerabilidad allá
+export function dañarJefe(scene, cantidad, api, origenX, remoto = false) {
     const j = scene.jefe;
-    if (!j || j.estado !== 'pelea' || scene.time.now < j.invulHasta) return false;
+    if (!j || j.estado !== 'pelea' || (!remoto && scene.time.now < j.invulHasta)) return false;
     // coraza: de frente no le entra nada, salvo que esté aturdido
-    if (j.coraza && origenX !== undefined && scene.time.now >= j.aturdidoHasta) {
+    if (!remoto && j.coraza && origenX !== undefined && scene.time.now >= j.aturdidoHasta) {
         const sb = j.sprite.body, frente = j.sprite.flipX ? -1 : 1;
         if ((origenX - sb.center.x) * frente > 0) { rebotaEnCoraza(scene, j); return false; }
     }
     j.vida = Math.max(0, j.vida - cantidad);
+    if (!remoto) scene.alDañarJefe?.(cantidad); // en línea: los demás también se lo restan
     scene.guardarVidaJefe?.(j.vida);
     j.invulHasta = scene.time.now + 250;
     j.barra.width = 280 * j.vida / j.vidaMax;

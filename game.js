@@ -12,13 +12,19 @@ import {
 import { iniciarTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
 import { crearCadena, actualizarCadena } from "./cadena.js"
+import { iniciarSala } from "./sala.js"
+import { red, enLinea, salirSala } from "./red.js"
+import {
+    iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
+    avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder
+} from "./multijugador.js"
 import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
 import { aleatorizarNivel, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
-import { cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta } from "./jefes.js"
+import { cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe } from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
 import { crearMapa, actualizarMapa } from "./mapa.js"
 import { mostrarCarga, crearTitulo, crearIntro, crearFinal } from "./historia.js"
@@ -109,6 +115,8 @@ const config = {
                     zoom: ZOOM,
                     alJugar: () => this.scene.start('seleccion'),
                     alHistoria: () => this.scene.start('intro'),
+                    // la sala de espera se abre sobre la pantalla de elegir personaje
+                    alAmigos: () => { this.scene.start('seleccion'); abrirSala(); },
                 });
             },
             update(time) { this.actualizarTitulo(time); },
@@ -146,9 +154,36 @@ iniciarTactil(juego);
 iniciarMenus(juego, {
     aplicar: aplicarAjustes,
     salirAlMenu: () => {
+        if (red.codigo) salirSala(); // salir del nivel en línea también es dejar la sala
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
     },
+});
+
+// ---------- multijugador en línea (sala.js, red.js, multijugador.js) ----------
+const abrirSala = iniciarSala(juego, {
+    // el anfitrión empezó: todos entran al mismo nivel con el personaje que eligieron en la sala
+    alEmpezar: ({ nivel, pj }) => {
+        personajeId = pj;
+        reiniciarPartida();
+        nivelActual = Phaser.Math.Clamp(nivel, 0, NIVELES.length - 1);
+        juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
+        juego.scene.start('juego');
+    },
+});
+iniciarMultijugador(juego, {
+    nivelActual: () => nivelActual,
+    // otro jugador cayó: caen todos (vidas compartidas)
+    morir: (scene, nombre) => {
+        if (scene.mascotaGesi.isDead || scene.nivelTerminado) return;
+        scene.muerteRemota = true;
+        killgesi(scene, 'caida');
+        mostrarMensaje(scene, `¡CAYÓ ${nombre.toUpperCase()}!`, 1600);
+    },
+    activarCheckpoint: (scene, cp) => activarCheckpoint(scene, cp, true),
+    matarEnemigo: (scene, e) => { e.muerteRemota = true; matarEnemigo(scene, e); },
+    dañarJefe: (scene, cantidad) => dañarJefe(scene, cantidad, apiJefe, undefined, true),
+    completar: scene => { scene.metaRemota = true; completarNivel.call(scene, scene.mascotaGesi); },
 });
 
 // aplica lo que cambia al momento (la dificultad se aplica al empezar o reiniciar un nivel)
@@ -228,7 +263,7 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 document.addEventListener('keydown', e => {
-    if (e.repeat) return;
+    if (e.repeat || e.target.closest?.('input, textarea, select')) return; // escribiendo en un menú
     const tecla = e.key.toLowerCase();
     if (tecla === 'm') silenciar();
     else if (tecla === 'f') juego.scale.toggleFullscreen();
@@ -290,10 +325,17 @@ function preload() {
 function create() {
     // las trampas se reparten al azar en cada intento (el nivel se siente nuevo cada vez,
     // pero con reglas para que sea justo: ver azar.js); en el nivel 1 la parte hecha a mano no se toca
-    const nivel = aleatorizarNivel(NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : []);
+    // en línea todos usan la misma semilla (la de la sala + el intento): mismas trampas para todos
+    const nivel = aleatorizarNivel(NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
-    guardarPartida(); // para no tener que volver al inicio
+    if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
+    // multijugador: los enemigos creados al armar el nivel llevan un número (igual en todas las pantallas)
+    this.contIds = 0;
+    this.idsCerrados = false;
+    this.muerteRemota = false;
+    this.metaRemota = false;
+    this.dibujoCadena = null;
     this.nivelTerminado = false;
     this.pj = PERSONAJES.find(pj => pj.id === personajeId);
     flechas = FLECHAS_INICIALES;
@@ -469,7 +511,7 @@ function create() {
 
     // modo cadena (prototipo de 2 jugadores en el mismo teclado, se activa en la configuración)
     this.compa = null;
-    if (ajustes.cadena) {
+    if (ajustes.cadena && !enLinea()) {
         crearCadena(this, { x: inicioX, y: inicioY, api: { morir: (causa, daño, x) => killgesi(this, causa, daño, x) } });
     }
 
@@ -525,6 +567,14 @@ function create() {
 
     this.keys = this.input.keyboard.createCursorKeys();
     this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C' });
+
+    // multijugador en línea: los demás jugadores y la cadena entre todos (multijugador.js)
+    this.idsCerrados = true; // los enemigos que aparezcan de aquí en adelante no se sincronizan
+    prepararNivelEnLinea(this);
+    this.alDañarJefe = avisarJefe;
+    if (enLinea()) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
+${nivel.nombre}
+${red.jugadores.length} jugadores en cadena`, 2400);
 }
 
 // la cámara sigue a Gesi sin mostrar nada fuera del nivel
@@ -1134,8 +1184,10 @@ function crearPlataforma(scene, x, arriba, ancho) {
     return pieza;
 }
 
-function activarCheckpoint(scene, cp) {
+// remoto: lo activó otro jugador (en línea); no se vuelve a avisar
+function activarCheckpoint(scene, cp, remoto = false) {
     cp.activo = true;
+    if (!remoto) avisarCheckpoint(cp.x);
     checkpointX = Math.max(checkpointX ?? 0, cp.x);
     encenderEstatua(scene, cp);
     scene.sound.play('punto_control', { volume: 0.6 });
@@ -1155,6 +1207,7 @@ function crearEnemigo(scene, x, y, tipo) {
     enemy.body.setSize(w, h).setOffset(ox, oy);
     enemy.tipoId = tipo;
     enemy.def = def;
+    if (!scene.idsCerrados) enemy.redId = scene.contIds++; // mismo número en todas las pantallas
     enemy.vida = def.vida;
     enemy.velBase = scene.velEnemigos * def.vel;
     enemy.proxAtaque = scene.time.now + 800 + Math.random() * 800;
@@ -1530,6 +1583,7 @@ function usarHabilidad(scene, tecla) {
     if (!h || scene.atacando || scene.time.now < (scene.enfriamientos[tecla] || 0)) return;
     if (!pagarCosto(scene, h.costo)) return;
     scene.enfriamientos[tecla] = scene.time.now + h.enfriamiento;
+    avisarPoder(scene, tecla);
 
     const g = scene.mascotaGesi;
     // la parada de Leo empieza en cuanto aprieta la tecla (no cuando sale el golpe)
@@ -1637,6 +1691,7 @@ function aplicarDefensa(scene, tipo) {
 
 function matarEnemigo(scene, enemy) {
     enemy.isDead = true;
+    if (enemy.redId != null && !enemy.muerteRemota) avisarEnemigo(enemy.redId);
     enemy.clearTint();
     enemy.anims.play(enemy.tipoId ? `${enemy.tipoId}-dead` : 'enemy-muerte', true);
     scene.sound.play('matar');
@@ -1810,8 +1865,10 @@ function encenderFaro(scene) {
 }
 
 function completarNivel(mascotaGesi) {
-    if (this.nivelTerminado || mascotaGesi.isDead || jefeBloqueaMeta(this)) return;
+    // metaRemota: otro jugador llegó a la meta (en línea): se completa aunque aquí el jefe siga vivo
+    if (this.nivelTerminado || mascotaGesi.isDead || (!this.metaRemota && jefeBloqueaMeta(this))) return;
     this.nivelTerminado = true;
+    if (!this.metaRemota) avisarMeta();
 
     mascotaGesi.setVelocityX(0);
     this.atacando = false;
@@ -1963,7 +2020,8 @@ function trampasNivel1(scene) {
 
 function update(time, delta) {
     actualizarJugador.call(this, time, delta);
-    if (this.compa) actualizarCadena(this, time);
+    if (this.compa || this.cadenaRed) actualizarCadena(this, time);
+    actualizarEnLinea(this, time, delta);
 }
 
 function actualizarJugador(time, delta) {
@@ -2155,6 +2213,7 @@ function killgesi(game, causa, daño = 20, origenX) {
         }
     }
     mascotaGesi.isDead = true;
+    if (!game.muerteRemota) avisarMuerte(); // en línea: caen todos
     game.atacando = false;
     game.dashHasta = 0;
     game.volteretaHasta = 0;
@@ -2180,6 +2239,7 @@ function killgesi(game, causa, daño = 20, origenX) {
         game.time.delayedCall(900, () => sound.play('game_over', { volume: 0.7 }));
         game.time.delayedCall(3500, () => {
             continuarPartida({ nivel: nivelActual, score: scoreInicioNivel });
+            if (enLinea()) { scene.restart(); return; } // en línea el equipo repite el nivel
             guardarPartida();
             scene.start('seleccion');
         });
