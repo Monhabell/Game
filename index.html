@@ -489,7 +489,10 @@
             z-index: 15;
             display: grid;
             place-items: center;
-            padding: 10px;
+            /* la fila mide lo que la pantalla (no lo que el contenido): así el panel no se sale */
+            grid-template-rows: minmax(0, 1fr);
+            padding: 8px;
+            box-sizing: border-box;
             background: rgba(2, 4, 12, 0.72);
             font-family: 'Press Start 2P', monospace;
         }
@@ -499,6 +502,11 @@
         .menu-panel {
             width: min(320px, 100%);
             max-height: 100%;
+            /* si no cabe, se desplaza dentro del panel */
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -522,7 +530,6 @@
         }
 
         .menu-contenido {
-            overflow-y: auto;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 10px;
@@ -605,6 +612,27 @@
             line-height: 1.6;
             color: rgba(232, 251, 255, 0.65);
             text-align: center;
+        }
+
+        /* pantallas bajas (celular horizontal): menús compactos para que quepan */
+        @media (max-height: 520px) {
+            .menu-panel { padding: 10px 12px; gap: 6px; border-radius: 10px; }
+            .menu-panel h2 { font-size: 11px; margin: 0; }
+            .menu-contenido { gap: 6px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+            .menu-grupo { padding: 2px 8px 6px; }
+            .menu-grupo legend { font-size: 7px; }
+            .menu-opciones { gap: 4px; }
+            .menu-boton { min-height: 32px; font-size: 8px; }
+            .menu-opcion { min-height: 28px; font-size: 6px; padding: 2px; overflow-wrap: anywhere; }
+            .menu-nota { font-size: 6px; margin-top: 3px; line-height: 1.5; }
+            .menu-volumen input { min-height: 24px; }
+            .menu-volumen output { font-size: 7px; }
+            .sala-paso { gap: 6px; }
+            .sala-campo { font-size: 7px; gap: 4px; }
+            .sala-campo input, .sala-campo select, #sala-codigo { min-height: 32px; font-size: 9px; }
+            .sala-codigo b { font-size: 18px; margin-top: 2px; }
+            .sala-lista { max-height: 80px; font-size: 7px; line-height: 1.9; padding: 4px 4px 4px 24px; }
+            .sala-empezar { margin-top: 6px; }
         }
 
         /* celular vertical: el juego es horizontal */
