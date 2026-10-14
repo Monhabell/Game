@@ -1,0 +1,18 @@
+{
+  "name": "monhabell-servidor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor multijugador de Monhabell Aventura: salas de hasta 8 jugadores (WebSocket)",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "prueba": "node prueba.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}

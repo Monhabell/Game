@@ -11,6 +11,7 @@ import {
 } from "./mazmorra.js"
 import { iniciarTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
+import { crearCadena, actualizarCadena } from "./cadena.js"
 import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
@@ -466,6 +467,12 @@ function create() {
     this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (_f, b) => b.revelado);
     this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
 
+    // modo cadena (prototipo de 2 jugadores en el mismo teclado, se activa en la configuración)
+    this.compa = null;
+    if (ajustes.cadena) {
+        crearCadena(this, { x: inicioX, y: inicioY, api: { morir: (causa, daño, x) => killgesi(this, causa, daño, x) } });
+    }
+
     // el mundo crece hacia ARRIBA en los niveles con altura (torres, puentes colgantes):
     // el suelo, la lava y el jefe siguen en su sitio y las secciones altas quedan en y negativa
     this.altoNivel = nivel.alto || 0;
@@ -526,8 +533,11 @@ function moverCamara(scene) {
     const cam = scene.cameras.main;
     // con la cámara alejada (pelea con el jefe) se ve más mundo: se centra en la arena
     const anchoVista = VISTA.width * ZOOM / cam.zoom, altoVista = VISTA.height * ZOOM / cam.zoom;
+    // modo cadena: se sigue el punto medio entre los dos jugadores
+    const c = scene.compa?.active ? scene.compa : null;
+    const fx = c ? (g.x + c.x) / 2 : g.x, fy = c ? (g.y + c.y) / 2 : g.y;
     if (!g.isDead || scene.camaraArena) {
-        const centro = scene.camaraArena ?? g.x;
+        const centro = scene.camaraArena ?? fx;
         cam.scrollX = Phaser.Math.Clamp(centro - anchoVista / 2, 0, Math.max(0, scene.anchoNivel - anchoVista));
     }
     const abajo = VISTA.height - altoVista; // el suelo abajo del todo; lo extra se ve arriba (cielo)
@@ -536,7 +546,7 @@ function moverCamara(scene) {
     } else if (!g.isDead) {
         // en los niveles con altura la cámara sigue al personaje en vertical, con suavidad
         // (lo deja algo por debajo del centro: se ve más de lo que hay arriba, adonde se va)
-        const objetivo = Phaser.Math.Clamp(g.y - altoVista * CAMARA_ALTURA_PJ, abajo - scene.altoNivel, abajo);
+        const objetivo = Phaser.Math.Clamp(fy - altoVista * CAMARA_ALTURA_PJ, abajo - scene.altoNivel, abajo);
         // al empezar (o reaparecer) se coloca de golpe; después lo sigue con suavidad
         const k = scene.camaraVerticalLista ? 1 - Math.exp(-scene.game.loop.delta / CAMARA_SUAVIDAD_MS) : 1;
         cam.scrollY += (objetivo - cam.scrollY) * k;
@@ -1952,6 +1962,11 @@ function trampasNivel1(scene) {
 }
 
 function update(time, delta) {
+    actualizarJugador.call(this, time, delta);
+    if (this.compa) actualizarCadena(this, time);
+}
+
+function actualizarJugador(time, delta) {
     moverCamara(this);
     actualizarEscudo(this, texto => mostrarMensaje(this, texto, 900));
     actualizarJefe(this, this.time.now, apiJefe);

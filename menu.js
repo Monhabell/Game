@@ -79,6 +79,14 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
                         <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="true">Ver colisiones</button>
                     </div>
                 </fieldset>
+                <fieldset class="menu-grupo">
+                    <legend>Cadena (2 jugadores)</legend>
+                    <div class="menu-opciones">
+                        <button type="button" class="menu-opcion" data-clave="cadena" data-valor="false">No</button>
+                        <button type="button" class="menu-opcion" data-clave="cadena" data-valor="true">Sí, mismo teclado</button>
+                    </div>
+                    <p class="menu-nota">J1: flechas, ↓ anclar · J2: A D, W saltar, S anclar<br>Se aplica al reiniciar el nivel</p>
+                </fieldset>
             </div>
             <div class="menu-fila">
                 <button type="button" class="menu-boton" data-accion="volver">← Volver</button>
