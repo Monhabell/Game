@@ -267,7 +267,7 @@
 
         .tactil.visible { display: block; }
 
-        .t-cruceta, .t-btn {
+        .t-zona-joy, .t-btn {
             pointer-events: auto;
             touch-action: none;
             -webkit-user-select: none;
@@ -275,32 +275,49 @@
             -webkit-touch-callout: none;
         }
 
-        .t-cruceta {
+        /* joystick: la zona es la parte baja izquierda; la base aparece donde apoyas el pulgar */
+        .t-zona-joy {
             position: absolute;
-            left: max(12px, env(safe-area-inset-left));
-            bottom: 12px;
-            width: 168px;
-            height: 84px;
-            display: flex;
-            border-radius: 42px;
-            background: rgba(4, 18, 31, 0.35);
-            border: 2px solid rgba(0, 255, 255, 0.35);
-            overflow: hidden;
+            left: 0;
+            bottom: 0;
+            width: 42%;
+            height: 72%;
         }
 
-        .t-cruceta span {
-            flex: 1;
-            display: grid;
-            place-items: center;
-            font-size: 22px;
-            color: rgba(159, 243, 255, 0.8);
+        .t-joy {
+            position: absolute;
+            left: calc(max(12px, env(safe-area-inset-left)) + 62px);
+            top: calc(100% - 74px);
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.12));
+            border: 2px solid rgba(255, 255, 255, 0.22);
+            transform: translate(-50%, -50%) scale(var(--t-escala, 1));
+            opacity: 0.55;
+            transition: opacity 0.15s;
         }
 
-        .t-cruceta[data-lado="izq"] span:first-child,
-        .t-cruceta[data-lado="der"] span:last-child {
-            background: rgba(0, 255, 255, 0.25);
-            color: #ffe066;
+        .t-joy.activo { opacity: 1; }
+
+        .t-bolita {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 54px;
+            height: 54px;
+            margin: -27px 0 0 -27px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.55), rgba(159, 243, 255, 0.28));
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+            transition: transform 0.12s ease-out;
         }
+
+        .t-joy.activo .t-bolita { transition: none; }
+
+        /* tamaño elegido en la configuración (--t-escala) */
+        .t-acciones { transform: scale(var(--t-escala, 1)); transform-origin: right bottom; }
 
         .t-acciones {
             position: absolute;
@@ -313,6 +330,7 @@
         }
 
         .t-btn {
+            position: relative;
             margin: 0;
             padding: 0;
             border-radius: 50%;
@@ -322,9 +340,44 @@
             justify-content: center;
             gap: 3px;
             font-family: inherit;
-            color: rgba(232, 251, 255, 0.9);
-            background: rgba(4, 18, 31, 0.4);
-            border: 2px solid rgba(0, 255, 255, 0.45);
+            color: rgba(232, 251, 255, 0.85);
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+        }
+
+        /* anillo de carga de los poderes (--carga va de 0 a 1, lo pone tactil.js) */
+        .t-hab::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 50%;
+            background: conic-gradient(rgba(0, 255, 255, 0.95) calc(var(--carga, 1) * 1turn), rgba(255, 255, 255, 0.1) 0);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .t-hab.cargando::before { opacity: 1; }
+        .t-hab.cargando { border-color: transparent; }
+        .t-hab.cargando b, .t-hab.cargando small { opacity: 0.4; }
+
+        /* sin flechas o maná: el anillo se pone naranja mientras se junta lo que falta */
+        .t-hab.sin-recurso::before {
+            background: conic-gradient(rgba(255, 150, 70, 0.95) calc(var(--carga, 1) * 1turn), rgba(255, 255, 255, 0.1) 0);
+        }
+
+        /* listo otra vez: destello */
+        .t-hab.recien { animation: poder-listo 0.5s ease-out; }
+
+        @keyframes poder-listo {
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 255, 0.9); background: rgba(0, 255, 255, 0.45); transform: scale(1.12); }
+            100% { box-shadow: 0 0 0 14px rgba(0, 255, 255, 0); background: rgba(255, 255, 255, 0.08); transform: scale(1); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .t-hab.recien { animation: none; }
+            .t-bolita { transition: none; }
         }
 
         .t-btn b { font-size: 14px; }
@@ -339,13 +392,133 @@
         }
 
         .t-btn.activo {
-            background: rgba(0, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.25);
             color: #ffe066;
             transform: scale(0.94);
         }
 
         .t-salto {
-            border-color: rgba(255, 224, 102, 0.6);
+            border-color: rgba(255, 224, 102, 0.45);
+        }
+
+        /* ---------- menús de pausa y configuración (menu.js) ---------- */
+        .boton-flotante[hidden] { display: none; }
+
+        .menu-capa {
+            position: absolute;
+            inset: 0;
+            z-index: 15;
+            display: grid;
+            place-items: center;
+            padding: 10px;
+            background: rgba(2, 4, 12, 0.72);
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        .menu-capa[hidden] { display: none; }
+
+        .menu-panel {
+            width: min(320px, 100%);
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 18px;
+            background: rgba(6, 16, 34, 0.96);
+            border: 2px solid #00ffff;
+            border-radius: 12px;
+            box-shadow: 0 0 18px rgba(0, 255, 255, 0.35);
+            color: #e8fbff;
+            box-sizing: border-box;
+        }
+
+        .menu-panel-ancho { width: min(560px, 100%); }
+
+        .menu-panel h2 {
+            margin: 0 0 4px;
+            text-align: center;
+            font-size: 16px;
+            color: #00ffff;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+        }
+
+        .menu-contenido {
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+
+        .menu-boton, .menu-opcion {
+            min-height: 40px;
+            font-family: inherit;
+            font-size: 10px;
+            color: #e8fbff;
+            background: rgba(0, 50, 100, 0.85);
+            border: 2px solid rgba(0, 255, 255, 0.6);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .menu-boton:hover, .menu-opcion:hover { background: rgba(0, 90, 160, 0.9); }
+
+        .menu-boton:focus-visible, .menu-opcion:focus-visible, .menu-volumen input:focus-visible {
+            outline: 3px solid #ffe066;
+            outline-offset: 2px;
+        }
+
+        .menu-salir {
+            border-color: #ff8a8a;
+            background: rgba(110, 20, 30, 0.85);
+        }
+
+        .menu-grupo {
+            margin: 0;
+            padding: 8px 10px 10px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            min-width: 0;
+        }
+
+        .menu-grupo legend {
+            padding: 0 6px;
+            font-size: 9px;
+            color: #ffe066;
+        }
+
+        .menu-opciones {
+            display: flex;
+            gap: 6px;
+        }
+
+        .menu-opcion {
+            flex: 1;
+            min-width: 0;
+            padding: 4px;
+            font-size: 8px;
+        }
+
+        .menu-opcion.elegido {
+            background: rgba(0, 120, 90, 0.95);
+            border-color: #7dffc8;
+            color: #fff;
+        }
+
+        .menu-volumen {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .menu-volumen input { flex: 1; accent-color: #00ffff; min-height: 32px; }
+        .menu-volumen output { font-size: 9px; min-width: 40px; text-align: right; }
+
+        .menu-nota {
+            margin: 6px 0 0;
+            font-size: 7px;
+            line-height: 1.6;
+            color: rgba(232, 251, 255, 0.65);
+            text-align: center;
         }
 
         /* celular vertical: el juego es horizontal */
@@ -528,7 +701,7 @@
                     <div class="arrow-key" id="key-c">C</div>
                 </div>
             </div>
-            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>G: agrandar · F: pantalla completa · M: silenciar · Esc: salir<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
+            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>P o Esc: pausa · G: agrandar · F: pantalla completa · M: silenciar<br>⚙ (sobre el juego): dificultad, cámara y volumen<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
         </div>
         
         <p class="footer">Juega con las flechas del teclado | © 2026 Monhabell</p>

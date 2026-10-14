@@ -10,6 +10,8 @@ import {
     decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero
 } from "./mazmorra.js"
 import { iniciarTactil } from "./tactil.js"
+import { iniciarMenus } from "./menu.js"
+import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
@@ -38,7 +40,7 @@ const apiSorpresas = {
 };
 
 let score = 0; // Variable global para la puntuación
-const VIDAS_INICIALES = 4;
+let VIDAS_INICIALES = vidasMaximas(); // depende de la dificultad (ajustes.js); se relee en cada nivel
 let vidas = VIDAS_INICIALES; // se muestran como corazones; al acabarse se vuelve al inicio del juego
 let scoreInicioNivel = 0; // al morir el puntaje vuelve a este valor
 const FLECHAS_INICIALES = 10;
@@ -138,6 +140,41 @@ const juego = new Phaser.Game(config)
 
 // en celulares: botones táctiles sobre el juego (tactil.js)
 iniciarTactil(juego);
+
+// menú de pausa y de configuración (menu.js); los ajustes viven en ajustes.js
+iniciarMenus(juego, {
+    aplicar: aplicarAjustes,
+    salirAlMenu: () => {
+        juego.scene.stop('juego');
+        juego.scene.start('seleccion');
+    },
+});
+
+// aplica lo que cambia al momento (la dificultad se aplica al empezar o reiniciar un nivel)
+function aplicarAjustes() {
+    if (juego.sound) juego.sound.volume = ajustes.volumen / 100;
+    document.documentElement.style.setProperty('--t-escala', BOTONES[ajustes.botones].escala);
+    if (!juego.scene.isActive('juego') && !juego.scene.isPaused('juego')) return;
+    const nivel = juego.scene.getScene('juego');
+    // en la pelea con el jefe la cámara la maneja jefes.js (vuelve al zoom elegido al ganar)
+    if (!nivel.camaraArena && nivel.mascotaGesi) {
+        nivel.cameras.main.setZoom(zoomCamara());
+        // de golpe sobre el personaje: con el juego en pausa la cámara no lo seguiría
+        nivel.camaraVerticalLista = false;
+        moverCamara(nivel);
+    }
+    verColisiones(nivel);
+}
+// el volumen guardado se aplica cuando el sonido ya existe
+juego.events.once('ready', aplicarAjustes);
+
+// cajas de colisión de la física (opción "Ver colisiones" de la configuración, para probar)
+function verColisiones(scene) {
+    const mundo = scene.physics.world;
+    if (ajustes.colisiones && !mundo.debugGraphic) mundo.createDebugGraphic();
+    mundo.drawDebug = ajustes.colisiones;
+    if (!ajustes.colisiones) mundo.debugGraphic?.clear();
+}
 
 // botones de la página: agrandar (tecla G) y pantalla completa (tecla F); Esc sale
 const botonAgrandar = document.getElementById('btn-agrandar');
@@ -261,6 +298,16 @@ function create() {
     flechas = FLECHAS_INICIALES;
     this.mana = MANA_MAXIMO;
     this.enfriamientos = {};
+    // para los botones táctiles (tactil.js): cuánto le falta a cada poder para poder usarse
+    // carga: 0 → recién usado, 1 → listo; sinRecurso: no alcanzan las flechas o el maná
+    this.estadoHabilidad = tecla => {
+        const h = this.pj.habilidades[tecla];
+        const resta = Math.max(0, (this.enfriamientos[tecla] || 0) - this.time.now);
+        const enfriado = h.enfriamiento ? 1 - resta / h.enfriamiento : 1;
+        const tengo = !h.costo ? Infinity : this.pj.recurso === 'flechas' ? flechas : this.pj.recurso === 'mana' ? this.mana : Infinity;
+        const recurso = h.costo ? Math.min(1, tengo / h.costo) : 1;
+        return { carga: Math.min(enfriado, recurso), sinRecurso: recurso < 1 };
+    };
     this.atacando = false;
     this.dashHasta = 0;
     this.escudoHasta = 0;
@@ -271,7 +318,10 @@ function create() {
     this.tieneEscudo = true; // cada vida empieza con escudo (aguanta un golpe)
     this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
-    this.velEnemigos = nivel.velEnemigos ?? 50;
+    this.velEnemigos = (nivel.velEnemigos ?? 50) * factorEnemigos(); // la dificultad los acelera o frena
+    // vidas según la dificultad elegida (si se bajó en medio de la partida, se recortan)
+    VIDAS_INICIALES = vidasMaximas();
+    vidas = Math.min(vidas, VIDAS_INICIALES);
     // enemigos que caminan en este nivel (se van turnando)
     this.mezcla = nivel.mezcla || ['zombie1', 'zombie2', 'zombie3'];
     this.contEnemigos = 0;
@@ -429,8 +479,9 @@ function create() {
     this.events.on('prerender', antes);
     this.events.on('render', despues);
     this.events.once('shutdown', () => { this.events.off('prerender', antes); this.events.off('render', despues); });
-    this.cameras.main.setOrigin(0).setZoom(ZOOM);
+    this.cameras.main.setOrigin(0).setZoom(zoomCamara()); // alejada según los ajustes: se ve más mundo
     moverCamara(this);
+    verColisiones(this);
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
     crearAmbiente(this, nivel, nivelActual, nivelActual === 0 ? [[1350, 2310]] : []);
@@ -444,10 +495,13 @@ function create() {
             .setScrollFactor(0).setDepth(50)); // Mantener fijo en la pantalla
     }
     actualizarCorazones(this);
+    // con más de 4 corazones (dificultad fácil) el resto del HUD se corre a la derecha
+    const corrido = Math.max(0, VIDAS_INICIALES - 4) * 26;
+    this.hudCorrido = corrido;
     crearEscudo(this);
-    this.scoreText = this.add.text(180, 15, `Puntaje: ${score}`, estiloHud)
+    this.scoreText = this.add.text(180 + corrido, 15, `Puntaje: ${score}`, estiloHud)
         .setScrollFactor(0).setDepth(50);
-    this.recursoText = this.add.text(370, 15, '', estiloHud)
+    this.recursoText = this.add.text(370 + corrido, 15, '', estiloHud)
         .setScrollFactor(0).setDepth(50);
     actualizarRecurso(this);
     this.muertesText = this.add.text(VISTA.width - 130, 15, `☠ ${muertes}`, estiloHud)
@@ -635,7 +689,7 @@ function empezarJuego(scene, continuar = true) {
 
 function reiniciarPartida() {
     vidaJefeGuardada = null;
-    vidas = VIDAS_INICIALES;
+    vidas = VIDAS_INICIALES = vidasMaximas();
     nivelActual = 0;
     score = 0;
     scoreInicioNivel = 0;
@@ -667,7 +721,7 @@ function borrarPartida() {
 // sigue desde el comienzo del nivel guardado, con las vidas llenas
 function continuarPartida(p) {
     vidaJefeGuardada = null;
-    vidas = VIDAS_INICIALES;
+    vidas = VIDAS_INICIALES = vidasMaximas();
     nivelActual = p.nivel;
     score = p.score || 0;
     scoreInicioNivel = score;

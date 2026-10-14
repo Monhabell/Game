@@ -56,11 +56,13 @@ export function crearEscudo(scene) {
     scene.auraEscudo = scene.add.image(0, 0, 'aura_escudo')
         .setScale(0.72, 0.82).setAlpha(0).setDepth(41);
     // barra de carga del escudo (debajo del ícono)
-    scene.barraEscudoFondo = scene.add.rectangle(140, 42, 34, 6, 0x000000, 0.7).setStrokeStyle(1, 0x8fd8ff).setScrollFactor(0).setDepth(50);
-    scene.barraEscudo = scene.add.rectangle(124, 42, 32, 4, 0x5fd0ff).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
-    scene.textoEscudo = scene.add.text(160, 36, '', { fontSize: '9px', color: '#9fe6ff', stroke: '#000', strokeThickness: 3 })
+    // (hudCorrido: con más corazones de lo normal el escudo va más a la derecha)
+    const x = 140 + (scene.hudCorrido || 0);
+    scene.barraEscudoFondo = scene.add.rectangle(x, 42, 34, 6, 0x000000, 0.7).setStrokeStyle(1, 0x8fd8ff).setScrollFactor(0).setDepth(50);
+    scene.barraEscudo = scene.add.rectangle(x - 16, 42, 32, 4, 0x5fd0ff).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
+    scene.textoEscudo = scene.add.text(x + 20, 36, '', { fontSize: '9px', color: '#9fe6ff', stroke: '#000', strokeThickness: 3 })
         .setScrollFactor(0).setDepth(51);
-    scene.iconoEscudo = scene.add.image(140, 24, 'fx_escudo', FRAME_BURBUJA)
+    scene.iconoEscudo = scene.add.image(x, 24, 'fx_escudo', FRAME_BURBUJA)
         .setScale(0.16).setScrollFactor(0).setDepth(50);
     mostrarEscudo(scene, scene.tieneEscudo);
     if (scene.tieneEscudo) destellarAura(scene);

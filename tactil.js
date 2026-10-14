@@ -2,8 +2,13 @@
 // Los botones "presionan" las mismas teclas que el teclado (flechas, ESPACIO, X, C), así que el
 // resto del juego no cambia: cada botón llama a onDown/onUp de las teclas de Phaser de las
 // escenas activas. Solo aparecen en pantallas táctiles, y solo mientras se juega un nivel.
+//
+// - Joystick (lado izquierdo): aparece donde apoyas el pulgar; la bolita mueve izquierda/derecha.
+// - Poderes: un anillo se llena mientras el poder se recarga (o mientras juntas maná/flechas);
+//   el botón destella cuando vuelve a estar listo.
 
 const TECLA = { izq: 37, arriba: 38, der: 39, espacio: 32, x: 88, c: 67 };
+const ZONA_MUERTA = 0.28; // fracción del radio del joystick que no mueve al personaje
 
 export const esTactil = () =>
     window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -27,7 +32,9 @@ export function iniciarTactil(juego) {
     const capa = document.createElement('div');
     capa.className = 'tactil';
     capa.innerHTML = `
-        <div class="t-cruceta" aria-hidden="true"><span>◀</span><span>▶</span></div>
+        <div class="t-zona-joy" aria-hidden="true">
+            <div class="t-joy"><div class="t-bolita"></div></div>
+        </div>
         <div class="t-acciones">
             <button type="button" class="t-btn t-hab" data-tecla="c"><b>C</b><small></small></button>
             <button type="button" class="t-btn t-hab" data-tecla="x"><b>X</b><small></small></button>
@@ -36,7 +43,7 @@ export function iniciarTactil(juego) {
         </div>`;
     document.getElementById('game').appendChild(capa);
 
-    // botones de acción: se mantienen presionados mientras el dedo esté encima
+    // ---------- botones: se mantienen presionados mientras el dedo esté encima ----------
     capa.querySelectorAll('.t-btn').forEach(b => {
         const codigo = TECLA[b.dataset.tecla];
         const bajar = e => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.classList.add('activo'); tecla(codigo, true); };
@@ -48,49 +55,97 @@ export function iniciarTactil(juego) {
         b.addEventListener('contextmenu', e => e.preventDefault());
     });
 
-    // cruceta: un solo dedo; deslizándolo se pasa de izquierda a derecha sin levantarlo
-    const cruceta = capa.querySelector('.t-cruceta');
-    let dedo = null;
-    function mover(e) {
-        const r = cruceta.getBoundingClientRect();
-        const lado = e.clientX < r.left + r.width / 2 ? 'izq' : 'der';
-        tecla(TECLA.izq, lado === 'izq');
-        tecla(TECLA.der, lado === 'der');
-        cruceta.dataset.lado = lado;
+    // ---------- joystick: la base aparece bajo el pulgar y la bolita lo sigue ----------
+    const zona = capa.querySelector('.t-zona-joy');
+    const joy = capa.querySelector('.t-joy');
+    const bolita = capa.querySelector('.t-bolita');
+    let dedo = null, centro = null;
+
+    function moverJoy(e) {
+        const radio = joy.offsetWidth / 2 * escalaBotones();
+        let dx = e.clientX - centro.x, dy = e.clientY - centro.y;
+        const d = Math.hypot(dx, dy);
+        if (d > radio) { dx *= radio / d; dy *= radio / d; }
+        bolita.style.transform = `translate(${dx / escalaBotones()}px, ${dy / escalaBotones()}px)`;
+        const h = dx / radio;
+        tecla(TECLA.izq, h < -ZONA_MUERTA);
+        tecla(TECLA.der, h > ZONA_MUERTA);
     }
-    function soltarCruceta() {
+    function soltarJoy() {
         dedo = null;
         tecla(TECLA.izq, false);
         tecla(TECLA.der, false);
-        delete cruceta.dataset.lado;
+        joy.classList.remove('activo');
+        joy.style.left = joy.style.top = '';
+        bolita.style.transform = '';
     }
-    cruceta.addEventListener('pointerdown', e => {
+    zona.addEventListener('pointerdown', e => {
+        if (dedo !== null) return;
         e.preventDefault();
         dedo = e.pointerId;
-        cruceta.setPointerCapture?.(e.pointerId);
-        mover(e);
+        zona.setPointerCapture?.(e.pointerId);
+        // la base se centra donde tocaste (sin salirse de la zona)
+        const r = zona.getBoundingClientRect();
+        const medio = joy.offsetWidth / 2 * escalaBotones();
+        const x = Math.min(Math.max(e.clientX - r.left, medio), r.width - medio);
+        const y = Math.min(Math.max(e.clientY - r.top, medio), r.height - medio);
+        joy.style.left = `${x}px`;
+        joy.style.top = `${y}px`;
+        joy.classList.add('activo');
+        centro = { x: r.left + x, y: r.top + y };
+        moverJoy(e);
     });
-    cruceta.addEventListener('pointermove', e => { if (e.pointerId === dedo) mover(e); });
+    zona.addEventListener('pointermove', e => { if (e.pointerId === dedo) moverJoy(e); });
     ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
-        cruceta.addEventListener(t, e => { if (e.pointerId === dedo) soltarCruceta(); }));
+        zona.addEventListener(t, e => { if (e.pointerId === dedo) soltarJoy(); }));
+    zona.addEventListener('contextmenu', e => e.preventDefault());
 
-    // los botones solo se ven durante un nivel; los nombres de las habilidades son los del personaje
+    function escalaBotones() {
+        return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--t-escala')) || 1;
+    }
+
+    // ---------- carga de los poderes ----------
+    const poderes = [...capa.querySelectorAll('.t-hab')].map(b => ({ b, tecla: b.dataset.tecla, listo: true }));
+    function dibujarCarga() {
+        const nivel = juego.scene.getScene('juego');
+        if (capa.classList.contains('visible') && nivel?.estadoHabilidad) {
+            poderes.forEach(p => {
+                const { carga, sinRecurso } = nivel.estadoHabilidad(p.tecla);
+                const listo = carga >= 1;
+                p.b.style.setProperty('--carga', carga.toFixed(3));
+                p.b.classList.toggle('cargando', !listo);
+                p.b.classList.toggle('sin-recurso', sinRecurso);
+                if (listo && !p.listo) {
+                    // destello al quedar listo (se reinicia la animación)
+                    p.b.classList.remove('recien');
+                    void p.b.offsetWidth;
+                    p.b.classList.add('recien');
+                }
+                p.listo = listo;
+            });
+        }
+        requestAnimationFrame(dibujarCarga);
+    }
+    requestAnimationFrame(dibujarCarga);
+
+    // ---------- los controles solo se ven durante un nivel ----------
     let pjActual = null;
     setInterval(() => {
         const nivel = juego.scene.isActive('juego') ? juego.scene.getScene('juego') : null;
         const visible = !!nivel?.pj;
         if (capa.classList.contains('visible') !== visible) {
             capa.classList.toggle('visible', visible);
-            if (!visible) { soltarTodo(); soltarCruceta(); }
+            if (!visible) { soltarTodo(); soltarJoy(); }
         }
         if (visible && nivel.pj !== pjActual) {
             pjActual = nivel.pj;
-            capa.querySelectorAll('.t-hab').forEach(b => {
-                b.querySelector('small').textContent = pjActual.habilidades[b.dataset.tecla].nombre.split(' / ')[0];
+            poderes.forEach(p => {
+                p.b.querySelector('small').textContent = pjActual.habilidades[p.tecla].nombre.split(' / ')[0];
+                p.listo = true;
             });
         }
     }, 250);
 
     // si la app pasa a segundo plano, que no quede ninguna tecla "pegada"
-    document.addEventListener('visibilitychange', () => { if (document.hidden) { soltarTodo(); soltarCruceta(); } });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { soltarTodo(); soltarJoy(); } });
 }

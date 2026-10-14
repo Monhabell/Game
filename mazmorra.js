@@ -93,7 +93,7 @@ export function moverLava(scene, time) {
 // muro de roca desde arriba del nivel hasta 'abajo', centrado en x; con punta, termina en pico
 // (la punta solo se ve si lo que colgaba se cae)
 export function colgarDelTecho(scene, x, abajo, ancho, factorX = 1, conPunta = true) {
-    const arriba = -(scene.altoTecho || 0) - 80;
+    const arriba = -(scene.altoTecho || 0) - 300; // sobra arriba: con la cámara alejada se ve más alto
     const tinte = scene.tinteTecho ?? 0x6a5c54;
     const capa = scene.capaTecho || scene.add.layer();
     const muro = scene.add.tileSprite(x, arriba, ancho, abajo - arriba, 'mz_relleno').setOrigin(0.5, 0).setTint(tinte);
@@ -161,7 +161,7 @@ export function crearMuroGotero(scene, x) {
     }
     const cx = x + 32, abajo = -10;
     colgarDelTecho(scene, cx, abajo, 24);
-    const arriba = -(scene.altoTecho || 0) - 80;
+    const arriba = -(scene.altoTecho || 0) - 300; // sobra arriba: con la cámara alejada se ve más alto
     const chorro = scene.add.tileSprite(cx, arriba, 8, abajo - arriba + 4, 'chorro_lava').setOrigin(0.5, 0);
     (scene.capaTecho || scene.add.layer()).add(chorro);
     scene.chorrosLava = scene.chorrosLava || [];

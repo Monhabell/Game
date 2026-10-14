@@ -19,9 +19,11 @@
 //
 // api: { killgesi(scene, daño, origenX), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
 
+import { zoomCamara } from "./ajustes.js"
+
 const SUELO_Y = 332;
 export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para verla entera)
-const ZOOM_ARENA = 1.55;          // zoom de la cámara durante la pelea (normal = 2)
+const ZOOM_ARENA = 1.55;          // zoom de la cámara durante la pelea (normal = el de los ajustes)
 const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
 const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
 const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
@@ -137,7 +139,7 @@ function empezarPelea(scene, api) {
 
     // la cámara se aleja para ver toda la arena
     scene.camaraArena = (j.arenaIni + j.arenaFin) / 2;
-    scene.tweens.add({ targets: scene.cameras.main, zoom: ZOOM_ARENA, duration: 900, ease: 'Sine.inOut' });
+    scene.tweens.add({ targets: scene.cameras.main, zoom: Math.min(ZOOM_ARENA, zoomCamara()), duration: 900, ease: 'Sine.inOut' });
 
     // los enemigos normales que estaban en la arena se desvanecen: el troll pelea solo
     scene.enemies.getChildren().slice().forEach(e => {
@@ -369,7 +371,7 @@ function derrotar(scene, api) {
     j.derrotado = true;
     scene.peleaJefe = false;
     scene.camaraArena = null;
-    scene.tweens.add({ targets: scene.cameras.main, zoom: 2, delay: 1500, duration: 900, ease: 'Sine.inOut' });
+    scene.tweens.add({ targets: scene.cameras.main, zoom: zoomCamara(), delay: 1500, duration: 900, ease: 'Sine.inOut' });
     scene.limiteDerecho = null;
     if (j.placa) { j.placa.destroy(); j.placa = null; }
     j.brilloPlaca?.destroy();
