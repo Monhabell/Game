@@ -19,7 +19,7 @@ import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
     avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder,
     soyReplica, soyAnfitrion, hacerReplica, avisarGolpeEnemigo, avisarZona, avisarBala,
-    fantasmas, comoJugador, fantasmaMasCercano
+    fantasmas, comoJugador, fantasmaMasCercano, avisarJefeFx
 } from "./multijugador.js"
 import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
@@ -27,7 +27,10 @@ import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, acti
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
 import { aleatorizarNivel, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
-import { cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe } from "./jefes.js"
+import {
+    cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe,
+    datosJefe, recibirJefe, efectoJefe
+} from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
 import { crearMapa, actualizarMapa } from "./mapa.js"
 import { mostrarCarga, crearTitulo, crearIntro, crearFinal } from "./historia.js"
@@ -193,6 +196,9 @@ iniciarMultijugador(juego, {
     dañarEnemigo: (scene, e, cantidad, congela) => dañarEnemigo(scene, e, cantidad, congela),
     golpeEnZona: (scene, zona, x) => golpeEnZona(scene, zona, x),
     bala: (scene, m) => balaRemota(scene, m),
+    datosJefe: scene => datosJefe(scene),
+    jefe: (scene, datos) => recibirJefe(scene, datos, apiJefe),
+    jefeFx: (scene, m) => efectoJefe(scene, m, apiJefe),
 });
 
 // aplica lo que cambia al momento (la dificultad se aplica al empezar o reiniciar un nivel)
@@ -589,6 +595,13 @@ function create() {
     this.proxRecorte = 0;
     prepararNivelEnLinea(this);
     this.alDañarJefe = avisarJefe;
+    // el troll en línea: lo maneja el anfitrión (jefes.js)
+    this.redJefe = enLinea() ? {
+        replica: soyReplica,
+        avisar: avisarJefeFx,
+        cercano: sprite => fantasmaMasCercano(this, sprite),
+        comoJugador: (f, fn) => comoJugador(this, f, fn),
+    } : null;
     if (enLinea()) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
 ${nivel.nombre}
 ${red.jugadores.length} jugadores en cadena`, 2400);

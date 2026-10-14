@@ -17,7 +17,10 @@
 // ganchos (game.js): { morir(scene), activarCheckpoint(scene, cp), matarEnemigo(scene, e),
 //                      dañarJefe(scene, cantidad), completar(scene), nivelActual(),
 //                      crearEnemigo(scene, x, y, tipo), dañarEnemigo(scene, e, cantidad),
-//                      golpeEnZona(scene, zona, x), bala(scene, datos) }
+//                      golpeEnZona(scene, zona, x), bala(scene, datos),
+//                      datosJefe(scene), jefe(scene, datos), jefeFx(scene, m) }
+// El troll (jefes.js) sigue el mismo esquema: lo maneja el anfitrión, viaja junto con los enemigos
+// y cada ataque se avisa con un "jefeFx".
 
 import { PERSONAJES } from "./personajes.js"
 import { red, alRecibir, enviarEstado, enviarEvento, enLinea, esAnfitrion } from "./red.js"
@@ -65,7 +68,12 @@ export function iniciarMultijugador(juegoPhaser, g) {
             case 'jefe': ganchos.dañarJefe(scene, m.cantidad); break;
             case 'meta': ganchos.completar(scene); break;
             case 'poder': poderRemoto(scene, m); break;
-            case 'enemigos': if (!esAnfitrion()) recibirEnemigos(scene, m.l); break;
+            case 'enemigos':
+                if (esAnfitrion()) break;
+                recibirEnemigos(scene, m.l);
+                if (m.jefe) ganchos.jefe(scene, m.jefe);
+                break;
+            case 'jefeFx': ganchos.jefeFx(scene, m); break;
             case 'golpe': {
                 // golpe de otro jugador a una réplica: lo aplica el anfitrión
                 if (!esAnfitrion()) break;
@@ -238,7 +246,8 @@ function enviarEnemigos(scene, time) {
             e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0,
             scene.time.now < (e.congeladoHasta || 0) ? 1 : 0]);
     });
-    enviarEvento('enemigos', { l, nivel: nivel() });
+    const jefe = ganchos.datosJefe(scene);
+    enviarEvento('enemigos', jefe ? { l, jefe, nivel: nivel() } : { l, nivel: nivel() });
 }
 
 // réplica: se crean las que faltan y se guarda a dónde tiene que ir cada una
@@ -307,6 +316,8 @@ export const avisarZona = (zona, ox) => soyAnfitrion() && enviarEvento('zona', {
     x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), ox: Math.round(ox), nivel: nivel(),
 });
 export const avisarBala = datos => soyAnfitrion() && enviarEvento('bala', { ...datos, nivel: nivel() });
+// ataques del troll (y 'empieza', que puede mandarlo cualquiera)
+export const avisarJefeFx = (fx, datos = {}) => enLinea() && enviarEvento('jefeFx', { fx, ...datos, nivel: nivel() });
 
 // ---------- fantasmas: los demás jugadores, para trampas y enemigos ----------
 // Un fantasma tiene lo que el código de trampas y enemigos lee del jugador (posición, cuerpo,

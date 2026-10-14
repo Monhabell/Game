@@ -146,6 +146,9 @@ function tensar(a, c) {
     const dx = c.cx - a.cx, dy = c.cy - a.cy;
     const dist = Math.hypot(dx, dy);
     if (dist <= LARGO || dist === 0) return;
+    // con un jugador de otra pantalla, una distancia enorme es un dato atrasado (acaba de reaparecer
+    // o entrar a la arena): no se tira hasta que llegue su posición nueva
+    if (dist > LARGO * 4 && !(a.local && c.local)) return;
     const nx = dx / dist, ny = dy / dist;
 
     // cuánto absorbe cada uno del tirón (0 = no se mueve, 1 = se lleva todo);

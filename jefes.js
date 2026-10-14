@@ -21,6 +21,11 @@
 
 import { zoomCamara, RESOLUCION } from "./ajustes.js"
 
+// En línea (scene.redJefe, ver multijugador.js): el troll lo maneja el ANFITRIÓN. Su pantalla decide
+// a quién persigue (al jugador más cercano de la sala) y qué ataque usa, y avisa cada ataque
+// ("jefeFx"); las demás pantallas mueven una copia del troll con lo que manda y cada una revisa si
+// el ataque alcanzó a su propio jugador. La pelea empieza para todos cuando cualquiera entra.
+
 const SUELO_Y = 332;
 export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para verla entera)
 const ZOOM_ARENA = 1.55;          // zoom de la cámara durante la pelea (normal = el de los ajustes)
@@ -163,6 +168,7 @@ function empezarPelea(scene, api) {
     s.flipX = true;
     s.anims.play(`troll${d.troll}-jump`);
     j.sprite = s;
+    if (esReplica(scene)) s.body.moves = false; // en línea lo mueve el anfitrión
     j.proxAtaque = ahora + DURACION + 800;
     j.proxEspecial = ahora + DURACION + 2500;
     j.invulHasta = 0;
@@ -377,6 +383,7 @@ function derrotar(scene, api) {
     scene.limiteDerecho = null;
     if (j.placa) { j.placa.destroy(); j.placa = null; }
     j.brilloPlaca?.destroy();
+    s.body.moves = true;
     s.setVelocity(0, 0).clearTint();
     s.body.checkCollision.none = true;
     camaraLenta(scene);
@@ -436,11 +443,22 @@ export function actualizarJefe(scene, time, api) {
                     : d.final ? 'El trono tiembla...' : '¡El Rey Troll volvió!', 1600);
             }
         }
-        if (!g.isDead && g.x > j.arenaIni + 60) empezarPelea(scene, api);
+        if (!g.isDead && g.x > j.arenaIni + 60) {
+            empezarPelea(scene, api);
+            scene.redJefe?.avisar('empieza'); // en línea: la pelea empieza para todos
+        }
         return;
     }
     if (j.estado !== 'pelea') return;
+    if (esReplica(scene)) { seguirAlAnfitrion(scene, time); return; }
+    // en línea el troll pelea contra el jugador más cercano de la sala (puede ser de otra pantalla)
+    const otro = scene.redJefe?.cercano(j.sprite);
+    if (otro) scene.redJefe.comoJugador(otro, () => pelear(scene, time, api));
+    else pelear(scene, time, api);
+}
 
+function pelear(scene, time, api) {
+    const j = scene.jefe, g = scene.mascotaGesi;
     const s = j.sprite, b = s.body, d = j.datos;
     moverCoraza(j);
     const margen = 130 * d.escala / 0.6; // medio ancho del troll con su garrote
@@ -565,21 +583,37 @@ function garrotazo(scene, api, retraso) {
         s.setVelocityX(0);
         s.anims.play(`troll${d.troll}-attack`, true);
         // aviso del garrotazo: destello rojo mientras levanta el garrote
-        s.setTintFill(0xff5050);
-        scene.time.delayedCall(110, () => restaurarTinte(j));
+        destelloGarrote(scene);
+        avisar(scene, 'garrote');
         scene.time.delayedCall(330, () => {
             if (j.estado !== 'pelea') return;
-            scene.sound.play('golpe_enemigo', { volume: 0.7, rate: 0.7 });
             const dir = s.flipX ? -1 : 1;
             const zona = new Phaser.Geom.Rectangle(dir > 0 ? b.right - 10 : b.left - 120, b.top, 130, b.height);
-            const gb = scene.mascotaGesi.body;
-            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) api.killgesi(scene, 25, b.center.x);
+            avisar(scene, 'zona', { x: Math.round(zona.x), y: Math.round(zona.y), w: zona.width, h: Math.round(zona.height), ox: Math.round(b.center.x) });
+            golpeDeGarrote(scene, zona, b.center.x, api);
         });
     });
 }
 
+function destelloGarrote(scene) {
+    const j = scene.jefe;
+    j.sprite.setTintFill(0xff5050);
+    scene.time.delayedCall(110, () => restaurarTinte(j));
+}
+
+function golpeDeGarrote(scene, zona, origenX, api) {
+    scene.sound.play('golpe_enemigo', { volume: 0.7, rate: 0.7 });
+    const gb = scene.mascotaGesi.body;
+    if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) api.killgesi(scene, 25, origenX);
+}
+
 // aviso sobre la cabeza: cada ataque especial tiene su símbolo y su color (ver AVISOS)
 function aviso(scene, s, ataque) {
+    avisar(scene, 'aviso', { ataque });
+    avisoVisible(scene, s, ataque);
+}
+
+function avisoVisible(scene, s, ataque) {
     const [simbolo, color] = AVISOS[ataque];
     const t = scene.add.text(s.x, s.body.top - 26, simbolo, {
         fontFamily: '"Press Start 2P", monospace', fontSize: '18px', color, stroke: '#000', strokeThickness: 5,
@@ -588,6 +622,7 @@ function aviso(scene, s, ataque) {
 }
 
 function mareado(scene, s) {
+    avisar(scene, 'mareado');
     const t = scene.add.text(s.x, s.body.top - 20, '★ ★', { fontSize: '14px', color: '#ffe066', stroke: '#000', strokeThickness: 3 })
         .setOrigin(0.5).setDepth(45);
     scene.tweens.add({ targets: t, angle: 360, alpha: 0, duration: 1100, onComplete: () => t.destroy() });
@@ -603,21 +638,26 @@ function caenRocas(scene, cuantas, api, cercaDeGesi = false) {
             : Phaser.Math.Between(j.arenaIni + 70, j.arenaFin - 70);
         scene.time.delayedCall(n * 280, () => {
             if (j.estado !== 'pelea') return;
-            const sombra = scene.add.ellipse(x, SUELO_Y - 2, 20, 6, 0x000000, 0.5).setDepth(36);
-            scene.tweens.add({ targets: sombra, scaleX: 2.4, scaleY: 1.6, duration: 700 });
-            const roca = scene.add.image(x, -30, 'mz_bloque').setScale(1.3).setTint(0x9a8f88).setDepth(36);
-            scene.tweens.add({
-                targets: roca, y: SUELO_Y - 20, angle: 180, delay: 450, duration: 380, ease: 'Quad.in',
-                onComplete: () => {
-                    scene.sound.play('romper', { volume: 0.4 });
-                    const gb = scene.mascotaGesi.body;
-                    if (Math.abs(gb.center.x - x) < 30 && gb.bottom > SUELO_Y - 80) api.killgesi(scene, 20);
-                    sombra.destroy();
-                    scene.tweens.add({ targets: roca, alpha: 0, duration: 300, onComplete: () => roca.destroy() });
-                },
-            });
+            avisar(scene, 'roca', { x: Math.round(x) });
+            rocaQueCae(scene, x, api);
         });
     }
+}
+
+function rocaQueCae(scene, x, api) {
+    const sombra = scene.add.ellipse(x, SUELO_Y - 2, 20, 6, 0x000000, 0.5).setDepth(36);
+    scene.tweens.add({ targets: sombra, scaleX: 2.4, scaleY: 1.6, duration: 700 });
+    const roca = scene.add.image(x, -30, 'mz_bloque').setScale(1.3).setTint(0x9a8f88).setDepth(36);
+    scene.tweens.add({
+        targets: roca, y: SUELO_Y - 20, angle: 180, delay: 450, duration: 380, ease: 'Quad.in',
+        onComplete: () => {
+            scene.sound.play('romper', { volume: 0.4 });
+            const gb = scene.mascotaGesi.body;
+            if (Math.abs(gb.center.x - x) < 30 && gb.bottom > SUELO_Y - 80) api.killgesi(scene, 20);
+            sombra.destroy();
+            scene.tweens.add({ targets: roca, alpha: 0, duration: 300, onComplete: () => roca.destroy() });
+        },
+    });
 }
 
 const ESPECIALES = {
@@ -658,14 +698,9 @@ const ESPECIALES = {
         j.ocupadoHasta = scene.time.now + 800;
         scene.time.delayedCall(320, () => {
             if (j.estado !== 'pelea') return;
-            const roca = scene.balasEnemigas.create(s.body.center.x, s.body.top + 10, 'mz_bloque').setScale(1.2).setTint(0x9a8f88);
-            roca.body.setAllowGravity(true);
-            roca.body.setGravityY(300);
-            const tiempo = 1.0;
-            roca.setVelocity(dx / tiempo, -330);
-            scene.tweens.add({ targets: roca, angle: 720, duration: 1600 });
-            scene.time.delayedCall(2500, () => roca.active && roca.destroy());
-            scene.sound.play('golpe_enemigo', { volume: 0.6, rate: 0.6 });
+            const datos = { x: Math.round(s.body.center.x), y: Math.round(s.body.top + 10), vx: Math.round(dx / 1.0), vy: -330 };
+            avisar(scene, 'lanza', datos);
+            rocaLanzada(scene, datos);
         });
     },
 
@@ -676,8 +711,8 @@ const ESPECIALES = {
         s.setVelocityX(0);
         s.anims.play(`troll${d.troll}-hurt`, true);
         j.ocupadoHasta = scene.time.now + 1200;
-        scene.sound.play('rugido', { volume: 0.8 });
-        scene.cameras.main.shake(900, 0.008);
+        avisar(scene, 'rugido');
+        rugir(scene);
         caenRocas(scene, j.furioso ? 5 : 3, api, true);
     },
 
@@ -695,15 +730,34 @@ const ESPECIALES = {
     },
 };
 
+function rocaLanzada(scene, { x, y, vx, vy }) {
+    const roca = scene.balasEnemigas.create(x, y, 'mz_bloque').setScale(1.2).setTint(0x9a8f88);
+    roca.body.setAllowGravity(true);
+    roca.body.setGravityY(300);
+    roca.setVelocity(vx, vy);
+    scene.tweens.add({ targets: roca, angle: 720, duration: 1600 });
+    scene.time.delayedCall(2500, () => roca.active && roca.destroy());
+    scene.sound.play('golpe_enemigo', { volume: 0.6, rate: 0.6 });
+}
+
+function rugir(scene) {
+    scene.sound.play('rugido', { volume: 0.8 });
+    scene.cameras.main.shake(900, 0.008);
+}
+
 function ondaExpansiva(scene, x, api) {
+    avisar(scene, 'onda', { x: Math.round(x) });
     scene.cameras.main.shake(300, 0.012);
     scene.sound.play('emboscada', { volume: 0.6 });
     const onda = scene.add.ellipse(x, SUELO_Y - 4, 40, 14, 0xffd27a, 0.6).setDepth(36);
     scene.tweens.add({ targets: onda, scaleX: 9, scaleY: 1.6, alpha: 0, duration: 450, onComplete: () => onda.destroy() });
-    // golpea si el jugador está en el suelo cerca (saltando se esquiva)
-    const g = scene.mascotaGesi.body;
-    const enSuelo = g.blocked.down || g.touching.down;
-    if (enSuelo && Math.abs(g.center.x - x) < 170) api.killgesi(scene, 20);
+    // golpea si el jugador está en el suelo cerca (saltando se esquiva); un instante después,
+    // ya con el jugador de esta pantalla (la IA puede estar mirando a otro: ver actualizarJefe)
+    scene.time.delayedCall(0, () => {
+        const g = scene.mascotaGesi.body;
+        const enSuelo = g.blocked.down || g.touching.down;
+        if (enSuelo && Math.abs(g.center.x - x) < 170) api.killgesi(scene, 20);
+    });
 }
 
 // el jefe también recibe los golpes cuerpo a cuerpo y el rayo
@@ -731,4 +785,88 @@ function camaraLenta(scene) {
         scene.tweens.timeScale = 1;
         scene.time.timeScale = 1;
     });
+}
+
+// ---------- En línea ----------
+
+// en esta pantalla el troll es una copia (lo maneja el anfitrión)
+const esReplica = scene => !!scene.redJefe?.replica();
+
+// solo quien maneja al troll avisa sus ataques (las copias no repiten los avisos)
+function avisar(scene, fx, datos) {
+    if (!esReplica(scene)) scene.redJefe?.avisar(fx, datos);
+}
+
+// anfitrión: lo que las demás pantallas necesitan para dibujar al troll
+export function datosJefe(scene) {
+    const j = scene.jefe;
+    if (!j || j.estado !== 'pelea' || !j.sprite?.body) return null;
+    const s = j.sprite, r = n => Math.round(n);
+    return [r(s.x), r(s.y), r(s.body.velocity.x), r(s.body.velocity.y), s.flipX ? 1 : 0,
+        s.anims.currentAnim?.key || '', j.furioso ? 1 : 0, j.vida];
+}
+
+// copia: guarda a dónde tiene que ir el troll y toma la vida del anfitrión
+export function recibirJefe(scene, datos, api) {
+    const j = scene.jefe;
+    if (!j || j.estado !== 'pelea' || !j.sprite) return;
+    const [x, y, vx, vy, flip, anim, furioso, vida] = datos;
+    j.red = { x, y, vx, vy, flip, anim, t: performance.now() };
+    if (!!furioso !== !!j.furioso) { j.furioso = !!furioso; restaurarTinte(j); }
+    if (vida < j.vida) {
+        j.vida = vida;
+        scene.guardarVidaJefe?.(j.vida);
+        if (j.barra) j.barra.width = 280 * j.vida / j.vidaMax;
+        if (j.coraza && !tieneCoraza(j)) { j.coraza = false; romperCoraza(scene, j); }
+        if (j.vida <= 0) derrotar(scene, api);
+    }
+}
+
+// copia: se mueve suavemente hacia lo que mandó el anfitrión
+function seguirAlAnfitrion(scene, time) {
+    const j = scene.jefe, s = j.sprite;
+    moverCoraza(j);
+    if (j.red) {
+        const adelanto = Math.min(0.2, (performance.now() - j.red.t) / 1000);
+        const x = j.red.x + j.red.vx * adelanto, y = j.red.y + j.red.vy * adelanto;
+        const k = Math.min(1, scene.game.loop.delta / 1000 * 14);
+        if (Math.hypot(x - s.x, y - s.y) > 250) s.setPosition(x, y);
+        else s.setPosition(s.x + (x - s.x) * k, s.y + (y - s.y) * k);
+        s.flipX = !!j.red.flip;
+        if (j.red.anim && s.anims.currentAnim?.key !== j.red.anim && scene.anims.exists(j.red.anim)) s.anims.play(j.red.anim, true);
+    }
+    // si el jugador de esta pantalla se queda parado sobre su cabeza, se lo quita de encima
+    const g = scene.mascotaGesi, gb = g.body, b = s.body;
+    if (g.isDead) return;
+    const encima = Math.abs(gb.bottom - b.top) < 6 && gb.right > b.left && gb.left < b.right;
+    if (!encima) { j.encimaDesde = 0; return; }
+    if (!j.encimaDesde) j.encimaDesde = time;
+    if (time - j.encimaDesde > 350) { sacudirse(scene); j.encimaDesde = 0; }
+}
+
+// lo que avisó la pantalla que maneja al troll (o, 'empieza', cualquier jugador)
+export function efectoJefe(scene, m, api) {
+    const j = scene.jefe;
+    if (!j) return;
+    if (m.fx === 'empieza') {
+        if (j.estado !== 'esperando') return;
+        // los que se quedaron afuera entran a la arena (si no, los muros los dejarían del lado equivocado)
+        const g = scene.mascotaGesi;
+        if (!g.isDead && g.x < j.arenaIni + 60) g.setPosition(j.arenaIni + 90, Math.min(g.y, SUELO_Y - 60));
+        j.avisado = true;
+        empezarPelea(scene, api);
+        return;
+    }
+    if (j.estado !== 'pelea' || !j.sprite) return;
+    const s = j.sprite;
+    switch (m.fx) {
+        case 'aviso': if (AVISOS[m.ataque]) avisoVisible(scene, s, m.ataque); break;
+        case 'garrote': destelloGarrote(scene); break;
+        case 'zona': golpeDeGarrote(scene, new Phaser.Geom.Rectangle(m.x, m.y, m.w, m.h), m.ox, api); break;
+        case 'onda': ondaExpansiva(scene, m.x, api); break;
+        case 'roca': rocaQueCae(scene, m.x, api); break;
+        case 'lanza': rocaLanzada(scene, m); break;
+        case 'mareado': mareado(scene, s); break;
+        case 'rugido': rugir(scene); break;
+    }
 }
