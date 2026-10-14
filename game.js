@@ -1576,13 +1576,17 @@ function seguirReloj(scene, p) {
 }
 
 function crearGota(scene, x) {
-    scene.lavaesgota.create(x, VISTA.height - 342, 'lava_falling')
+    const y = VISTA.height - 342;
+    const gota = scene.lavaesgota.create(x, y, 'lava_falling')
         .setOrigin(0, 0.5)
         .anims.play('lavacaergota', true)
         .setScale(0.5)
         .refreshBody()
         .setSize(10, 20)
         .setOffset(62, 55);
+    // el origen cambió después de crear el cuerpo: sin esto, la física lo toma como un movimiento y
+    // en el primer cuadro corre la gota 63 px a la derecha (cae al lado del chorro, no de su punta)
+    gota.body.reset(x, y);
 }
 
 function crearzombis() {
