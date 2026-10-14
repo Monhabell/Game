@@ -4,6 +4,10 @@
 
 import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES } from "./ajustes.js"
 
+// dentro del APK (Capacitor): se puede cerrar la app y usar el botón "atrás" de Android
+const APP = !!window.Capacitor?.isNativePlatform?.();
+const pluginApp = () => window.Capacitor?.Plugins?.App;
+
 // aplicar(): el juego aplica los ajustes que cambiaron; salirAlMenu(): vuelve a elegir personaje
 export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
     const contenedor = document.getElementById('game');
@@ -37,6 +41,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
             <button type="button" class="menu-boton" data-accion="seguir">▶ Continuar</button>
             <button type="button" class="menu-boton" data-accion="ajustes">⚙ Configuración</button>
             <button type="button" class="menu-boton menu-salir" data-accion="salir">⌂ Salir al menú</button>
+            ${APP ? '<button type="button" class="menu-boton menu-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
             <p class="menu-nota">El progreso se guarda al empezar cada nivel</p>
         </div>`;
 
@@ -75,7 +80,10 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
                     </div>
                 </fieldset>
             </div>
-            <button type="button" class="menu-boton" data-accion="volver">← Volver</button>
+            <div class="menu-fila">
+                <button type="button" class="menu-boton" data-accion="volver">← Volver</button>
+                ${APP ? '<button type="button" class="menu-boton menu-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
+            </div>
         </div>`;
 
     contenedor.append(capaPausa, capaAjustes);
@@ -171,6 +179,23 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         }
     });
     capaAjustes.querySelector('[data-accion="volver"]').addEventListener('click', cerrarAjustes);
+
+    // salir del juego (solo en el APK): pide un segundo toque para confirmar
+    [capaPausa, capaAjustes].forEach(capa => capa.querySelector('[data-accion="cerrar"]')?.addEventListener('click', e => {
+        const b = e.currentTarget;
+        if (b.dataset.confirmar) { pluginApp()?.exitApp(); return; }
+        b.dataset.confirmar = '1';
+        b.textContent = '¿Seguro? Toca otra vez';
+        setTimeout(() => { delete b.dataset.confirmar; b.textContent = '✕ Salir del juego'; }, 3000);
+    }));
+
+    // botón "atrás" de Android: cierra el menú abierto; en un nivel pausa; en los menús abre la configuración
+    pluginApp()?.addListener('backButton', () => {
+        if (!capaAjustes.hidden) cerrarAjustes();
+        else if (pausado) reanudar();
+        else if (juego.scene.isActive('juego')) pausar();
+        else abrirAjustes();
+    });
     botonPausa.addEventListener('click', e => { e.currentTarget.blur(); pausado ? reanudar() : pausar(); });
     botonAjustes.addEventListener('click', e => { e.currentTarget.blur(); capaAjustes.hidden ? abrirAjustes() : cerrarAjustes(); });
 

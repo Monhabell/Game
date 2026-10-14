@@ -23,7 +23,9 @@ export const BOTONES = {
     grandes: { nombre: 'Grandes', escala: 1.25 },
 };
 
-const POR_DEFECTO = { dificultad: 'normal', camara: 'normal', volumen: 100, botones: 'normales', colisiones: false };
+// version: sube cuando cambia un valor por defecto que debe aplicarse también a quien ya tenía ajustes
+const VERSION = 2;
+const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false };
 
 export const ajustes = leer();
 
@@ -31,6 +33,9 @@ function leer() {
     try {
         const guardado = JSON.parse(localStorage.getItem(CLAVE)) || {};
         const a = { ...POR_DEFECTO, ...guardado };
+        // versión 2: la cámara empieza lejos (antes 'normal')
+        if (!(guardado.version >= 2)) a.camara = POR_DEFECTO.camara;
+        a.version = VERSION;
         // valores dañados o de versiones viejas: se vuelve al de por defecto
         if (!DIFICULTADES[a.dificultad]) a.dificultad = POR_DEFECTO.dificultad;
         if (!CAMARAS[a.camara]) a.camara = POR_DEFECTO.camara;
