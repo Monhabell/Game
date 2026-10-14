@@ -29,7 +29,7 @@ const MAX_JUGADORES = 8;
 const MAX_MENSAJE = 16 * 1024;       // bytes por mensaje
 const MAX_MENSAJES_SEG = 60;         // por jugador (el juego manda ~20 por segundo)
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O (se confunden con 1 y 0)
-const PERSONAJES = new Set(['arquera', 'espadachin', 'mago']);
+const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera']);
 
 /** @type {Map<string, {codigo: string, jugadores: Map<number, any>, anfitrion: number, empezada: boolean, siguienteId: number}>} */
 const salas = new Map();

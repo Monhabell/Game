@@ -70,7 +70,7 @@ export function iniciarMultijugador(juegoPhaser, g) {
                 // golpe de otro jugador a una réplica: lo aplica el anfitrión
                 if (!esAnfitrion()) break;
                 const e = enemigoPorId(scene, m.id);
-                if (e && !e.isDead) ganchos.dañarEnemigo(scene, e, m.cantidad || 1);
+                if (e && !e.isDead) ganchos.dañarEnemigo(scene, e, m.cantidad || 1, m.congela || 0);
                 break;
             }
             case 'zona': ganchos.golpeEnZona(scene, new Phaser.Geom.Rectangle(m.x, m.y, m.w, m.h), m.ox); break;
@@ -235,7 +235,8 @@ function enviarEnemigos(scene, time) {
     scene.enemies.getChildren().forEach(e => {
         if (e.isDead || e.redId == null || !e.body) return;
         l.push([e.redId, e.tipoId || '', r(e.x), r(e.y), r(e.body.velocity.x), r(e.body.velocity.y),
-            e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0]);
+            e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0,
+            scene.time.now < (e.congeladoHasta || 0) ? 1 : 0]);
     });
     enviarEvento('enemigos', { l, nivel: nivel() });
 }
@@ -243,7 +244,7 @@ function enviarEnemigos(scene, time) {
 // réplica: se crean las que faltan y se guarda a dónde tiene que ir cada una
 function recibirEnemigos(scene, lista) {
     const ahora = performance.now();
-    lista.forEach(([id, tipo, x, y, vx, vy, flip, anim, escala, gigante]) => {
+    lista.forEach(([id, tipo, x, y, vx, vy, flip, anim, escala, gigante, congelado]) => {
         let e = enemigoPorId(scene, id);
         if (e && tipo && e.tipoId !== tipo) { e.destroy(); e = null; } // no coincide: se rehace
         if (!e) {
@@ -261,6 +262,12 @@ function recibirEnemigos(scene, lista) {
         e.flipX = !!flip;
         if (e.scaleX !== escala) e.setScale(escala);
         if (anim && e.anims.currentAnim?.key !== anim && scene.anims.exists(anim)) e.anims.play(anim, true);
+        // congelado por el hielo de Lira (en la pantalla del anfitrión)
+        if (!!congelado !== !!e.congeladoRed) {
+            e.congeladoRed = !!congelado;
+            if (congelado) { e.anims.pause(); e.setTint(0x9fe8ff); }
+            else { e.anims.resume(); if (e.gigante) e.setTint(0xff9a9a); else e.clearTint(); }
+        }
     });
 }
 
@@ -295,7 +302,7 @@ function soltarReplicas(scene) {
     });
 }
 
-export const avisarGolpeEnemigo = (id, cantidad) => enLinea() && enviarEvento('golpe', { id, cantidad, para: red.anfitrion, nivel: nivel() });
+export const avisarGolpeEnemigo = (id, cantidad, congela = 0) => enLinea() && enviarEvento('golpe', { id, cantidad, congela, para: red.anfitrion, nivel: nivel() });
 export const avisarZona = (zona, ox) => soyAnfitrion() && enviarEvento('zona', {
     x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), ox: Math.round(ox), nivel: nivel(),
 });

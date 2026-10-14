@@ -190,7 +190,7 @@ iniciarMultijugador(juego, {
     dañarJefe: (scene, cantidad) => dañarJefe(scene, cantidad, apiJefe, undefined, true),
     completar: scene => { scene.metaRemota = true; completarNivel.call(scene, scene.mascotaGesi); },
     crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo),
-    dañarEnemigo: (scene, e, cantidad) => dañarEnemigo(scene, e, cantidad),
+    dañarEnemigo: (scene, e, cantidad, congela) => dañarEnemigo(scene, e, cantidad, congela),
     golpeEnZona: (scene, zona, x) => golpeEnZona(scene, zona, x),
     bala: (scene, m) => balaRemota(scene, m),
 });
@@ -505,7 +505,7 @@ function create() {
     this.physics.add.overlap(this.flechasGrupo, this.enemies, (flecha, enemy) => {
         if (enemy.isDead) return;
         if (!flecha.perfora) flecha.destroy();
-        dañarEnemigo(this, enemy, 1);
+        dañarEnemigo(this, enemy, 1, flecha.congela);
     });
     this.physics.add.collider(this.flechasGrupo, this.floor, flecha => flecha.destroy());
 
@@ -642,7 +642,7 @@ function quitarCompensacion(scene) {
 }
 
 // pixel art nítido: cada píxel se dibuja como un bloque limpio, sin desenfoque
-const PIXEL_ART = /^(arquera|espadachin|mago|esqueleto|planta|espiritu|bola|mz_|coins|misterio|vacio|ladrillo|bloque_duro|flecha_pj|onda|magia|mastil|bandera|suelo|piso|door|arbol|arbusto|indicacion|lava|malo|cloud)/;
+const PIXEL_ART = /^(arquera|espadachin|mago|hechicera|caballera|mosquetera|hielo|esqueleto|planta|espiritu|bola|mz_|coins|misterio|vacio|ladrillo|bloque_duro|flecha_pj|onda|magia|mastil|bandera|suelo|piso|door|arbol|arbusto|indicacion|lava|malo|cloud)/;
 function pixelArtNitido(scene) {
     scene.textures.getTextureKeys().forEach(k => {
         if (PIXEL_ART.test(k) && !k.startsWith('mz_fondo')) scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -679,22 +679,15 @@ function crearSeleccion() {
     if (this.partida && this.partida.nivel === 0 && !this.partida.score) this.partida = null; // nada que continuar
     if (this.partida) personajeId = this.partida.personaje || personajeId;
     this.indiceSel = Math.max(0, PERSONAJES.findIndex(pj => pj.id === personajeId));
+    // tarjetas pequeñas en fila (caben los 6) y abajo el detalle del personaje marcado
+    const ANCHO_TARJETA = 118, PASO = 126;
     this.tarjetas = PERSONAJES.map((pj, i) => {
-        const x = 135 + i * 260;
-        const panel = this.add.rectangle(x, 205, 240, 300, 0x000000, 0.55).setStrokeStyle(3, 0x666666)
+        const x = VISTA.width / 2 + (i - (PERSONAJES.length - 1) / 2) * PASO;
+        const panel = this.add.rectangle(x, 133, ANCHO_TARJETA, 150, 0x000000, 0.55).setStrokeStyle(3, 0x666666)
             .setInteractive({ useHandCursor: true });
-        const sprite = this.add.sprite(x - 2, 82, `${pj.id}-idle`).anims.play(`${pj.id}-idle`).setScale(1.3);
-        this.add.text(x, 178, pj.nombre, { ...estilo('16px', '#' + pj.color.toString(16).padStart(6, '0')), fontStyle: 'bold' }).setOrigin(0.5);
-        this.add.text(x, 197, pj.titulo, estilo('12px', '#ddd')).setOrigin(0.5);
-        const h = pj.habilidades;
-        const lineas = [
-            `ESPACIO: ${h.espacio.nombre}`,
-            `X: ${h.x.nombre}`,
-            `C: ${h.c.nombre}`,
-            `★ ${pj.pasiva}`,
-        ];
-        this.add.text(x, 262, lineas.join('\n'), { ...estilo('11px'), lineSpacing: 6 }).setOrigin(0.5);
-        this.add.text(x, 322, `"${pj.frase}"`, { ...estilo('10px', '#b9c6e0'), fontStyle: 'italic', wordWrap: { width: 210 } }).setOrigin(0.5);
+        const sprite = this.add.sprite(x - 2, 98, `${pj.id}-idle`).anims.play(`${pj.id}-idle`);
+        this.add.text(x, 180, pj.nombre, { ...estilo('14px', colorTexto(pj)), fontStyle: 'bold' }).setOrigin(0.5);
+        this.add.text(x, 196, pj.titulo, estilo('9px', '#ddd')).setOrigin(0.5);
         panel.on('pointerdown', () => {
             if (this.indiceSel === i) empezarJuego(this, true);
             else this.sound.play('menu_mover', { volume: 0.5 });
@@ -703,6 +696,16 @@ function crearSeleccion() {
         });
         return { panel, sprite, pj };
     });
+
+    // detalle del marcado: poderes, pasiva y su frase
+    this.add.rectangle(VISTA.width / 2, 284, 748, 126, 0x000000, 0.6).setStrokeStyle(2, 0x2f8fb0);
+    this.detalle = {
+        nombre: this.add.text(40, 232, '', { ...estilo('16px'), fontStyle: 'bold', align: 'left' }),
+        titulo: this.add.text(40, 254, '', { ...estilo('11px', '#ddd'), align: 'left' }),
+        pasiva: this.add.text(40, 276, '', { ...estilo('11px', '#ffe066'), align: 'left' }),
+        frase: this.add.text(40, 300, '', { ...estilo('10px', '#b9c6e0'), fontStyle: 'italic', align: 'left', wordWrap: { width: 320 } }),
+        poderes: this.add.text(392, 236, '', { ...estilo('11px'), align: 'left', lineSpacing: 9 }),
+    };
 
     if (this.partida) {
         // botón para empezar desde cero (pide un segundo clic para confirmar)
@@ -733,6 +736,8 @@ function crearSeleccion() {
     marcarSeleccion(this);
 }
 
+const colorTexto = pj => '#' + pj.color.toString(16).padStart(6, '0');
+
 function marcarSeleccion(scene) {
     scene.tarjetas.forEach((t, i) => {
         const elegido = i === scene.indiceSel;
@@ -741,6 +746,12 @@ function marcarSeleccion(scene) {
         t.sprite.setAlpha(elegido ? 1 : 0.6);
         t.sprite.anims.play(`${t.pj.id}-${elegido ? 'run' : 'idle'}`, true);
     });
+    const pj = PERSONAJES[scene.indiceSel], h = pj.habilidades, d = scene.detalle;
+    d.nombre.setText(pj.nombre).setColor(colorTexto(pj));
+    d.titulo.setText(pj.titulo);
+    d.pasiva.setText(`★ ${pj.pasiva}`);
+    d.frase.setText(`"${pj.frase}"`);
+    d.poderes.setText([`ESPACIO: ${h.espacio.nombre}`, `X:       ${h.x.nombre}`, `C:       ${h.c.nombre}`].join('\n'));
 }
 
 function actualizarSeleccion(time) {
@@ -1257,12 +1268,13 @@ function crearEnemigo(scene, x, y, tipo) {
 }
 
 // el enemigo pierde vida; devuelve true si lo golpeó
-function dañarEnemigo(scene, enemy, cantidad = 1) {
+// congela: ms que el enemigo queda congelado (los poderes de hielo de Lira)
+function dañarEnemigo(scene, enemy, cantidad = 1, congela = 0) {
     if (enemy.isDead || scene.time.now < (enemy.invulHasta || 0)) return false;
     if (enemy.replica) {
         // la vida de los enemigos la lleva el anfitrión: aquí solo se ve el golpe
         enemy.invulHasta = scene.time.now + 350;
-        avisarGolpeEnemigo(enemy.redId, cantidad);
+        avisarGolpeEnemigo(enemy.redId, cantidad, congela);
         enemy.setTintFill(0xffffff);
         scene.time.delayedCall(90, () => { if (enemy.active) enemy.gigante ? enemy.setTint(0xff9a9a) : enemy.clearTint(); });
         scene.sound.play('bump', { volume: 0.4 });
@@ -1283,15 +1295,35 @@ function dañarEnemigo(scene, enemy, cantidad = 1) {
         enemy.setVelocityX(0);
         scene.time.delayedCall(300, () => volverACaminar(enemy));
     }
+    if (congela) congelarEnemigo(scene, enemy, congela);
     return true;
 }
 
 function volverACaminar(enemy) {
     if (!enemy.active || enemy.isDead) return;
+    if (enemy.scene && enemy.scene.time.now < (enemy.congeladoHasta || 0)) return; // sigue congelado
     const def = enemy.def;
     const anim = def.tipo === 'planta' ? 'walk' : def.corre ? 'run' : 'walk';
     enemy.anims.play(`${enemy.tipoId}-${anim}`, true);
     if (def.tipo !== 'planta') enemy.setVelocityX(enemy.flipX ? -enemy.velBase : enemy.velBase);
+}
+
+// hielo: el enemigo queda quieto, azulado y sin atacar; al terminar vuelve a caminar
+function congelarEnemigo(scene, enemy, ms) {
+    if (!enemy.active || enemy.isDead || !enemy.def) return;
+    const hasta = scene.time.now + ms;
+    enemy.congeladoHasta = Math.max(enemy.congeladoHasta || 0, hasta);
+    enemy.atacandoHasta = Math.max(enemy.atacandoHasta || 0, hasta);
+    enemy.proxAtaque = Math.max(enemy.proxAtaque || 0, hasta + 300);
+    enemy.setVelocity(0, enemy.def.tipo === 'volador' ? 0 : enemy.body.velocity.y);
+    scene.time.delayedCall(100, () => { if (enemy.active && !enemy.isDead) { enemy.anims.pause(); enemy.setTint(0x9fe8ff); } });
+    scene.sound.play('magia', { volume: 0.3, rate: 1.8 });
+    scene.time.delayedCall(ms, () => {
+        if (!enemy.active || enemy.isDead || scene.time.now < enemy.congeladoHasta - 5) return;
+        enemy.anims.resume();
+        if (enemy.gigante) enemy.setTint(0xff9a9a); else enemy.clearTint();
+        volverACaminar(enemy);
+    });
 }
 
 // ataque del enemigo: se detiene, hace la animación y en el frame "soltar" golpea o dispara
@@ -1677,21 +1709,29 @@ function ejecutarHabilidad(scene, h) {
         if (h.animProyectil) p.anims.play(h.animProyectil, true);
         if (h.tinte) p.setTint(h.tinte);
         p.perfora = !!h.perfora;
+        p.congela = h.congela || 0;
         p.body.setAllowGravity(false);
         p.setVelocityX(dir * h.vel);
         scene.time.delayedCall(h.vida, () => p.active && p.destroy());
     } else if (h.tipo === 'golpe' || h.tipo === 'rayo') {
-        // golpea a todos los enemigos en una franja delante del personaje
-        const x0 = dir > 0 ? b.right : b.left - h.alcance;
-        const zona = new Phaser.Geom.Rectangle(x0, b.top - 10, h.alcance, b.height + 10);
+        // golpea a todos los enemigos en una franja delante del personaje (o a los dos lados: torbellino)
+        const daño = h.daño ?? (h.tipo === 'rayo' ? 2 : 1);
+        const x0 = h.ambosLados ? b.left - h.alcance : dir > 0 ? b.right : b.left - h.alcance;
+        const ancho = h.ambosLados ? b.width + h.alcance * 2 : h.alcance;
+        const zona = new Phaser.Geom.Rectangle(x0, b.top - 10, ancho, b.height + 10);
         scene.enemies.getChildren().slice().forEach(e => {
             if (e.isDead || !e.body) return;
             const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
-            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) dañarEnemigo(scene, e, h.tipo === 'rayo' ? 2 : 1);
+            if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) dañarEnemigo(scene, e, daño, h.congela);
         });
-        golpearJefeEnZona(scene, zona, h.tipo === 'rayo' ? 2 : 1, apiJefe);
+        golpearJefeEnZona(scene, zona, daño, apiJefe);
+        if (h.ambosLados) {
+            // el torbellino se ve como un anillo que se abre alrededor
+            const anillo = scene.add.ellipse(b.center.x, b.center.y, ancho * 0.6, b.height * 0.7).setStrokeStyle(3, 0xdfe8ff, 0.9).setDepth(20);
+            scene.tweens.add({ targets: anillo, scaleX: 1.6, scaleY: 1.2, alpha: 0, duration: 260, onComplete: () => anillo.destroy() });
+        }
         if (h.tipo === 'rayo') {
-            const rayo = scene.add.rectangle(x0 + h.alcance / 2, b.center.y - 6, h.alcance, 6, 0xffe066).setDepth(20);
+            const rayo = scene.add.rectangle(x0 + h.alcance / 2, b.center.y - 6, h.alcance, 6, h.color ?? 0xffe066).setDepth(20);
             scene.tweens.add({ targets: rayo, scaleY: 3, alpha: 0, duration: 350, onComplete: () => rayo.destroy() });
         }
     } else if (h.tipo === 'embestida') {
@@ -2121,7 +2161,7 @@ function actualizarJugador(time, delta) {
 
     // maná del mago se recupera poco a poco
     if (this.pj.recurso === 'mana' && this.mana < MANA_MAXIMO) {
-        this.mana = Math.min(MANA_MAXIMO, this.mana + delta * 0.012);
+        this.mana = Math.min(MANA_MAXIMO, this.mana + delta * 0.012 * (this.pj.regeneraMana || 1));
         actualizarRecurso(this);
     }
     // Gesi recoge flechas del suelo poco a poco mientras le queden pocas (nunca se queda sin atacar)

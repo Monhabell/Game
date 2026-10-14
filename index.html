@@ -420,6 +420,31 @@
         .sala-paso { display: flex; flex-direction: column; gap: 10px; }
         .sala-paso[hidden] { display: none; }
 
+        /* la sala: título y botones fijos, el medio se desplaza (con 8 jugadores no cabe todo) */
+        .sala-panel { overflow: hidden; }
+        .sala-cuerpo {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 2px; /* que el borde de foco no se corte */
+        }
+        .sala-pie { flex: 0 0 auto; }
+        .sala-pie .sala-empezar { margin-top: 0; background: rgba(0, 120, 90, 0.95); border-color: #7dffc8; }
+
+        /* en la sala: lista a la izquierda, personaje y nivel a la derecha (si hay ancho) */
+        .sala-dos-columnas:not([hidden]) {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 10px;
+            align-items: start;
+        }
+        .sala-columna { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
         .sala-campo {
             display: flex;
             flex-direction: column;
@@ -458,6 +483,7 @@
 
         .sala-lista {
             margin: 0;
+            text-align: left;
             padding: 8px 8px 8px 30px;
             max-height: 150px;
             overflow-y: auto;
@@ -468,11 +494,13 @@
         }
 
         .sala-pj { color: var(--pj); }
+        /* 6 personajes: dos filas de tres */
+        [data-personajes] { flex-wrap: wrap; }
+        [data-personajes] .menu-opcion { flex: 1 1 30%; }
         [data-pj].elegido { border-color: var(--pj); box-shadow: inset 0 0 0 2px var(--pj); }
 
         .sala-empezar {
             margin-top: 10px;
-            width: 100%;
             background: rgba(0, 120, 90, 0.95);
             border-color: #7dffc8;
         }
@@ -498,6 +526,8 @@
         }
 
         .menu-capa[hidden] { display: none; }
+        /* dentro de los menús, lo oculto se oculta aunque su estilo diga otra cosa */
+        .menu-capa [hidden] { display: none !important; }
 
         .menu-panel {
             width: min(320px, 100%);

@@ -17,9 +17,11 @@ export function iniciarSala(juego, { alEmpezar }) {
     capa.className = 'menu-capa';
     capa.hidden = true;
     capa.innerHTML = `
-        <div class="menu-panel menu-panel-ancho" role="dialog" aria-modal="true" aria-labelledby="titulo-sala">
+        <div class="menu-panel menu-panel-ancho sala-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-sala">
             <h2 id="titulo-sala">JUGAR CON AMIGOS</h2>
 
+            <!-- el cuerpo se desplaza si no cabe; los botones de abajo siempre se ven -->
+            <div class="sala-cuerpo">
             <div class="sala-paso" data-paso="entrar">
                 <label class="sala-campo">Tu nombre
                     <input type="text" id="sala-nombre" maxlength="14" autocomplete="nickname" placeholder="Ej: Gesi">
@@ -36,26 +38,29 @@ export function iniciarSala(juego, { alEmpezar }) {
                 </div>
             </div>
 
-            <div class="sala-paso" data-paso="sala" hidden>
-                <p class="sala-codigo">Código de la sala: <b data-codigo></b></p>
-                <p class="menu-nota">Pásale este código a tus amigos (hasta 8 jugadores)</p>
-                <ol class="sala-lista" data-lista></ol>
-                <fieldset class="menu-grupo">
-                    <legend>Tu personaje</legend>
-                    <div class="menu-opciones" data-personajes></div>
-                </fieldset>
-                <div data-solo-anfitrion>
-                    <label class="sala-campo">Nivel
+            <div class="sala-paso sala-dos-columnas" data-paso="sala" hidden>
+                <div class="sala-columna">
+                    <p class="sala-codigo">Código de la sala: <b data-codigo></b></p>
+                    <p class="menu-nota">Pásale este código a tus amigos (hasta 8)</p>
+                    <ol class="sala-lista" data-lista></ol>
+                </div>
+                <div class="sala-columna">
+                    <fieldset class="menu-grupo">
+                        <legend>Tu personaje</legend>
+                        <div class="menu-opciones" data-personajes></div>
+                    </fieldset>
+                    <label class="sala-campo" data-solo-anfitrion>Nivel
                         <select id="sala-nivel">${NIVELES.map((n, i) => `<option value="${i}">${i + 1} · ${n.nombre}</option>`).join('')}</select>
                     </label>
-                    <button type="button" class="menu-boton sala-empezar" data-accion="empezar">▶ Empezar</button>
+                    <p class="menu-nota" data-esperando>Esperando a que el anfitrión empiece…</p>
                 </div>
-                <p class="menu-nota" data-esperando>Esperando a que el anfitrión empiece…</p>
+            </div>
             </div>
 
             <p class="sala-aviso" data-aviso role="status"></p>
-            <div class="menu-fila">
+            <div class="menu-fila sala-pie">
                 <button type="button" class="menu-boton menu-salir" data-accion="cerrar">← Volver</button>
+                <button type="button" class="menu-boton sala-empezar" data-accion="empezar" hidden>▶ Empezar</button>
             </div>
         </div>`;
     document.getElementById('game').append(capa);
@@ -145,11 +150,13 @@ export function iniciarSala(juego, { alEmpezar }) {
         }).join('');
         const anfitrion = esAnfitrion();
         $('[data-solo-anfitrion]').hidden = !anfitrion;
+        $('[data-accion="empezar"]').hidden = !anfitrion;
         $('[data-esperando]').hidden = anfitrion;
     }
 
     function mostrarPaso(paso) {
         capa.querySelectorAll('.sala-paso').forEach(p => { p.hidden = p.dataset.paso !== paso; });
+        if (paso !== 'sala') $('[data-accion="empezar"]').hidden = true;
     }
 
     function avisar(texto, error = false) {

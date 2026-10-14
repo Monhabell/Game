@@ -1,5 +1,5 @@
-// Personajes que se pueden elegir (sprites de CraftPix "Free Fantasy Chibi Male Sprites").
-// Todos los frames miden 128x128 y miran a la derecha.
+// Personajes que se pueden elegir (sprites de CraftPix "Free Fantasy Chibi Male Sprites" y
+// "Free Fantasy Chibi Female Sprites"). Todos los frames miden 128x128 y miran a la derecha.
 //
 // hojas: clave -> [archivo, cantidad de frames, frameRate, repeat]
 // habilidades (teclas ESPACIO, X y C):
@@ -16,6 +16,15 @@
 //                       débil: no ataca de lejos más allá de la onda y no tiene doble salto
 //   Zeno (CONTROL):     doble salto, rayo largo y escudo mágico que absorbe UN golpe
 //                       débil: todo cuesta maná y el escudo tarda en volver
+//   Lira (HIELO):       congela enemigos (quietos y sin atacar) y su maná vuelve rápido
+//                       débil: no hace daño extra y la ventisca es corta
+//   Aria (FUERZA):      tajo de doble daño, torbellino a los dos lados, guardia sin costo
+//                       débil: la más lenta, salta poco y no ataca de lejos
+//   Rubí (AGILIDAD):    salta más alto que nadie, estocada larga, corte de viento y arremetida
+//                       débil: no tiene ninguna defensa
+//
+// Propiedades extra: daño (golpe), ambosLados (golpe), congela (proyectil y rayo, en ms),
+//                    color (rayo), regeneraMana (personaje, multiplica la recarga del maná)
 
 export const PERSONAJES = [
     {
@@ -104,6 +113,93 @@ export const PERSONAJES = [
             c: { nombre: 'Escudo mágico', anim: 'atk2', soltar: 1, tipo: 'escudo', duracion: 1500, costo: 40, enfriamiento: 7000, sonido: 'magia', rate: 0.7 },
         },
     },
+    // ---------- "Free Fantasy Chibi Female Sprites" (mismo formato: 128x128, miran a la derecha) ----------
+    {
+        id: 'hechicera',
+        nombre: 'Lira',
+        titulo: 'La Hechicera',
+        frase: 'El invierno llega cuando ella quiere.',
+        color: 0x5fd0ff,
+        carpeta: 'assets/personajes/hechicera',
+        hojas: {
+            idle: ['Idle', 5, 8, -1],
+            run: ['Run', 8, 13, -1],
+            jump: ['Jump', 8, 13, 0],
+            dead: ['Dead', 5, 8, 0],
+            atk1: ['Attack_1', 6, 16, 0],
+            atk2: ['Attack_2', 3, 10, 0],
+            atk4: ['Attack_4', 10, 24, 0],
+        },
+        velocidad: 1,
+        salto: 500,
+        dobleSalto: false,
+        recurso: 'mana',
+        regeneraMana: 1.6, // el maná vuelve 60% más rápido que el de Zeno
+        pasiva: 'Congela · maná rápido',
+        habilidades: {
+            // congela: el enemigo queda quieto (y sin atacar) esos ms
+            espacio: { nombre: 'Cristal de hielo', anim: 'atk4', soltar: 4, tipo: 'proyectil', textura: 'hielo', escala: 1.2, vel: 420, vida: 1300, costo: 12, congela: 1500, enfriamiento: 500, sonido: 'magia', rate: 1.3 },
+            x: { nombre: 'Media luna helada', anim: 'atk1', soltar: 4, tipo: 'proyectil', textura: 'onda', escala: 2, tinte: 0x8fe9ff, vel: 480, vida: 650, perfora: true, costo: 20, enfriamiento: 1100, sonido: 'espada', rate: 1.2 },
+            c: { nombre: 'Ventisca', anim: 'atk2', soltar: 1, tipo: 'rayo', alcance: 200, color: 0x9fe8ff, congela: 2500, costo: 40, enfriamiento: 5000, sonido: 'rayo', rate: 1.4 },
+        },
+    },
+    {
+        id: 'caballera',
+        nombre: 'Aria',
+        titulo: 'La Caballera',
+        frase: 'Lenta, sí. Pero cuando pega, pega.',
+        color: 0xc9d6e8,
+        carpeta: 'assets/personajes/caballera',
+        hojas: {
+            idle: ['Idle', 6, 8, -1],
+            run: ['Run', 7, 12, -1],
+            jump: ['Jump', 6, 11, 0],
+            dead: ['Dead', 4, 7, 0],
+            atk1: ['Attack_1', 5, 16, 0],
+            atk2: ['Attack_2', 2, 10, 0],
+            atk3: ['Attack_3', 5, 16, 0],
+        },
+        velocidad: 0.95,
+        salto: 470,
+        dobleSalto: false,
+        recurso: 'ninguno',
+        recargaEscudo: 500, // el escudo se recarga antes que el de todos
+        pasiva: 'Golpe doble · escudo rápido',
+        habilidades: {
+            espacio: { nombre: 'Tajo pesado', anim: 'atk1', soltar: 3, tipo: 'golpe', alcance: 70, daño: 2, enfriamiento: 550, sonido: 'espada', rate: 0.8 },
+            // torbellino: golpea delante y detrás a la vez
+            x: { nombre: 'Torbellino', anim: 'atk3', soltar: 3, tipo: 'golpe', alcance: 75, ambosLados: true, enfriamiento: 1400, sonido: 'espada', rate: 0.65 },
+            // guardia: como el escudo mágico (absorbe UN golpe), sin costo pero tarda más en volver
+            c: { nombre: 'Guardia', anim: 'atk2', soltar: 0, tipo: 'escudo', duracion: 2000, enfriamiento: 6500, sonido: 'espada', rate: 1.6 },
+        },
+    },
+    {
+        id: 'mosquetera',
+        nombre: 'Rubí',
+        titulo: 'La Mosquetera',
+        frase: 'Un salto, una estocada, adiós.',
+        color: 0xff6a3d,
+        carpeta: 'assets/personajes/mosquetera',
+        hojas: {
+            idle: ['Idle', 5, 8, -1],
+            run: ['Run', 8, 14, -1],
+            jump: ['Jump', 7, 13, 0],
+            dead: ['Dead', 4, 7, 0],
+            atk2: ['Attack_2', 4, 14, 0],
+            atk3: ['Attack_3', 6, 20, 0],
+            atk4: ['Attack_4', 5, 16, 0],
+        },
+        velocidad: 1.1,
+        salto: 540,
+        dobleSalto: false,
+        recurso: 'ninguno',
+        pasiva: 'Salta alto · llega lejos',
+        habilidades: {
+            espacio: { nombre: 'Estocada', anim: 'atk3', soltar: 4, tipo: 'golpe', alcance: 90, enfriamiento: 300, sonido: 'espada', rate: 1.4 },
+            x: { nombre: 'Corte de viento', anim: 'atk2', soltar: 2, tipo: 'proyectil', textura: 'onda', escala: 1.6, tinte: 0xffb08a, vel: 560, vida: 450, perfora: true, enfriamiento: 950, sonido: 'espada', rate: 1.2 },
+            c: { nombre: 'Arremetida', anim: 'atk4', soltar: 0, tipo: 'embestida', duracion: 240, vel: 580, enfriamiento: 1700, sonido: 'espada', rate: 0.7 },
+        },
+    },
 ];
 
 export const MANA_MAXIMO = 100;
@@ -116,6 +212,7 @@ export function cargarPersonajes(scene) {
     });
     scene.load.image('flecha_pj', 'assets/personajes/arquera/Arrow.png');
     scene.load.image('onda', 'assets/personajes/espadachin/Onda.png');
+    scene.load.image('hielo', 'assets/personajes/hechicera/Hielo.png'); // recortado de su Attack_4
     scene.load.spritesheet('magia', 'assets/personajes/mago/Magia.png', { frameWidth: 32, frameHeight: 40 });
 }
 
