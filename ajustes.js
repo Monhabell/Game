@@ -66,6 +66,9 @@ export const vidasMaximas = () => DIFICULTADES[ajustes.dificultad].vidas;
 export const factorEnemigos = () => DIFICULTADES[ajustes.dificultad].velEnemigos;
 // resolución con la que arrancó el juego (cambiarla pide volver a abrirlo)
 const esCelular = () => !!globalThis.matchMedia?.('(pointer: coarse)').matches;
-export const RESOLUCION = GRAFICOS[ajustes.graficos].resolucion ?? (esCelular() ? 1 : 2);
+// Auto: nítido en el PC (2); en el celular 1,5 si la pantalla es de alta densidad (con 1 se veía borroso
+// al estirarse) y 1 en los de baja densidad. Si un celular va lento: ⚙ → Gráficos → Rápidos
+export const RESOLUCION = GRAFICOS[ajustes.graficos].resolucion
+    ?? (esCelular() ? ((globalThis.devicePixelRatio || 1) >= 2 ? 1.5 : 1) : 2);
 
 export const zoomCamara = () => CAMARAS[ajustes.camara].zoom * RESOLUCION / 2;

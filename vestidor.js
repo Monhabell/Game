@@ -137,6 +137,29 @@ function recolorear(imagen, mapa) {
 }
 
 const PREFIJO = /^([a-z]+)(~(?:[0-9a-f]{6}|o)(?:\.(?:[0-9a-f]{6}|o)){0,7})?$/;
+// un prefijo que llega por la red es válido si tiene la forma correcta y es de un héroe que existe
+export const prefijoValido = p => {
+    const m = PREFIJO.exec(typeof p === 'string' ? p : '');
+    return !!m && PERSONAJES.some(pj => pj.id === m[1]);
+};
+
+// imagen (data URL) de una hoja de sprites con los colores del prefijo: para la sala de espera,
+// que dibuja a los personajes con HTML/CSS. Sin colores, la del archivo original.
+const hojasHtml = new Map();
+export function urlHoja(juego, prefijo, nombre) {
+    const m = PREFIJO.exec(prefijo || '');
+    const pj = m && PERSONAJES.find(p => p.id === m[1]);
+    if (!pj) return '';
+    if (!m[2]) return `${pj.carpeta}/${pj.hojas[nombre][0]}.png`;
+    const clave = `${prefijo}-${nombre}`;
+    if (!hojasHtml.has(clave)) {
+        const original = juego.textures.get(`${pj.id}-${nombre}`);
+        if (!original || original.key === '__MISSING') return `${pj.carpeta}/${pj.hojas[nombre][0]}.png`;
+        const colores = m[2].slice(1).split('.').map(c => (c === 'o' ? null : `#${c}`));
+        hojasHtml.set(clave, recolorear(original.getSourceImage(), mapaDeColores(pj.id, colores)).toDataURL());
+    }
+    return hojasHtml.get(clave);
+}
 
 // arma (una sola vez) las texturas y animaciones de una variante de colores; devuelve el prefijo
 // que hay que usar en las animaciones (`${prefijo}-run`). juego: la escena o el juego de Phaser

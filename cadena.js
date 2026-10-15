@@ -10,11 +10,17 @@
 //   borde... salvo que esté anclado (mantener ↓ / S en el suelo): entonces sostiene al otro.
 //   Caminar en contra del tirón sube al que cuelga; el que cuelga puede columpiarse.
 // - Vidas compartidas: si uno cae a la lava o lo golpean, caen los dos (es la misma vida).
+// - RESCATE: si alguien cae a un foso estando atado, la cadena lo atrapa y queda colgando sobre la lava.
+//   Si un compañero se ancla a tiempo (VENTANA_ANCLAR), la cadena lo sube hasta él; si nadie lo
+//   sostiene, recién ahí cuenta como caída. Así un error se vuelve un rescate y no un reinicio de todos.
+//   Cada pantalla rescata solo a sus jugadores; en línea se avisa a los demás para que se anclen.
 //
 // api: { morir(causa) } (killgesi del juego)
 
 import { PERSONAJES } from "./personajes.js"
+import { enLinea, enviarEvento, alRecibir } from "./red.js"
 
+const SUELO_Y = 332;
 const LARGO = 170;          // px de cadena
 const ARRASTRE = 120;       // px/s con que el que cuelga arrastra al que está en el suelo
 const CORRECCION = 10;      // 1/s: qué tan rápido se recupera el largo si la cadena se estira
@@ -22,6 +28,18 @@ const ESTIRON_MAX = 50;     // px que la cadena se puede estirar antes de correg
 const VEL_CARRERA = 220;
 const VEL_DERIVA = 100;
 const ESLABONES = 20;
+// rescate
+const Y_COLGANDO = 274;       // y del que cuelga: los pies justo sobre la lava (se muere al pasar de y = 300)
+const VENTANA_ANCLAR = 1500;  // ms para que alguien se ancle después de la caída
+const GRACIA_ANCLA = 600;     // ms que aguanta si el que lo sostiene se suelta un momento
+const RESCATE_MAX = 6000;     // ms máximos colgando (si se traba, cuenta como caída)
+const SUBE = 190;             // px/s con que la cadena sube al que cuelga
+
+// en línea: si otro jugador quedó colgando, en esta pantalla se avisa que hay que anclarse
+let escenaCadena = null;
+alRecibir('evento', m => {
+    if (m.tipo === 'colgando' && escenaCadena?.sys?.isActive()) escenaCadena.mostrarMensajeCorto?.('¡ALGUIEN CUELGA!\n¡ANCLATE! (↓)');
+});
 
 const enSuelo = s => s.body.blocked.down || s.body.touching.down;
 
@@ -72,19 +90,88 @@ export function actualizarCadena(scene, time) {
         if (quieto) c.setVelocityX(0);
         else {
             moverCompa(scene, c);
-            if (c.y >= 300) scene.cadenaApi.morir('caida'); // caer fuera del mundo
+            // caer fuera del mundo (salvo que la cadena lo atrape: rescate)
+            if (c.y >= 300 && !sostenerEnCadena(scene, c)) scene.cadenaApi.morir('caida');
         }
         c.etiqueta.setPosition(c.x, c.body.top - 4);
     }
 
     const nodos = (c ? [{ local: true, s: a }, { local: true, s: c }] : scene.cadenaRed?.() || []).map(nodo);
     if (nodos.length < 2) { scene.dibujoCadena?.clear(); return; }
+    escenaCadena = scene;
     if (!quieto) {
         anclarJugador1(scene, a);
         for (let i = 0; i + 1 < nodos.length; i++) tensar(nodos[i], nodos[i + 1]);
+        // los que cuelgan (después del tirón: la cadena manda sobre su movimiento)
+        [a, c].forEach(s => s && actualizarColgado(scene, s, nodos));
     }
     if (!scene.dibujoCadena) scene.dibujoCadena = scene.add.graphics().setDepth(33);
     dibujar(scene.dibujoCadena, nodos, time);
+}
+
+// ---------- rescate ----------
+// ¿la cadena atrapa a este jugador que cae al foso? (se llama en vez de morir por caída)
+export function sostenerEnCadena(scene, s) {
+    if (!hayCadena(scene) || s.rescateAgotado || scene.nivelTerminado || s.y < Y_COLGANDO) return false;
+    const compañeros = scene.compa?.active ? 1 : (scene.cadenaRed?.() || []).length - 1;
+    if (compañeros < 1) return false; // nadie más en la fila: no hay quién lo sostenga
+    if (!s.colgando) {
+        const ahora = scene.time.now;
+        s.colgando = { desde: ahora, sinAnclaHasta: ahora + VENTANA_ANCLAR, avisado: false };
+        s.body.setAllowGravity(false);
+        s.setVelocity(0, 0);
+        scene.cameras.main.shake(150, 0.004);
+        scene.sound.play('romper', { volume: 0.4, rate: 1.6 });
+        scene.mostrarMensajeCorto?.('¡SOSTÉNLO!\n¡ANCLATE! (↓ / S)');
+        if (enLinea()) enviarEvento('colgando', {});
+    }
+    return true;
+}
+
+function actualizarColgado(scene, s, nodos) {
+    if (!s.colgando) return;
+    const ahora = scene.time.now;
+    // quién lo sostiene: el compañero anclado más cercano
+    const anclas = nodos.filter(n => n.anclado && n.s !== s);
+    const ancla = anclas.sort((p, q) => Math.abs(p.cx - s.x) - Math.abs(q.cx - s.x))[0];
+    if (ancla) s.colgando.sinAnclaHasta = ahora + GRACIA_ANCLA;
+
+    // nadie lo sostuvo a tiempo (o se trabó demasiado): ahora sí es una caída
+    if (ahora > s.colgando.sinAnclaHasta || ahora - s.colgando.desde > RESCATE_MAX) {
+        s.colgando = null;
+        s.rescateAgotado = true;
+        s.body.setAllowGravity(true);
+        s.clearTint();
+        scene.morirPorCaida?.();
+        return;
+    }
+    // ya está a salvo: parado en el suelo, o ya por encima del borde y con suelo firme debajo
+    if ((enSuelo(s) && s.y < Y_COLGANDO - 4) || (s.body.bottom <= SUELO_Y && haySueloDebajo(scene, s))) {
+        s.colgando = null;
+        s.body.setAllowGravity(true);
+        s.clearTint();
+        scene.sound.play('punto_control', { volume: 0.5, rate: 1.2 });
+        scene.mostrarMensajeCorto?.('¡RESCATADO!');
+        return;
+    }
+    // cuelga sobre la lava (parpadea) y, si alguien lo sostiene, la cadena lo sube hacia él
+    if (s.y > Y_COLGANDO) s.y = Y_COLGANDO;
+    s.setTint(Math.floor(ahora / 120) % 2 ? 0xff8a5a : 0xffffff);
+    if (ancla) {
+        const dx = ancla.cx - s.body.center.x, dy = ancla.cy - s.body.center.y;
+        // primero sale del foso (hasta el nivel del suelo) y después va hacia el que lo sostiene
+        const enElFoso = s.body.bottom > SUELO_Y - 2;
+        s.setVelocity(Phaser.Math.Clamp(dx * 4, -SUBE, SUBE), dy < -6 || enElFoso ? -SUBE : 0);
+    } else {
+        s.setVelocity(s.body.velocity.x * 0.5, 0);
+    }
+}
+
+// hay suelo firme justo debajo del cuerpo (no lava ni suelo falso)
+function haySueloDebajo(scene, s) {
+    const b = s.body;
+    return scene.floor.getChildren().some(p => p.body?.enable && !p.esFalso && b.center.x > p.body.left && b.center.x < p.body.right &&
+        p.body.top >= b.bottom - 2 && p.body.top <= b.bottom + 30);
 }
 
 // cadena activa en este nivel (para mostrar el botón de anclar en el celular)
@@ -99,6 +186,8 @@ function nodo(n) {
 
 function moverCompa(scene, c) {
     const k = scene.teclasCompa, pj = c.pj, suelo = enSuelo(c);
+    // colgado de una argolla: se mueve con la argolla (mecanismos.js)
+    if (c.enArgolla) { c.anims.play(`${pj.anim}-jump`, true); return; }
     const v = pj.velocidad;
     c.anclado = k.anclar.isDown && suelo;
     if (c.anclado) {

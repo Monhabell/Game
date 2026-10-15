@@ -92,6 +92,10 @@ Además, cada nivel debe tener:
 
 - Solo: el mapa no cambia. En equipo: el mismo nivel recibe tramos de equipo extra (argollas, puertas con contrapeso, placas dobles, suelo que aguanta a uno) y trampas para la cadena.
 - Un tramo de equipo debe poder resolverse con 2 jugadores y escalar con hasta 8 (por ejemplo, "se necesitan N en las placas").
+- Dónde está: los tramos de equipo se listan en `equipo.js` (TRAMOS_EQUIPO, por nivel y x con suelo firme) y se insertan con `extender()` sobre una copia del nivel. Las piezas (`tramoPuertaDePlacas`, `tramoArgollas`...) van en `tramos.js`; su lógica, en `mecanismos.js`.
+- Mecanismos disponibles: placas `[x, grupo]` (cuántas hacen falta: `necesarios()`, 1 con 2 jugadores, 2 con 4, 3 con 6-8), puertas `[x, grupo]` (siguen abiertas 1,5 s al soltar la placa; en línea decide el anfitrión) y argollas `[x, y]` (columpiarse; la primera debe alcanzarse saltando desde el borde: ~85 px adentro, y = 185).
+- Rescate (`cadena.js`): quien cae a un foso estando atado queda colgando 1,5 s; si alguien se ancla, la cadena lo sube hasta él. Un foso más ancho que la cadena (170 px) se diseña contando con eso.
+- Regla: ningún error de una persona debe condenar a todos sin oportunidad: siempre un margen de tiempo o un rescate.
 
 ## Al terminar
 

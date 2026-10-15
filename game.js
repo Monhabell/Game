@@ -11,7 +11,10 @@ import {
 } from "./mazmorra.js"
 import { iniciarTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
-import { crearCadena, actualizarCadena } from "./cadena.js"
+import { nivelEnEquipo } from "./equipo.js"
+import { iniciarVoz } from "./voz.js"
+import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
+import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala } from "./sala.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps } from "./rendimiento.js"
 import { red, enLinea, salirSala } from "./red.js"
@@ -212,6 +215,11 @@ try {
     ]);
 } catch (_e) { /* el navegador no permite cargar letras: letra del sistema */ }
 const juego = new Phaser.Game(config)
+// Phaser recorta cada cuadro a 1/60 s mientras cree que la ventana no tiene el foco (pasa en el
+// WebView del APK y en el iframe de itch.io): en el celular, que dibuja menos cuadros por segundo,
+// todo el juego iba en cámara lenta. El resto del suavizado del reloj se mantiene
+juego.loop.blur = () => {};
+juego.loop.inFocus = true;
 globalThis.juegoMonhabell = juego; // para revisar el juego desde la consola del navegador (pruebas)
 
 // en celulares: botones táctiles sobre el juego (tactil.js)
@@ -221,6 +229,7 @@ iniciarTactil(juego);
 // tienda (capa HTML como los menús): se abre desde "Elige tu héroe" y desde el mapa entre niveles
 const abrirTienda = iniciarTienda();
 const abrirVestidor = iniciarVestidor(juego);
+iniciarVoz(juego); // chat de voz: solo en las partidas en línea (voz.js)
 // las estelas se equipan en el héroe marcado en "Elige tu héroe"; en las demás pantallas, en el que se juega
 usarHeroeActual(() => {
     const sel = juego.scene.isActive('seleccion') && juego.scene.getScene('seleccion');
@@ -246,6 +255,18 @@ const abrirTiendaEnJuego = alCerrar => abrirTienda(() => {
 
 iniciarMenus(juego, {
     abrirTienda: abrirTiendaEnJuego, tiendaFuera: abrirTiendaFuera,
+    // a la pantalla de título (en línea, dejando la sala)
+    irAlInicio: () => {
+        if (red.codigo) salirSala();
+        juego.scene.stop('juego');
+        juego.scene.start('titulo');
+    },
+    // dejar el nivel y abrir la sala de espera (sobre "Elige tu héroe")
+    jugarConAmigos: () => {
+        juego.scene.stop('juego');
+        juego.scene.start('seleccion');
+        abrirSala();
+    },
     aplicar: aplicarAjustes,
     salirAlMenu: () => {
         if (red.codigo) salirSala(); // salir del nivel en línea también es dejar la sala
@@ -433,7 +454,9 @@ function create() {
     // las trampas se reparten al azar en cada intento (el nivel se siente nuevo cada vez,
     // pero con reglas para que sea justo: ver azar.js); en el nivel 1 la parte hecha a mano no se toca
     // en línea todos usan la misma semilla (la de la sala + el intento): mismas trampas para todos
-    const nivel = aleatorizarNivel(NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
+    // atados con cadena (mismo teclado o en línea): el mismo mapa con sus tramos de equipo (equipo.js)
+    const enEquipo = enLinea() || ajustes.cadena;
+    const nivel = aleatorizarNivel(enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
@@ -510,6 +533,7 @@ function create() {
 
     if (nivelActual === 0) construirNivel1(this);
     construirNivel(this, nivel);
+    crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
 
     // monedas (las que quedan detrás del punto de control no reaparecen: ya se guardaron al pasar)
     monedas(this, checkpointX == null ? nivel.monedas : (nivel.monedas || []).filter(([x]) => x > checkpointX));
@@ -521,6 +545,8 @@ function create() {
 
     // corazones que aparecen al azar cuando te faltan vidas
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
+    // nadie lo rescató a tiempo (cadena.js): ahora sí cuenta la caída
+    this.morirPorCaida = () => killgesi(this, 'caida');
     iniciarCorazonesAlAzar(this, () => vidas < VIDAS_INICIALES, nivel.ancho);
     iniciarEscudosAlAzar(this, soltarEscudo, nivel.ancho);
 
@@ -964,6 +990,19 @@ function crearSeleccion() {
     } else {
         this.add.text(VISTA.width / 2, 372, '← → elegir  ·  Enter o Espacio: jugar  ·  F: pantalla completa', { fontSize: '9px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
     }
+    // volver al inicio y jugar con amigos (arriba, junto a la tienda: ver acomodarPastillas)
+    const pastilla = (x, texto, alTocar) => {
+        const b = this.add.text(x, 14, texto, {
+            fontSize: '11px', fontStyle: '600', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: { x: 10, y: 6 },
+        }).setOrigin(1, 0).setDepth(5).setInteractive({ useHandCursor: true });
+        b.on('pointerover', () => b.setBackgroundColor('rgba(255, 255, 255, 0.2)'));
+        b.on('pointerout', () => b.setBackgroundColor('rgba(255, 255, 255, 0.1)'));
+        b.on('pointerdown', () => { if (!this.tiendaAbierta) alTocar(); });
+        return b;
+    };
+    this.botonAmigos = pastilla(VISTA.width - 150, '👥 Amigos', () => abrirSala());
+    this.botonInicio = pastilla(VISTA.width - 236, '⌂ Inicio', () => this.scene.start('titulo'));
+
     // vestidor: colores de la ropa, el pelo y los ojos del héroe marcado (botón sobre el héroe o tecla V)
     const botonVestir = this.add.text(HEROE.x, 70, '🎨  Personalizar', {
         fontSize: '11px', fontStyle: '600', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: { x: 12, y: 6 },
@@ -991,10 +1030,17 @@ function crearSeleccion() {
         abrirTienda(() => {
             this.tiendaAbierta = false;
             botonTienda.setText(`◉ ${saldo()}  ·  Tienda`);
+            this.acomodarPastillas();
             marcarSeleccion(this, true); // (la cantidad de corazones puede haber cambiado)
         });
     };
     botonTienda.on('pointerdown', this.abrirTiendaSel);
+    // "Inicio" y "Amigos" quedan a la izquierda de la tienda (su ancho cambia con el saldo)
+    this.acomodarPastillas = () => {
+        this.botonAmigos.x = botonTienda.x - botonTienda.width - 8;
+        this.botonInicio.x = this.botonAmigos.x - this.botonAmigos.width - 8;
+    };
+    this.acomodarPastillas();
     this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N', tienda: 'T', vestir: 'V' });
     marcarSeleccion(this, true);
 }
@@ -2602,6 +2648,7 @@ function update(time, delta) {
     actualizarCiclos(this);
     actualizarJugador.call(this, time, delta);
     if (this.compa || this.cadenaRed) actualizarCadena(this, time);
+    actualizarMecanismos(this);
     actualizarEnLinea(this, time, delta);
     recortarVista(this, time); // solo se dibuja lo que está cerca de la cámara
     actualizarContadorFps(this, time);
@@ -2783,6 +2830,8 @@ function killgesi(game, causa, daño = 20, origenX) {
     if (game.soloActivar) return; // trampa o enemigo revisado con otro jugador (fantasma): el daño no es aquí
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
+    // cayó al foso estando atado: la cadena lo atrapa y el equipo puede rescatarlo (cadena.js)
+    if (causa === 'caida' && !game.muerteRemota && sostenerEnCadena(game, mascotaGesi)) return;
     if (game.cinematica && causa !== 'caida') return;
     if (game.peleaJefe && causa !== 'caida' && causa !== 'sin_salud') {
         // contra el jefe solo esquivar a tiempo evita el golpe del todo; las demás defensas lo reducen

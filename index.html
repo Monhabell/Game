@@ -148,6 +148,11 @@
             text-align: center;
             pointer-events: none;
         }
+        /* plegados: solo se ve el botón ☰; al abrirlo aparecen los demás */
+        .botones-flotantes:not(.abierto) .boton-flotante:not(#btn-menu) { display: none; }
+        .botones-flotantes.abierto #btn-menu { background: var(--superficie-3); border-color: var(--borde-fuerte); }
+        .botones-flotantes.abierto .boton-flotante { animation: aparecer 0.15s ease-out; }
+
         .boton-flotante .ico-off { display: none; }
         .boton-flotante[aria-pressed="true"] .ico-on { display: none; }
         .boton-flotante[aria-pressed="true"] .ico-off { display: inline; }
@@ -299,13 +304,22 @@
             box-shadow: none;
         }
 
-        /* sonido y pantalla completa abajo al centro, entre la cruceta y los botones (arriba está el HUD) */
+        /* botones flotantes en el celular: más chicos y donde no tapan el juego
+           - en los menús: abajo a la izquierda (libre en elegir héroe y en el mapa)
+           - en la pantalla de título: arriba a la derecha
+           - en un nivel: arriba, en el hueco del HUD entre el maná y las monedas; solo la tienda y la
+             pausa (la configuración y el volumen están dentro de la pausa) */
         body.movil .botones-flotantes {
             right: auto;
-            left: 50%;
-            bottom: 10px;
-            transform: translateX(-50%);
+            left: max(8px, env(safe-area-inset-left));
+            bottom: 8px;
+            gap: 6px;
+            flex-direction: row-reverse; /* el ☰ (el último) queda a la izquierda, fijo */
         }
+        body.movil .boton-flotante { width: 32px; height: 32px; padding: 7px; }
+        body.movil.en-titulo .botones-flotantes { left: auto; right: max(8px, env(safe-area-inset-right)); bottom: auto; top: 8px; flex-direction: row; }
+        /* en un nivel: arriba, en el hueco del HUD entre el maná y las monedas (se despliega hacia la izquierda) */
+        body.movil.en-nivel .botones-flotantes { left: auto; right: 34%; bottom: auto; top: 6px; flex-direction: row; }
 
         body.movil .botones-flotantes .boton-flotante:not(.boton-tienda) { opacity: 0.7; }
 
@@ -975,6 +989,33 @@
         }
 
         .menu-boton[data-accion="crear"]:hover, .menu-boton[data-accion="seguir"]:hover { background: var(--acento); }
+
+        /* ---------- chat de voz (voz.js): solo en partidas en línea ---------- */
+        .boton-voz {
+            position: absolute;
+            top: 46px;
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 10;
+            width: 44px;
+            height: 44px;
+            padding: 11px;
+            border-radius: 50%;
+            border: 1px solid var(--borde-fuerte);
+            background: rgba(16, 21, 35, 0.6);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            color: var(--texto-2);
+            cursor: pointer;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+        }
+        .boton-voz[hidden] { display: none; }
+        .boton-voz svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+        .boton-voz.activa { color: var(--texto); border-color: var(--acento); }
+        .boton-voz.hablando { color: #fff; background: var(--exito); border-color: var(--exito); transform: scale(1.08); }
+        .boton-voz.error { border-color: var(--peligro); color: var(--peligro); }
 
         /* ---------- vestidor (vestidor.js) ---------- */
         .vestidor-panel { width: min(600px, 100%); }

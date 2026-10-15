@@ -141,11 +141,40 @@ export function tramoArbolAnciano() {
     return t;
 }
 
+// ---------- Equipo (solo en los niveles en equipo: equipo.js y mecanismos.js) ----------
+
+// puerta de placas: la placa abre la puerta, pero quien la pisa NO alcanza a pasar (la placa está
+// a 190 px de la puerta y la cadena mide 170): hay que soltarla y cruzar todos juntos mientras la
+// puerta sigue abierta (1,5 s). grupo: nombre único que une la placa con su puerta
+export function tramoPuertaDePlacas(grupo) {
+    return {
+        ancho: 560,
+        suelo: [[0, 560]],
+        placas: [[150, grupo]],
+        puertas: [[340, grupo]],
+        monedas: fila(390, 300, 4),
+    };
+}
+
+// foso de argollas: más ancho que la cadena (320 px > 170) y que un salto. Se cruza columpiándose
+// (la primera argolla se alcanza saltando desde el borde). El de atrás es arrastrado al foso: el que
+// cruzó se ancla y la cadena lo sube (rescate). Con 8 jugadores van pasando de a uno, igual
+export function tramoArgollas() {
+    const l = 150, foso = 320;
+    return {
+        ancho: l + foso,
+        suelo: [[0, l]],
+        lava: [[l, l + foso]],
+        argollas: [[l + 85, 185], [l + 215, 185]],
+        monedas: [[l + 150, 160], [l + 180, 150], [l + 210, 160]],
+    };
+}
+
 // ---------- Colocar piezas en un nivel ----------
 
 // campos con x en la primera posición ([x, ...]) y campos que son solo x
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
-    'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes'];
+    'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas'];
 const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints'];
 const RANGOS = ['suelo', 'lava', 'falsos'];
 

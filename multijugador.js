@@ -25,6 +25,7 @@
 
 import { PERSONAJES } from "./personajes.js"
 import { prepararVariante } from "./vestidor.js"
+import { estaHablando } from "./voz.js"
 import { red, alRecibir, enviarEstado, enviarEvento, enLinea, esAnfitrion } from "./red.js"
 
 const ENVIO_MS = 66;          // ~15 estados por segundo
@@ -125,7 +126,7 @@ function remoto(scene, id) {
     const etiqueta = scene.add.text(0, 0, j.nombre, {
         fontFamily: '"Press Start 2P", monospace', fontSize: '7px', color, stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(35).setVisible(false);
-    r = { id, pj, s, etiqueta, estado: null, recibido: 0, visible: false, primera: true };
+    r = { id, pj, s, etiqueta, nombre: j.nombre, habla: false, estado: null, recibido: 0, visible: false, primera: true };
     scene.remotos.set(id, r);
     return r;
 }
@@ -181,6 +182,9 @@ export function actualizarEnLinea(scene, time, delta) {
         if (e.anim && r.s.anims.currentAnim?.key !== e.anim && scene.anims.exists(e.anim)) r.s.anims.play(e.anim, true);
         r.s.setTint(e.anclado ? 0x9fd8ff : 0xffffff);
         r.etiqueta.setPosition(r.s.x, r.s.y - 8);
+        // chat de voz: 🔊 sobre el nombre de quien está hablando
+        const habla = estaHablando(r.id);
+        if (habla !== r.habla) { r.habla = habla; r.etiqueta.setText(habla ? `🔊 ${r.nombre}` : r.nombre); }
     });
 }
 

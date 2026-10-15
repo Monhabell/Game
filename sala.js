@@ -5,10 +5,13 @@
 // Hasta 8 jugadores, atados en fila por la cadena en el orden en que entraron.
 // En la sala, cada jugador aparece en un escenario con su personaje: cae al unirse, pasea de un
 // lado a otro y salta al cambiar de personaje (las mismas hojas de sprites del juego, animadas con CSS).
+// Cada uno se ve con los colores que eligió en el vestidor: al entrar (y cada vez que cambia la sala)
+// cada jugador anuncia sus colores con un evento que el servidor reenvía a los demás (sin cambiar el servidor).
 
 import { PERSONAJES } from "./personajes.js"
 import { NIVELES } from "./niveles.js"
-import { red, alRecibir, crearSala, unirseSala, elegirPersonaje, empezarPartida, salirSala, esAnfitrion } from "./red.js"
+import { red, alRecibir, crearSala, unirseSala, elegirPersonaje, empezarPartida, salirSala, esAnfitrion, enviarEvento } from "./red.js"
+import { animDe, prefijoValido, urlHoja } from "./vestidor.js"
 
 const CLAVE_NOMBRE = 'monhabell-aventura-nombre';
 const color = pj => '#' + pj.color.toString(16).padStart(6, '0');
@@ -87,7 +90,7 @@ export function iniciarSala(juego, { alEmpezar }) {
         if (!b) return;
         pjElegido = b.dataset.pj;
         marcarPersonaje();
-        if (red.codigo) elegirPersonaje(pjElegido);
+        if (red.codigo) { elegirPersonaje(pjElegido); anunciarColores(); }
     });
     function marcarPersonaje() {
         capa.querySelectorAll('[data-pj]').forEach(b => {
@@ -128,7 +131,18 @@ export function iniciarSala(juego, { alEmpezar }) {
     codigo.addEventListener('keydown', e => { if (e.key === 'Enter') capa.querySelector('[data-accion="unirse"]').click(); });
 
     // ---------- mensajes del servidor ----------
-    alRecibir('sala', () => { avisar(''); dibujarSala(); });
+    alRecibir('sala', () => { avisar(''); anunciarColores(); dibujarSala(); });
+    // colores de los demás (prefijo de animación: "arquera~b4202a.o.o.o")
+    const coloresDe = new Map();
+    alRecibir('evento', m => {
+        if (m.tipo !== 'colores' || m.de == null || !prefijoValido(m.prefijo)) return;
+        if (coloresDe.get(m.de) === m.prefijo) return;
+        coloresDe.set(m.de, m.prefijo);
+        if (!capa.hidden) actualizarEscenario();
+    });
+    function anunciarColores() {
+        if (red.codigo) enviarEvento('colores', { prefijo: animDe(pjElegido) });
+    }
     alRecibir('error', m => avisar(m.motivo, true));
     alRecibir('empezar', m => {
         const yo = m.jugadores.find(j => j.id === red.tuId);
@@ -165,9 +179,9 @@ export function iniciarSala(juego, { alEmpezar }) {
     const VEL = 55; // px/s al pasear
 
     // pone en el sprite la hoja de una animación ('idle' o 'run') del personaje
-    function hoja(sprite, pj, anim) {
-        const [archivo, frames, fps] = pj.hojas[anim];
-        sprite.style.backgroundImage = `url("${pj.carpeta}/${archivo}.png")`;
+    function hoja(sprite, pj, anim, prefijo = pj.id) {
+        const [, frames, fps] = pj.hojas[anim];
+        sprite.style.backgroundImage = `url("${urlHoja(juego, prefijo, anim)}")`;
         sprite.style.setProperty('--n', frames);
         sprite.style.setProperty('--fps', fps);
         sprite.dataset.anim = anim;
@@ -179,6 +193,9 @@ export function iniciarSala(juego, { alEmpezar }) {
         red.jugadores.forEach(j => {
             vivos.add(j.id);
             const pj = PERSONAJES.find(p => p.id === j.pj) || PERSONAJES[0];
+            // sus colores: los míos los sé; los de los demás llegan por evento (si son de otro héroe, aún no)
+            const suyo = j.id === red.tuId ? animDe(pj) : coloresDe.get(j.id);
+            const prefijo = suyo && suyo.split('~')[0] === pj.id ? suyo : pj.id;
             let a = actores.get(j.id);
             if (!a) {
                 // recién llegado: cae desde arriba en un lugar al azar
@@ -192,10 +209,11 @@ export function iniciarSala(juego, { alEmpezar }) {
                 actores.set(j.id, a);
                 if (actores.size > 1) sonar('aparece');
             }
-            if (a.pj !== pj.id) {
-                if (a.pj) { a.el.classList.add('saltando'); sonar('salto'); } // cambió de personaje: salta
+            if (a.pj !== pj.id || a.prefijo !== prefijo) {
+                if (a.pj && a.pj !== pj.id) { a.el.classList.add('saltando'); sonar('salto'); } // cambió de personaje: salta
                 a.pj = pj.id;
-                hoja(a.sprite, pj, a.destino === null ? 'idle' : 'run');
+                a.prefijo = prefijo;
+                hoja(a.sprite, pj, a.destino === null ? 'idle' : 'run', prefijo);
             }
             a.el.style.setProperty('--pj', color(pj));
             a.el.classList.toggle('yo', j.id === red.tuId);
@@ -222,7 +240,7 @@ export function iniciarSala(juego, { alEmpezar }) {
                 a.quieto -= dt;
                 if (a.quieto <= 0 && ancho) {
                     a.destino = 40 + Math.random() * Math.max(1, ancho - 80);
-                    hoja(a.sprite, pj, 'run');
+                    hoja(a.sprite, pj, 'run', a.prefijo);
                 }
             } else {
                 const d = a.destino - a.x;
@@ -231,7 +249,7 @@ export function iniciarSala(juego, { alEmpezar }) {
                 if (Math.abs(d) < 1) {
                     a.destino = null;
                     a.quieto = 1.2 + Math.random() * 3;
-                    hoja(a.sprite, pj, 'idle');
+                    hoja(a.sprite, pj, 'idle', a.prefijo);
                 }
             }
             a.x = Math.max(30, Math.min(Math.max(30, ancho - 30), a.x));
@@ -272,8 +290,9 @@ export function iniciarSala(juego, { alEmpezar }) {
     return function abrir() {
         avisar('');
         marcarPersonaje();
-        dibujarSala();
+        anunciarColores();
         capa.hidden = false;
+        dibujarSala();
         teclado(false);
         (red.codigo ? capa.querySelector('[data-accion="cerrar"]') : nombre).focus({ preventScroll: true });
     };

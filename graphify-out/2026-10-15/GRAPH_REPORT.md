@@ -1,16 +1,16 @@
 # Graph Report - Game  (2026-10-15)
 
 ## Corpus Check
-- 55 files · ~827,075 words
+- 57 files · ~821,696 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 710 nodes · 1721 edges · 38 communities
+- 733 nodes · 1801 edges · 38 communities
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 87 edges (avg confidence: 0.54)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e31f72bf`
+- Built from commit: `797c365c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -24,20 +24,20 @@
 - jefes.js
 - niveles.js
 - exclude
-- completarNivel
+- cadena.js
 - mazmorra.js
 - arte.js
 - actualizarJugador
-- crearSeleccion
-- crearEnemigo
+- golpearBloque
+- completarNivel
 - dañarEnemigo
 - ajustes.js
 - package.json
-- historia.js
-- cadena.js
+- vestidor.js
+- crearSeleccion
 - index.js
 - servidor/package.json
-- rendimiento.js
+- update
 - Diseñar niveles de Monhabell Aventura
 - ExampleInstrumentedTest.java
 - iniciarTactil
@@ -48,16 +48,16 @@
 - escudo.js
 
 ## God Nodes (most connected - your core abstractions)
-1. `create()` - 76 edges
-2. `actualizarJugador()` - 21 edges
-3. `killgesi()` - 21 edges
-4. `iniciarSala()` - 21 edges
-5. `o()` - 20 edges
-6. `enLinea()` - 20 edges
-7. `construirNivel()` - 17 edges
-8. `e()` - 17 edges
-9. `r()` - 16 edges
-10. `iniciarMenus()` - 15 edges
+1. `create()` - 79 edges
+2. `enLinea()` - 25 edges
+3. `killgesi()` - 23 edges
+4. `iniciarSala()` - 23 edges
+5. `actualizarJugador()` - 21 edges
+6. `o()` - 20 edges
+7. `enviarEvento()` - 20 edges
+8. `construirNivel()` - 17 edges
+9. `e()` - 17 edges
+10. `iniciarMenus()` - 16 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `esperar()` --indirect_call--> `f()`  [INFERRED]
@@ -68,8 +68,8 @@
   game.js → multijugador.js
 - `create()` --indirect_call--> `soyReplica()`  [INFERRED]
   game.js → multijugador.js
-- `create()` --calls--> `factorEnemigos()`  [EXTRACTED]
-  game.js → ajustes.js
+- `animar()` --indirect_call--> `hoja()`  [INFERRED]
+  vestidor.js → sala.js
 
 ## Import Cycles
 - None detected.
@@ -77,48 +77,48 @@
 ## Communities (38 total, 0 thin omitted)
 
 ### Community 0 - "create"
-Cohesion: 0.07
-Nodes (29): estaInvulnerable(), actualizarBarraSalud(), actualizarCorazones(), actualizarRecurso(), apartarEnemigo(), aplicarAjustes(), aplicarDefensa(), caerMuerto() (+21 more)
+Cohesion: 0.10
+Nodes (22): estaInvulnerable(), actualizarBarraSalud(), actualizarCorazones(), apartarEnemigo(), aplicarDefensa(), caerMuerto(), crearBarraSalud(), create() (+14 more)
 
 ### Community 1 - "azar.js"
-Cohesion: 0.10
-Nodes (25): cortarPorMuros(), inalcanzables(), muroEnMedio(), SALTO, seLlega(), SUELO_Y, superficies(), tramosDeBloques() (+17 more)
+Cohesion: 0.17
+Nodes (17): aleatorizarNivel(), alturaSobreSuelo(), azar(), BURLAS_CARTEL, CEBOS, contarTrampas(), crearAzar(), CUANTAS_LOCURAS (+9 more)
 
 ### Community 2 - "game.js"
-Cohesion: 0.07
-Nodes (34): createAnimations(), cargarCastillos(), cargarEnemigos(), crearAnimacionesEnemigos(), ENEMIGOS, cargarEscudo(), crearAnimacionesEscudo(), apiJefe (+26 more)
+Cohesion: 0.06
+Nodes (37): createAnimations(), cargarCastillos(), cargarEnemigos(), crearAnimacionesEnemigos(), ENEMIGOS, cargarEscudo(), crearAnimacionesEscudo(), apiJefe (+29 more)
 
 ### Community 3 - "phaser.min.js"
 Cohesion: 0.35
 Nodes (25): a(), b(), c(), d(), e(), f(), g(), h() (+17 more)
 
 ### Community 4 - "multijugador.js"
-Cohesion: 0.08
-Nodes (64): actualizarEnLinea(), avisarBala(), avisarCheckpoint(), avisarEnemigo(), avisarGolpeEnemigo(), avisarJefe(), avisarJefeFx(), avisarMeta() (+56 more)
+Cohesion: 0.06
+Nodes (76): crearEnemigo(), crearzombis(), descartarEnemigo(), actualizarArgollas(), actualizarMecanismos(), crearMecanismos(), jugadores(), necesarios() (+68 more)
 
 ### Community 5 - "ambiente.js"
-Cohesion: 0.08
-Nodes (40): actualizarAmbiente(), aplicarNiebla(), bandaNiebla(), cicloNiebla(), configParticulas(), crearAmbiente(), crearFondoAtmosferico(), crearNieblaSeleccion() (+32 more)
+Cohesion: 0.06
+Nodes (48): cortarPorMuros(), inalcanzables(), muroEnMedio(), SALTO, seLlega(), SUELO_Y, superficies(), tramosDeBloques() (+40 more)
 
 ### Community 6 - "jefes.js"
 Cohesion: 0.12
 Nodes (39): zoomCamara(), actualizarJefe(), ANCHO_ARENA, ANIMS, avisar(), aviso(), AVISOS, avisoVisible() (+31 more)
 
 ### Community 7 - "niveles.js"
-Cohesion: 0.19
-Nodes (23): arco(), azar(), fila(), generarNivel(), colocar(), CON_X, extender(), fila() (+15 more)
+Cohesion: 0.15
+Nodes (28): nivelEnEquipo(), TRAMOS_EQUIPO, arco(), azar(), fila(), generarNivel(), NIVELES, colocar() (+20 more)
 
 ### Community 8 - "exclude"
 Cohesion: 0.22
 Nodes (12): fmt, exclude, lint, exclude, rules, exclude, android/, assets/ (+4 more)
 
-### Community 9 - "completarNivel"
-Cohesion: 0.18
-Nodes (12): vidasMaximas(), abrirSala, animar(), borrarPartida(), completarNivel(), continuarPartida(), encenderFaro(), guardarPartida() (+4 more)
+### Community 9 - "cadena.js"
+Cohesion: 0.30
+Nodes (13): actualizarCadena(), actualizarColgado(), anclarJugador1(), arrastrar(), crearCadena(), dibujar(), enSuelo(), hayCadena() (+5 more)
 
 ### Community 10 - "mazmorra.js"
-Cohesion: 0.08
-Nodes (45): actualizarBosque(), crearArbol(), crearBosque(), crearRama(), romperRama(), soltarHojas(), texturas(), agregarCiclo() (+37 more)
+Cohesion: 0.07
+Nodes (46): actualizarBosque(), crearArbol(), crearBosque(), crearRama(), romperRama(), soltarHojas(), texturas(), soltarEscudo() (+38 more)
 
 ### Community 11 - "arte.js"
 Cohesion: 0.67
@@ -126,19 +126,19 @@ Nodes (5): crearArteOriginal(), lienzo(), PIEDRA, px(), RUNA
 
 ### Community 12 - "actualizarJugador"
 Cohesion: 0.13
-Nodes (20): activarCheckpoint(), actualizarJugador(), actualizarMundo(), armarAscensorTramposo(), atraerMonedas(), avisar(), ejecutarHabilidad(), guardarBolsa() (+12 more)
+Nodes (19): activarCheckpoint(), activarRuna(), actualizarJugador(), actualizarMundo(), actualizarRecurso(), actualizarTrampas(), armarAscensorTramposo(), atraerMonedas() (+11 more)
 
-### Community 13 - "crearSeleccion"
-Cohesion: 0.24
-Nodes (13): abrirTienda, abrirTiendaFuera(), abrirVestidor, actualizarSeleccion(), animSel(), colorTexto(), crearSeleccion(), empezarJuego() (+5 more)
+### Community 13 - "golpearBloque"
+Cohesion: 0.29
+Nodes (8): addToScore(), collectCoin(), derrumbarSuelo(), golpearBloque(), matarEnemigo(), sumarABolsa(), monedaTrampa(), pisarMordedora()
 
-### Community 14 - "crearEnemigo"
-Cohesion: 0.13
-Nodes (16): abrirTiendaEnJuego(), activarRuna(), actualizarMonedasHud(), actualizarTrampas(), addToScore(), collectCoin(), crearEnemigo(), crearzombis() (+8 more)
+### Community 14 - "completarNivel"
+Cohesion: 0.18
+Nodes (12): vidasMaximas(), abrirSala, animar(), borrarPartida(), completarNivel(), continuarPartida(), encenderFaro(), guardarPartida() (+4 more)
 
 ### Community 15 - "dañarEnemigo"
-Cohesion: 0.21
-Nodes (12): actualizarEnemigo(), atacar(), balaRemota(), congelarEnemigo(), dañarEnemigo(), dispararEnemigo(), enSu(), golpeDeEnemigo() (+4 more)
+Cohesion: 0.18
+Nodes (14): actualizarEnemigo(), atacar(), balaRemota(), congelarEnemigo(), dañarEnemigo(), dispararEnemigo(), ejecutarHabilidad(), enSu() (+6 more)
 
 ### Community 16 - "ajustes.js"
 Cohesion: 0.15
@@ -148,13 +148,13 @@ Nodes (20): ajustes, BOTONES, CAMARAS, DIFICULTADES, factorEnemigos(), GRAFICOS,
 Cohesion: 0.11
 Nodes (18): @capacitor/android, @capacitor/app, @capacitor/cli, @capacitor/core, description, devDependencies, @capacitor/android, @capacitor/app (+10 more)
 
-### Community 18 - "historia.js"
-Cohesion: 0.08
-Nodes (40): moverNieblaSeleccion(), crearFinal(), crearIntro(), avanzar(), mostrar(), terminar(), crearTitulo(), HEROE (+32 more)
+### Community 18 - "vestidor.js"
+Cohesion: 0.07
+Nodes (42): crearFinal(), crearIntro(), avanzar(), mostrar(), terminar(), crearTitulo(), fondoNoche(), HEROE (+34 more)
 
-### Community 19 - "cadena.js"
-Cohesion: 0.35
-Nodes (9): actualizarCadena(), anclarJugador1(), arrastrar(), crearCadena(), dibujar(), enSuelo(), moverCompa(), nodo() (+1 more)
+### Community 19 - "crearSeleccion"
+Cohesion: 0.20
+Nodes (15): abrirTienda, abrirTiendaEnJuego(), abrirTiendaFuera(), abrirVestidor, actualizarMonedasHud(), actualizarSeleccion(), animSel(), colorTexto() (+7 more)
 
 ### Community 20 - "index.js"
 Cohesion: 0.25
@@ -164,9 +164,9 @@ Nodes (14): atender(), avisarLista(), difundir(), entrar(), enviar(), latido, li
 Cohesion: 0.13
 Nodes (14): dependencies, ws, description, engines, node, main, name, private (+6 more)
 
-### Community 22 - "rendimiento.js"
-Cohesion: 0.20
-Nodes (10): actualizarCiclos(), compensarZoom(), relojSala(), seguirReloj(), update(), actualizarContadorFps(), fijosEnPantalla(), recortarVista() (+2 more)
+### Community 22 - "update"
+Cohesion: 0.14
+Nodes (14): actualizarCiclos(), aplicarAjustes(), compensarZoom(), moverCamara(), relojSala(), seguirReloj(), update(), verColisiones() (+6 more)
 
 ### Community 23 - "Diseñar niveles de Monhabell Aventura"
 Cohesion: 0.20
@@ -197,27 +197,27 @@ Cohesion: 0.83
 Nodes (3): gradlew script, die(), warn()
 
 ### Community 37 - "escudo.js"
-Cohesion: 0.38
-Nodes (9): actualizarEscudo(), crearEscudo(), crearTexturaAura(), destellarAura(), dibujarCarga(), mostrarEscudo(), recuperarEscudo(), romperEscudo() (+1 more)
+Cohesion: 0.44
+Nodes (8): actualizarEscudo(), crearEscudo(), crearTexturaAura(), destellarAura(), dibujarCarga(), mostrarEscudo(), recuperarEscudo(), romperEscudo()
 
 ## Knowledge Gaps
-- **97 isolated node(s):** `POR_DEFECTO`, `SUELO_Y`, `PALETAS`, `NIEBLA_BASE`, `MINIMO_TRAMPAS` (+92 more)
+- **99 isolated node(s):** `POR_DEFECTO`, `SUELO_Y`, `PALETAS`, `NIEBLA_BASE`, `MINIMO_TRAMPAS` (+94 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `create()` connect `create` to `azar.js`, `game.js`, `phaser.min.js`, `multijugador.js`, `ambiente.js`, `jefes.js`, `escudo.js`, `completarNivel`, `mazmorra.js`, `actualizarJugador`, `crearEnemigo`, `dañarEnemigo`, `ajustes.js`, `historia.js`, `cadena.js`, `rendimiento.js`, `tienda.js`?**
+- **Why does `create()` connect `create` to `azar.js`, `game.js`, `phaser.min.js`, `multijugador.js`, `ambiente.js`, `jefes.js`, `niveles.js`, `cadena.js`, `mazmorra.js`, `actualizarJugador`, `golpearBloque`, `completarNivel`, `dañarEnemigo`, `ajustes.js`, `vestidor.js`, `crearSeleccion`, `update`, `tienda.js`, `escudo.js`?**
   _High betweenness centrality (0.088) - this node is a cross-community bridge._
-- **Why does `iniciarSala()` connect `multijugador.js` to `game.js`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `iniciarSala()` connect `multijugador.js` to `game.js`, `vestidor.js`?**
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
 - **Why does `f()` connect `phaser.min.js` to `prueba.js`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+  _High betweenness centrality (0.028) - this node is a cross-community bridge._
 - **Are the 16 inferred relationships involving `create()` (e.g. with `game.js` and `soltarEscudo()`) actually correct?**
   _`create()` has 16 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 14 inferred relationships involving `o()` (e.g. with `a()` and `c()`) actually correct?**
-  _`o()` has 14 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `POR_DEFECTO`, `SUELO_Y`, `PALETAS` to the rest of the system?**
-  _97 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _99 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `create` be split into smaller, more focused modules?**
-  _Cohesion score 0.07396870554765292 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09655172413793103 - nodes in this community are weakly interconnected._
+- **Should `game.js` be split into smaller, more focused modules?**
+  _Cohesion score 0.06294326241134751 - nodes in this community are weakly interconnected._

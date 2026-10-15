@@ -125,6 +125,8 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     // (los enemigos que caen del cielo o el gigante que persigue aparecerían dentro del techo)
     const tuneles = (nivel.techos || []).map(([a, b]) => [a - 60, b + 500]);
     const escaleras = (nivel.escaleras || []).map(([x, h]) => [x - 60, x + h * 32 + 60]);
+    // placas y puertas de equipo: sin trampas cerca (ahí el equipo se coordina, no se esquiva)
+    const mecanismos = [...(nivel.placas || []), ...(nivel.puertas || [])].map(([x]) => [x - 200, x + 200]);
     const falsos = (nivel.falsos || []).map(([a, b]) => [a - 60, b + 60]);
     const dentro = (x, rangos) => rangos.some(([a, b]) => x >= a && x <= b);
 
@@ -143,7 +145,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
         for (let x = a + BORDE_HUECO; x <= b - BORDE_HUECO; x += 50) {
             if (x < ZONA_INICIO || x > inicioArena - ANTESALA_JEFE) continue;
             if (checkpoints.some(cp => x > cp - ANTES_CHECKPOINT && x < cp + DESPUES_CHECKPOINT)) continue;
-            if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos)) continue;
+            if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos) || dentro(x, mecanismos)) continue;
             if (dentro(x, ascensores) || dentro(x, muros) || dentro(x, tuneles)) continue;
             candidatos.push(x);
         }

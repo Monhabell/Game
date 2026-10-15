@@ -13,7 +13,8 @@ const pluginApp = () => window.Capacitor?.Plugins?.App;
 
 // aplicar(): el juego aplica los ajustes que cambiaron; salirAlMenu(): vuelve a elegir personaje
 // abrirTienda(alCerrar): abre la tienda; tiendaFuera(): abrirla fuera de un nivel (cada pantalla sabe cómo)
-export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaFuera }) {
+// irAlInicio(): pantalla de título; jugarConAmigos(): deja el nivel y abre la sala de espera
+export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaFuera, irAlInicio, jugarConAmigos }) {
     const contenedor = document.getElementById('game');
     const flotantes = contenedor.querySelector('.botones-flotantes');
 
@@ -21,7 +22,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
     // llegan al juego: Phaser también escucha fuera del lienzo y "tocaría" lo que hay debajo
     // (por ejemplo, al tocar "Listo" en el vestidor se empezaba a jugar)
     ['mousedown', 'touchstart', 'pointerdown'].forEach(tipo => contenedor.addEventListener(tipo, e => {
-        if (e.target.closest?.('.menu-capa, .botones-flotantes')) e.stopPropagation();
+        if (e.target.closest?.('.menu-capa, .botones-flotantes, .boton-voz')) e.stopPropagation();
     }));
 
     // ---------- botones flotantes: pausa y configuración ----------
@@ -38,6 +39,22 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
     insignia.setAttribute('aria-hidden', 'true');
     botonTienda.append(insignia);
     flotantes.prepend(botonTienda, botonPausa, botonAjustes);
+
+    // un solo botón (☰) a la vista: al tocarlo despliega los demás (así no tapan el juego).
+    // Se cierra al elegir algo o al tocar fuera
+    const botonMenu = boton('btn-menu', 'Menú',
+        '<path d="M4 7h16M4 12h16M4 17h16"/>');
+    botonMenu.setAttribute('aria-expanded', 'false');
+    flotantes.append(botonMenu);
+    const desplegar = abrir => {
+        flotantes.classList.toggle('abierto', abrir);
+        botonMenu.setAttribute('aria-expanded', String(abrir));
+    };
+    botonMenu.addEventListener('click', e => { e.currentTarget.blur(); desplegar(!flotantes.classList.contains('abierto')); });
+    flotantes.addEventListener('click', e => {
+        if (e.target.closest('.boton-flotante') && !e.target.closest('#btn-menu')) desplegar(false);
+    });
+    document.addEventListener('pointerdown', e => { if (!e.target.closest?.('.botones-flotantes')) desplegar(false); });
 
     function boton(id, titulo, svg) {
         const b = document.createElement('button');
@@ -60,7 +77,11 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
             <button type="button" class="menu-boton" data-accion="seguir">▶ Continuar</button>
             <button type="button" class="menu-boton" data-accion="tienda">◉ Tienda</button>
             <button type="button" class="menu-boton" data-accion="ajustes">⚙ Configuración</button>
-            <button type="button" class="menu-boton menu-salir" data-accion="salir">⌂ Salir al menú</button>
+            <div class="menu-fila">
+                <button type="button" class="menu-boton" data-accion="salir">← Elegir héroe</button>
+                <button type="button" class="menu-boton" data-accion="inicio">⌂ Inicio</button>
+            </div>
+            <button type="button" class="menu-boton" data-accion="amigos">👥 Jugar con amigos</button>
             ${APP ? '<button type="button" class="menu-boton menu-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
             <p class="menu-nota" data-en-linea hidden>Juego en línea: los demás siguen jugando</p>
             <p class="menu-nota">El progreso se guarda al empezar cada nivel</p>
@@ -142,6 +163,9 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
         // en línea el mundo no se detiene (los demás siguen jugando): solo se abre el menú
         enLineaAlPausar = enLinea();
         capaPausa.querySelector('[data-en-linea]').hidden = !enLineaAlPausar;
+        // en línea: salir de la sala; jugando solo o en el mismo teclado: ir a jugar con amigos
+        capaPausa.querySelector('[data-accion="amigos"]').textContent = enLinea() ? '🚪 Salir de la sala' : '👥 Jugar con amigos';
+        capaPausa.querySelector('[data-accion="amigos"]').classList.toggle('menu-salir', enLinea());
         if (!enLineaAlPausar) {
             juego.scene.pause('juego');
             sonando = juego.sound.getAllPlaying();
@@ -242,12 +266,15 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
         if (accion === 'seguir') reanudar();
         else if (accion === 'ajustes') abrirAjustes();
         else if (accion === 'tienda') abrirTiendaEnNivel(true);
-        else if (accion === 'salir') {
+        else if (accion === 'salir' || accion === 'inicio' || accion === 'amigos') {
+            // dejar el nivel (en línea, también la sala) e ir a donde se pidió
             ocultar(capaPausa);
             pausado = false;
             sonando = [];
             juego.sound.stopAll();
-            salirAlMenu();
+            if (accion === 'inicio') irAlInicio();
+            else if (accion === 'amigos' && !enLinea()) jugarConAmigos();
+            else salirAlMenu(); // "Elegir héroe" o "Salir de la sala"
         }
     });
     capaAjustes.querySelector('[data-accion="volver"]').addEventListener('click', cerrarAjustes);
@@ -300,6 +327,9 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
     // el botón de pausa solo se ve durante un nivel; la insignia de la tienda muestra el saldo
     setInterval(() => {
         botonPausa.hidden = !enNivel();
+        // en qué pantalla estamos (el CSS acomoda los botones flotantes en el celular)
+        document.body.classList.toggle('en-nivel', enNivel());
+        document.body.classList.toggle('en-titulo', juego.scene.isActive('titulo'));
         insignia.textContent = saldo() > 999 ? '999+' : saldo();
     }, 250);
 
