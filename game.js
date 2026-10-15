@@ -23,6 +23,7 @@ import {
 } from "./multijugador.js"
 import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
+import { crearRama } from "./bosque.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
@@ -77,6 +78,13 @@ const EMPUJON_MS = 250;
 const CAMARA_ALTURA_PJ = 0.62; // fracción de la pantalla desde arriba
 const CAMARA_SUAVIDAD_MS = 140; // más alto = sigue más lento
 const PAUSA_ASCENSOR = 1500; // ms que el ascensor espera en cada parada
+// enemigos que caen del cielo (emboscadas, monedas trampa, rejas...): nunca amontonados
+const SEPARACION_ENEMIGOS = 130; // px mínimos entre dos enemigos (se corre hasta encontrar sitio)
+const PAUSA_APARICIONES = 600;   // ms entre dos enemigos que caen del cielo
+const MAXIMO_CERCA = [3, 3, 4, 4, 5, 6]; // enemigos a la vez cerca del jugador (por nivel); los demás esperan
+const CERCA_JUGADOR = 450;       // px: qué cuenta como "cerca"
+const ESPERA_MAXIMA = 5000;      // ms: después de esto cae igual
+const SEPARACION_NIVEL = 90;     // px mínimos entre los enemigos del armado del nivel
 const AVISO_PINCHOS = 190;
 const ESPERA_PINCHOS = 450;
 // El juego mide 790x380 "por dentro" (física, niveles, HUD), pero se dibuja más grande
@@ -1092,7 +1100,12 @@ function construirNivel(scene, nivel) {
     });
 
     // plataformas flotantes de roca (torres, puentes colgantes): [x, arriba, ancho]
-    (nivel.plataformas || []).forEach(([x, arriba, ancho]) => { crearPlataforma(scene, x, arriba, ancho).esPlataforma = true; });
+    // (tipo 'rama': rama de madera del bosque que se dobla y se rompe, ver bosque.js)
+    scene.ramas = [];
+    (nivel.plataformas || []).forEach(([x, arriba, ancho, tipo]) => {
+        if (tipo === 'rama') crearRama(scene, x, arriba, ancho);
+        else crearPlataforma(scene, x, arriba, ancho).esPlataforma = true;
+    });
     // piedras rúnicas doradas: al golpearlas desde abajo aparecen sus losas sobre el abismo.
     // Antes de activarlas, las losas se ven como contornos fantasma (la pista de que hay un camino)
     (nivel.runas || []).forEach(([x, y, losas]) => {
@@ -1111,10 +1124,12 @@ function construirNivel(scene, nivel) {
     });
 
     // muros de roca maciza desde el suelo hasta 'arriba' (cortan el paso: hay que subir por encima)
-    (nivel.muros || []).forEach(([x, arriba, ancho]) => {
+    // (tipo 'tronco': el tronco del Árbol Anciano; se dibuja en bosque.js)
+    (nivel.muros || []).forEach(([x, arriba, ancho, tipo]) => {
         const pieza = scene.floor.create(x, arriba, 'suelo' + scene.sufijo)
             .setOrigin(0, 0).setScale(ancho / 128, (SUELO_Y - arriba) / 32).refreshBody();
-        vestirMuro(scene, pieza);
+        if (tipo === 'tronco') pieza.setVisible(false);
+        else vestirMuro(scene, pieza);
     });
     // techos de túnel: roca maciza desde arriba hasta 'abajo' (queda poco espacio para saltar)
     (nivel.techos || []).forEach(([x0, x1, abajo]) => {
@@ -1149,8 +1164,12 @@ function construirNivel(scene, nivel) {
         }
     });
 
+    // (si dos quedaron casi encima uno del otro, se salta el segundo: igual en todas las pantallas)
+    const puestos = [];
     (nivel.enemigos || []).forEach(e => {
         const [x, y, tipo] = Array.isArray(e) ? e : [e, SUELO_Y - 2];
+        if (puestos.some(px => Math.abs(px - x) < SEPARACION_NIVEL)) return;
+        puestos.push(x);
         crearEnemigo(scene, x, y ?? SUELO_Y - 2, tipo);
     });
     // plantas disfrazadas de arbusto y espíritus de fuego voladores
@@ -1279,10 +1298,57 @@ function crearEnemigo(scene, x, y, tipo) {
     enemy.flipX = true; // los sprites miran a la derecha
     // si cae del cielo (emboscada, moneda trampa...), su sombra avisa dónde va a aterrizar
     // (un instante después: quien lo crea a veces lo recoloca, como la moneda trampa)
-    if (y <= 0 && def.tipo !== 'volador') {
-        scene.time.delayedCall(0, () => enemy.active && sombraDeCaida(scene, enemy.x + (ox + w / 2) * (def.escala ?? 1), 1000));
+    // (y no cae amontonado: ver soltarDelCielo)
+    if (y <= 0 && def.tipo !== 'volador' && !scene.creandoReplica) {
+        enemy.esperando = true;
+        enemy.body.enable = false;
+        enemy.setVisible(false);
+        enemy.esperaDesde = scene.time.now;
+        scene.time.delayedCall(0, () => enemy.active && soltarDelCielo(scene, enemy, true));
     }
     return enemy;
+}
+
+// centro del cuerpo de un enemigo (el sprite tiene origen abajo a la izquierda)
+const centroEnemigo = e => e.x + (e.def.cuerpo[2] + e.def.cuerpo[0] / 2) * (e.def.escala ?? 1);
+
+// hay suelo donde aterrizar en x (no lava ni suelo falso)
+function haySueloEn(scene, x) {
+    return scene.floor.getChildren().some(p => {
+        const b = p.body;
+        return p.active && b && b.enable && !p.esFalso && !p.esCadena && !p.esGotero &&
+            x > b.left + 10 && x < b.right - 10 && b.top >= 0 && b.top <= SUELO_Y + 4;
+    });
+}
+
+// Enemigo que cae del cielo: primero se corre si cae pegado a otro; después espera su turno
+// (uno cada PAUSA_APARICIONES y no más de MAXIMO_CERCA a la vez cerca del jugador).
+// Su sombra avisa dónde va a aterrizar.
+function soltarDelCielo(scene, enemy, primeraVez) {
+    if (!enemy.active || !enemy.esperando) return;
+    const otros = scene.enemies.getChildren().filter(e => e !== enemy && e.active && !e.isDead && e.def);
+    if (primeraVez) {
+        // el lugar más cercano al pedido (quien lo crea ya lo recolocó) lejos de los demás
+        const c = centroEnemigo(enemy);
+        for (const d of [0, 40, -40, 80, -80, 120, -120, 160, -160, 200, -200, 240, -240]) {
+            const libre = otros.every(o => Math.abs(centroEnemigo(o) - (c + d)) >= SEPARACION_ENEMIGOS);
+            if (libre && (d === 0 || haySueloEn(scene, c + d))) { enemy.x += d; break; }
+        }
+    }
+    const ahora = scene.time.now;
+    const g = scene.mascotaGesi;
+    const cerca = otros.filter(o => !o.esperando && Math.abs(o.x - g.x) < CERCA_JUGADOR).length;
+    const maximo = MAXIMO_CERCA[Math.min(nivelActual, MAXIMO_CERCA.length - 1)];
+    const forzar = ahora - enemy.esperaDesde > ESPERA_MAXIMA;
+    if (!forzar && (ahora < (scene.proximaCaida || 0) || cerca >= maximo)) {
+        scene.time.delayedCall(150, () => soltarDelCielo(scene, enemy, false));
+        return;
+    }
+    scene.proximaCaida = ahora + PAUSA_APARICIONES;
+    enemy.esperando = false;
+    enemy.body.enable = true;
+    enemy.setVisible(true);
+    sombraDeCaida(scene, centroEnemigo(enemy), 1000);
 }
 
 // el enemigo pierde vida; devuelve true si lo golpeó
@@ -2160,7 +2226,7 @@ function actualizarMundo(scene) {
             enemy.destroy();
             return;
         }
-        if (enemy.isDead || enemy.replica) return; // las réplicas las mueve el anfitrión
+        if (enemy.isDead || enemy.replica || enemy.esperando) return; // las réplicas las mueve el anfitrión
         if (enemy.def) {
             // en línea persigue al jugador más cercano de la sala (puede ser el de otra pantalla)
             const otro = fantasmaMasCercano(scene, enemy);

@@ -113,11 +113,39 @@ export function tramoAbismoRunico() {
     };
 }
 
+// ---------- Bosque (nivel 1) ----------
+
+// ramas sobre la lava: tres ramas de madera que se doblan al pisarlas y se rompen si te quedas
+// (bosque.js). Huecos de 70-80 px entre ramas y alturas casi iguales: lo difícil es no detenerse
+export function tramoRamas() {
+    const l = 150, hueco = 560;
+    return {
+        ancho: l + hueco,
+        suelo: [[0, l]],
+        lava: [[l, l + hueco]],
+        plataformas: [[l + 40, 270, 110, 'rama'], [l + 230, 250, 110, 'rama'], [l + 410, 270, 110, 'rama']],
+        monedas: [...fila(l + 70, 235, 2), ...fila(l + 260, 215, 2), ...fila(l + 440, 235, 2)],
+    };
+}
+
+// Árbol Anciano (el momento ¡wow! del Bosque): la torre de siempre, pero el muro es un tronco
+// gigante con cara y los escalones son ramas. Arriba hay premio... y el árbol despierta
+export function tramoArbolAnciano() {
+    const t = tramoTorre(4);
+    t.plataformas = t.plataformas.map(p => [...p, 'rama']);
+    t.muros = t.muros.map(m => [...m, 'tronco']);
+    t.arbolesGigantes = t.muros.map(([x, arriba, ancho]) => [x, arriba, ancho]);
+    t.antorchas = []; // en el bosque no hay antorchas
+    const [mx, arriba] = t.muros[0];
+    t.corazones = [[mx + 70, arriba - 40]];
+    return t;
+}
+
 // ---------- Colocar piezas en un nivel ----------
 
 // campos con x en la primera posición ([x, ...]) y campos que son solo x
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
-    'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos'];
+    'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes'];
 const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints'];
 const RANGOS = ['suelo', 'lava', 'falsos'];
 

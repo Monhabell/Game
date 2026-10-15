@@ -243,7 +243,7 @@ function enviarEnemigos(scene, time) {
     const r = n => Math.round(n);
     const l = [];
     scene.enemies.getChildren().forEach(e => {
-        if (e.isDead || e.redId == null || !e.body) return;
+        if (e.isDead || e.esperando || e.redId == null || !e.body) return; // (los que esperan turno para caer, todavía no)
         l.push([e.redId, e.tipoId || '', r(e.x), r(e.y), r(e.body.velocity.x), r(e.body.velocity.y),
             e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0,
             scene.time.now < (e.congeladoHasta || 0) ? 1 : 0]);

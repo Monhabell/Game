@@ -7,6 +7,7 @@
 //   Nivel 1  monedaHuye    la moneda salta lejos cada vez que te acercas (y al final se deja tomar)
 //            cartelCae     el cartel cruje y se cae hacia ti: no te detengas
 //            seta          seta trampolín: rebota... y a veces te lanza demasiado alto
+//            tronco        ruedan troncos (rocas en la cueva) hacia ti: se saltan
 //   Nivel 2  estalactita   una roca que te sigue por el techo y cae al quedar encima
 //            ola           la lava de un foso sube en olas (burbujas antes de cada ola)
 //            techoBaja     el túnel se derrumba detrás de ti: ¡corre!
@@ -55,6 +56,10 @@ const INVERTIDO_MS = 3500;      // ms con los controles invertidos
 const RETRASO_SOMBRA = 1200;    // ms de retraso de la sombra
 const VIDA_SOMBRA = 7000;       // ms que dura la sombra
 const TURNO_GRAVEDAD = 1600;    // ms de cada turno de la gravedad loca
+const TRONCO_VEL = 150;         // px/s de los troncos que ruedan (se ven venir y se saltan)
+const TRONCO_DESDE = 620;       // px por delante de donde aparecen
+const TRONCOS = 2;              // cuántos ruedan
+const ENTRE_TRONCOS = 1100;     // ms entre uno y otro (el segundo sorprende al que se confió)
 
 const rect = b => new Phaser.Geom.Rectangle(b.left ?? b.x, b.top ?? b.y, b.width, b.height);
 const choca = (a, b) => Phaser.Geom.Intersects.RectangleToRectangle(a, b);
@@ -74,6 +79,16 @@ function crearTexturas(scene) {
     g.fillStyle(0x2a1838).fillRect(0, 0, 32, 8);
     g.lineStyle(2, 0xc77dff).strokeCircle(16, 4, 3).lineBetween(4, 4, 10, 4).lineBetween(22, 4, 28, 4);
     g.generateTexture('runa_maldita', 32, 8);
+    g.clear();
+    // tronco que rueda (vista de frente: anillos) y roca rodante para la cueva
+    g.fillStyle(0x6b4423).fillCircle(14, 14, 14);
+    g.lineStyle(2, 0x8a5a30).strokeCircle(14, 14, 9).strokeCircle(14, 14, 4);
+    g.lineStyle(2, 0x3e2614).lineBetween(14, 0, 14, 8);
+    g.generateTexture('tronco_rueda', 28, 28);
+    g.clear();
+    g.fillStyle(0x6a6070).fillCircle(14, 14, 14);
+    g.fillStyle(0x857a8c).fillCircle(10, 9, 5).fillCircle(19, 18, 3);
+    g.generateTexture('roca_rueda', 28, 28);
     g.destroy();
 }
 
@@ -160,6 +175,7 @@ const CREAR = {
         crearAntorcha(scene, l.x, SUELO_Y - 88);
     },
     puerta() {},
+    tronco(scene, l) { l.troncos = []; },
     cadena(scene, l) {
         // las losas del suelo falso de este tramo se hunden en cadena (no al pisarlas)
         l.losas = scene.floor.getChildren()
@@ -294,6 +310,27 @@ const ACTUALIZAR = {
         l.x += paso;
         l.img.x = l.x;
         l.muro.forEach(p => { p.x += paso; });
+    },
+    tronco(scene, l, api, { gx, rGesi, dt }) {
+        if (!l.hecha && gx > l.x) {
+            l.hecha = true;
+            burla(scene, api, scene.cueva ? '¡ROCAS!' : '¡TRONCOS!', 900);
+            scene.cameras.main.shake(400, 0.002);
+            for (let i = 0; i < TRONCOS; i++) {
+                scene.time.delayedCall(i * ENTRE_TRONCOS, () => {
+                    const img = scene.add.image(l.x + TRONCO_DESDE, SUELO_Y - 14, scene.cueva ? 'roca_rueda' : 'tronco_rueda').setDepth(33);
+                    l.troncos.push(img);
+                    scene.sound.play('romper', { volume: 0.25, rate: 0.6 });
+                });
+            }
+        }
+        l.troncos.forEach(t => {
+            if (!t.active) return;
+            t.x -= TRONCO_VEL * dt;
+            t.angle -= TRONCO_VEL * dt * 4;
+            if (choca(new Phaser.Geom.Rectangle(t.x - 11, t.y - 11, 22, 22), rGesi)) api.killgesi(scene);
+            if (t.x < l.x - 60) scene.tweens.add({ targets: t, alpha: 0, duration: 200, onComplete: () => t.destroy() });
+        });
     },
     ola: cicloLava,
     geiser: cicloLava,

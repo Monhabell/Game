@@ -47,7 +47,7 @@
 
 import {
     colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
-    tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico,
+    tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
 } from "./tramos.js"
 
 export const SUELO_Y = 332;
@@ -322,10 +322,12 @@ export const NIVELES = [
 // Los niveles hechos a mano se alargan con piezas (tramos.js) colocadas justo antes de la arena
 // del jefe: cada nivel suma lo nuevo que enseña (túneles, ascensores, doble camino, torres).
 // En x hay suelo firme; todo lo que estaba a la derecha (arena, meta) se corre.
-extender(NIVELES[0], 3850, [ // Bosque: primer túnel, primer ascensor (corto y opcional) y una cornisa secreta
+// Bosque: primer túnel, primer ascensor (corto y opcional), una cornisa secreta, ramas que se
+// doblan sobre la lava y, antes del jefe, el momento ¡wow!: el Árbol Anciano
+extender(NIVELES[0], 3850, [
     tramoLlano(300), // (antes de un túnel siempre hay llano: saltar un foso hacia su techo sería injusto)
     tramoTunel(700, { enemigos: 1 }), tramoLlano(300), tramoAscensorMirador(), tramoLlano(250, { enemigos: 1 }),
-    tramoCornisaSecreta(),
+    tramoCornisaSecreta(), tramoRamas(), tramoArbolAnciano(),
 ]);
 extender(NIVELES[1], 4660, [ // Cueva: doble camino sobre la lava y un túnel largo
     tramoLlano(200), tramoDobleCamino(), tramoLlano(400, { enemigos: 1 }), tramoTunel(900),

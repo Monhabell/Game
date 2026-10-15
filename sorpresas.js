@@ -6,6 +6,7 @@
 
 import { crearEstatua, colgarRoca } from "./mazmorra.js"
 import { crearLocuras, actualizarLocuras } from "./locuras.js"
+import { crearBosque, actualizarBosque } from "./bosque.js"
 
 const SUELO_Y = 332;
 // tiempos de aviso (a 220 px/s, la velocidad de carrera)
@@ -70,6 +71,8 @@ export function crearSorpresas(scene, nivel, inicioX = 0) {
 
     // trampas nuevas de cada nivel (locuras.js)
     crearLocuras(scene, nivel, inicioX);
+    // piezas propias de cada región (bosque.js)
+    crearBosque(scene, nivel);
 }
 
 // roca colgando del techo; cae cuando el jugador se acerca (ver actualizarSorpresas)
@@ -230,6 +233,7 @@ export function actualizarSorpresas(scene, api) {
     });
 
     actualizarLocuras(scene, api);
+    actualizarBosque(scene, api);
 
     // persecución: un zombie gigante aparece detrás
     scene.persecuciones.forEach(p => {

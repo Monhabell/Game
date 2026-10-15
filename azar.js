@@ -66,7 +66,7 @@ const ATERRIZAJE_CEBO = 300; // suelo firme que tiene que haber después de un c
 
 // locuras (locuras.js): trampas nuevas que trae cada nivel; los siguientes mezclan las de antes
 const LOCURAS_POR_NIVEL = [
-    ['monedaHuye', 'cartelCae', 'seta'],
+    ['monedaHuye', 'cartelCae', 'seta', 'tronco'],
     ['estalactita'],                       // + olas de lava, túnel que se derrumba
     ['viento'],                            // + plataformas que se caen, ascensor que baja de golpe
     ['quieto', 'antorcha', 'puerta'],
@@ -248,6 +248,8 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     const LUGAR = {
         monedaHuye: () => tomar([], 0, x => firme(x - 40, x + 560)),          // salta 3 veces hacia adelante
         cartelCae: () => tomar([], 0, x => firme(x - 220, x + 120)),          // cae hacia atrás
+        // los troncos ruedan desde 620 px adelante hasta 60 px atrás: todo ese tramo, suelo firme y sin bloques bajos
+        tronco: () => tomar([], 0, x => firme(x - 60, x + 700) && !bloquesBajos.some(([a, b]) => b > x - 60 && a < x + 700)),
         seta: () => tomar([...bloquesBajos, ...flotantes], 0, x => firme(x - 100, x + 520)), // vuela alto y lejos
         estalactita: () => tomar([...bloquesBajos, ...flotantes]),
         viento: () => tomar([], 0, x => firme(x - 220, x + 220)),             // nunca empuja a un hueco
@@ -272,6 +274,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
         }
         if (tipo === 'seta') usados.push(x + 250, x + 450); // donde se aterriza, sin trampas
         if (tipo === 'monedaHuye') usados.push(x + 250, x + 480);
+        if (tipo === 'tronco') usados.push(x + 200, x + 400, x + 600); // por donde ruedan, nada más
         n.locuras.push(tipo === 'viento' ? [x, tipo, moneda(0.5) ? 1 : -1] : [x, tipo]);
         return true;
     };
@@ -303,7 +306,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     if (indice >= 2) {
         const moviles = nivel.moviles || [];
         const lejosDeMoviles = ([x, , ancho]) => !moviles.some(([mx, , eje, rec]) => mx - 300 < x + ancho && (eje === 'x' ? mx + rec : mx) + 300 > x);
-        mezclar((nivel.plataformas || []).filter(p => enJuego(p[0]) && lejosDeMoviles(p)))
+        mezclar((nivel.plataformas || []).filter(p => enJuego(p[0]) && p[3] !== 'rama' && lejosDeMoviles(p)))
             .slice(0, indice >= 4 ? 3 : 2).forEach(([x]) => n.locuras.push([x, 'puente']));
     }
     // ascensores que bajan de golpe (el del mirador del nivel 1 también, a veces)
