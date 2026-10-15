@@ -24,6 +24,11 @@ import {
 import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearRama } from "./bosque.js"
+import { animDe, prepararVariante, iniciarVestidor } from "./vestidor.js"
+import {
+    iniciarTienda, sumarMonedas, saldo, tiene, llevaEscudo, usarConsumible, registrarNivel, crearEstela, actualizarEstela, usarHeroeActual,
+    personajeConMejoras,
+} from "./tienda.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
@@ -54,7 +59,10 @@ const apiSorpresas = {
 };
 
 let score = 0; // Variable global para la puntuación
-let VIDAS_INICIALES = vidasMaximas(); // depende de la dificultad (ajustes.js); se relee en cada nivel
+// vidas: según la dificultad (ajustes.js), más una si se compró el Corazón de Albora (tienda.js)
+const vidasTotales = () => vidasMaximas() + (tiene('corazon') ? 1 : 0);
+let VIDAS_INICIALES = vidasTotales(); // se relee en cada nivel
+let runaNivel = -1; // nivel en que ya se usó la runa de reserva (una por nivel)
 let vidas = VIDAS_INICIALES; // se muestran como corazones; al acabarse se vuelve al inicio del juego
 let scoreInicioNivel = 0; // al morir el puntaje vuelve a este valor
 const FLECHAS_INICIALES = 10;
@@ -62,6 +70,10 @@ const FLECHAS_RECOGIDAS = 5; // Gesi recoge flechas sola hasta tener esta cantid
 let flechas = FLECHAS_INICIALES;
 let muertes = 0; // en toda la partida: se muestra en el HUD y en el final
 let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
+// volver a intentarlo: rápido, para que una trampa divertida no se vuelva agotadora
+const REINTENTO_MS = 1100;   // al morir: se ve la caída y la burla, y se reaparece en el punto de control
+const GAME_OVER_MS = 2200;   // sin vidas: un poco más (el mensaje explica qué se perdió)
+const SALTAR_ESPERA_MS = 400; // desde aquí, cualquier tecla o toque reaparece al instante
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
@@ -77,6 +89,16 @@ const EMPUJON_MS = 250;
 // cámara vertical (niveles con altura): dónde queda el personaje en la pantalla y qué tan rápido lo sigue
 const CAMARA_ALTURA_PJ = 0.62; // fracción de la pantalla desde arriba
 const CAMARA_SUAVIDAD_MS = 140; // más alto = sigue más lento
+// cámara horizontal: el personaje queda a ~40 % del ancho y se ve más escenario hacia donde va
+const CAMARA_POS_PJ = 0.37;        // fracción del ancho donde queda el personaje (yendo a la derecha)
+const CAMARA_ZONA_MUERTA = 0.04;   // fracción del ancho que se mueve el personaje sin que la cámara lo siga
+                                   // (corriendo queda entre ~35 % y ~45 %: 37 % + zona muerta + retraso)
+const CAMARA_SIGUE_MS = 110;       // suavidad del seguimiento horizontal
+const CAMARA_GIRO_MS = 650;        // al cambiar de dirección, la vista se reacomoda despacio (sin saltos)
+const CAMARA_BANDA_Y = 40;         // px: al caer más que esto por debajo del último piso, la cámara baja
+const CAMARA_MARGEN_ARRIBA = 0.15; // en el aire la cámara no sube, salvo que el personaje llegue a este borde
+// aparición al empezar un nivel: a ~30 % del ancho visible (no pegado al borde ni bajo los controles)
+const INICIO_POS_PJ = 0.3;
 const PAUSA_ASCENSOR = 1500; // ms que el ascensor espera en cada parada
 // enemigos que caen del cielo (emboscadas, monedas trampa, rejas...): nunca amontonados
 const SEPARACION_ENEMIGOS = 130; // px mínimos entre dos enemigos (se corre hasta encontrar sitio)
@@ -93,10 +115,28 @@ const ESPERA_PINCHOS = 450;
 const ZOOM = RESOLUCION;
 const VISTA = { width: 790, height: 380 };
 
-// los textos se dibujan con la misma resolución para que no se vean borrosos
+// los textos se dibujan con la misma resolución para que no se vean borrosos, y todos con la letra
+// moderna del juego (Poppins, cargada en index.html): los estilos viejos se convierten aquí
+const LETRA = '"Poppins", system-ui, sans-serif';
+function estiloModerno(estilo = {}) {
+    const e = { ...estilo };
+    const familia = e.fontFamily || '';
+    const pixelada = familia.includes('Press Start');
+    if (!familia || pixelada || familia === 'monospace') e.fontFamily = LETRA;
+    // la letra pixelada era muy ancha: Poppins necesita ~1,3 veces el tamaño para leerse igual
+    if (pixelada && parseFloat(e.fontSize)) e.fontSize = `${Math.round(parseFloat(e.fontSize) * 1.3)}px`;
+    if (!e.fontStyle) e.fontStyle = pixelada ? '600' : '500';
+    // contorno negro grueso (estilo antiguo) -> contorno fino y una sombra suave
+    if (e.strokeThickness) {
+        e.strokeThickness = Math.min(e.strokeThickness, 2);
+        e.stroke = 'rgba(0, 0, 0, 0.55)';
+        e.shadow = { offsetX: 0, offsetY: 2, color: 'rgba(0, 0, 0, 0.6)', blur: 6, fill: true, stroke: true, ...e.shadow };
+    }
+    return e;
+}
 const fabricaTexto = Phaser.GameObjects.GameObjectFactory.prototype.text;
 Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, texto, estilo) {
-    return fabricaTexto.call(this, x, y, texto, { resolution: ZOOM, ...estilo });
+    return fabricaTexto.call(this, x, y, texto, { resolution: ZOOM, ...estiloModerno(estilo) });
 };
 
 const config = {
@@ -105,6 +145,9 @@ const config = {
     height: VISTA.height * ZOOM,
     backgroundColor: '#05070f',
     parent: 'game',
+    // con la cámara suave las posiciones tienen decimales: se redondean al dibujar para que el
+    // pixel art no se vea borroso ni tiemble (las texturas de pixel art ya usan filtro NEAREST)
+    render: { roundPixels: true },
     // el juego se escala para llenar su contenedor sin deformarse (botón agrandar y pantalla completa)
     scale: {
         mode: Phaser.Scale.FIT,
@@ -147,11 +190,11 @@ const config = {
         {
             key: 'mapa',
             create(data) {
-                crearMapa(this, { ...data, personaje: personajeId, vidas, maxVidas: VIDAS_INICIALES, score, zoom: ZOOM });
+                crearMapa(this, { ...data, personaje: prepararVariante(this, animDe(personajeId)), vidas, maxVidas: VIDAS_INICIALES, score, zoom: ZOOM, abrirTienda });
             },
             update(time) { actualizarMapa(this, time); },
         },
-        // final: amanece en Monhabell y se muestran puntaje y muertes
+        // final: amanece en Albora y se muestran puntaje y muertes
         {
             key: 'final',
             create(data) { crearFinal(this, { zoom: ZOOM, ...data, alTerminar: () => this.scene.start('titulo') }); },
@@ -160,6 +203,14 @@ const config = {
     ]
 }
 
+// la letra se carga antes de empezar (un texto de Phaser no se redibuja si la letra llega tarde);
+// sin internet, a los 2,5 s se sigue con la letra del sistema
+try {
+    await Promise.race([
+        Promise.all(['400', '500', '600', '700'].map(peso => document.fonts.load(`${peso} 16px Poppins`))),
+        new Promise(listo => setTimeout(listo, 2500)),
+    ]);
+} catch (_e) { /* el navegador no permite cargar letras: letra del sistema */ }
 const juego = new Phaser.Game(config)
 globalThis.juegoMonhabell = juego; // para revisar el juego desde la consola del navegador (pruebas)
 
@@ -167,7 +218,34 @@ globalThis.juegoMonhabell = juego; // para revisar el juego desde la consola del
 iniciarTactil(juego);
 
 // menú de pausa y de configuración (menu.js); los ajustes viven en ajustes.js
+// tienda (capa HTML como los menús): se abre desde "Elige tu héroe" y desde el mapa entre niveles
+const abrirTienda = iniciarTienda();
+const abrirVestidor = iniciarVestidor(juego);
+// las estelas se equipan en el héroe marcado en "Elige tu héroe"; en las demás pantallas, en el que se juega
+usarHeroeActual(() => {
+    const sel = juego.scene.isActive('seleccion') && juego.scene.getScene('seleccion');
+    return sel ? PERSONAJES[sel.indiceSel]?.id ?? personajeId : personajeId;
+});
+// el progreso guardado de antes de la tienda cuenta para los premios de los jefes
+registrarNivel(leerPartida()?.nivel ?? 0);
+
+// fuera de un nivel, el botón dorado de la tienda abre la tienda de la pantalla actual
+// (elegir héroe y el mapa saben esperar a que se cierre)
+function abrirTiendaFuera() {
+    const activa = clave => juego.scene.isActive(clave) && juego.scene.getScene(clave);
+    if (activa('seleccion')?.abrirTiendaSel) activa('seleccion').abrirTiendaSel();
+    else if (activa('mapa')?.irATienda) activa('mapa').irATienda();
+    else abrirTienda();
+}
+// al cerrar la tienda en medio de un nivel se actualizan las monedas del HUD
+const abrirTiendaEnJuego = alCerrar => abrirTienda(() => {
+    const nivel = juego.scene.getScene('juego');
+    if (nivel?.monedasText?.active) actualizarMonedasHud(nivel);
+    alCerrar?.();
+});
+
 iniciarMenus(juego, {
+    abrirTienda: abrirTiendaEnJuego, tiendaFuera: abrirTiendaFuera,
     aplicar: aplicarAjustes,
     salirAlMenu: () => {
         if (red.codigo) salirSala(); // salir del nivel en línea también es dejar la sala
@@ -222,6 +300,7 @@ function aplicarAjustes() {
         nivel.cameras.main.setZoom(zoomCamara());
         // de golpe sobre el personaje: con el juego en pausa la cámara no lo seguiría
         nivel.camaraVerticalLista = false;
+        nivel.camaraHorizontalLista = false;
         moverCamara(nivel);
     }
     verColisiones(nivel);
@@ -370,7 +449,10 @@ function create() {
     this.metaRemota = false;
     this.dibujoCadena = null;
     this.nivelTerminado = false;
-    this.pj = PERSONAJES.find(pj => pj.id === personajeId);
+    // con la mejora de héroe comprada en la tienda (si la tiene)
+    // y con los colores elegidos en el vestidor (anim: prefijo de sus animaciones)
+    const pjBase = personajeConMejoras(PERSONAJES.find(pj => pj.id === personajeId));
+    this.pj = { ...pjBase, anim: prepararVariante(this, animDe(pjBase)) };
     flechas = FLECHAS_INICIALES;
     this.mana = MANA_MAXIMO;
     this.enfriamientos = {};
@@ -396,8 +478,9 @@ function create() {
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = (nivel.velEnemigos ?? 50) * factorEnemigos(); // la dificultad los acelera o frena
     // vidas según la dificultad elegida (si se bajó en medio de la partida, se recortan)
-    VIDAS_INICIALES = vidasMaximas();
+    VIDAS_INICIALES = vidasTotales();
     vidas = Math.min(vidas, VIDAS_INICIALES);
+    this.bolsa = 0; // monedas juntadas que todavía no se guardaron (ver tienda.js)
     // enemigos que caminan en este nivel (se van turnando)
     this.mezcla = nivel.mezcla || ['zombie1', 'zombie2', 'zombie3'];
     this.contEnemigos = 0;
@@ -428,8 +511,8 @@ function create() {
     if (nivelActual === 0) construirNivel1(this);
     construirNivel(this, nivel);
 
-    // monedas
-    monedas(this, nivel.monedas);
+    // monedas (las que quedan detrás del punto de control no reaparecen: ya se guardaron al pasar)
+    monedas(this, checkpointX == null ? nivel.monedas : (nivel.monedas || []).filter(([x]) => x > checkpointX));
 
     // carteles, monedas trampa, rocas, estatuas falsas, plataformas que muerden, banderas falsas y gigantes
     crearSorpresas(this, nivel, checkpointX ?? 0);
@@ -470,8 +553,9 @@ function create() {
     });
 
     // aparece en el último punto de control; si no hay, donde diga el nivel (p. ej. arriba del cráter)
-    const [inicioX, inicioY] = checkpointX == null && nivel.inicio ? nivel.inicio : [checkpointX ?? 50, 100];
-    this.mascotaGesi = this.physics.add.sprite(inicioX, inicioY, `${this.pj.id}-idle`)
+    const [inicioX, inicioY] = checkpointX == null && nivel.inicio ? nivel.inicio
+        : [checkpointX ?? lugarDeInicio(this, VISTA.width * ZOOM / zoomCamara()), 100];
+    this.mascotaGesi = this.physics.add.sprite(inicioX, inicioY, `${this.pj.anim}-idle`)
         .setScale(1)
         .setCollideWorldBounds(true)// asegura que no salga de los limites del juego
         .setGravityY(480); // aplicar garvedad vertical
@@ -552,6 +636,8 @@ function create() {
     // el suelo, la lava y el jefe siguen en su sitio y las secciones altas quedan en y negativa
     this.altoNivel = nivel.alto || 0;
     this.camaraVerticalLista = false;
+    this.camaraHorizontalLista = false;
+    this.camaraMira = 1;
     this.physics.world.setBounds(0, -this.altoNivel, nivel.ancho, VISTA.height + this.altoNivel);
 
     // camara
@@ -588,6 +674,12 @@ function create() {
     actualizarRecurso(this);
     this.muertesText = this.add.text(VISTA.width - 130, 15, `☠ ${muertes}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
+    // monedas: las guardadas y, en lavanda, las de la bolsa (se guardan en el próximo punto de control)
+    this.monedasText = this.add.text(VISTA.width - 196, 15, '', estiloHud).setOrigin(1, 0).setScrollFactor(0).setDepth(50);
+    this.bolsaText = this.add.text(VISTA.width - 192, 17, '', { ...estiloHud, fontSize: '12px', fill: '#b9c3ff' })
+        .setScrollFactor(0).setDepth(50);
+    actualizarMonedasHud(this);
+    crearEstela(this); // apariencia comprada en la tienda (solo visual)
     this.nivelText = this.add.text(VISTA.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
@@ -623,6 +715,18 @@ ${red.jugadores.length} jugadores en cadena`, 2400);
 }
 
 // la cámara sigue a Gesi sin mostrar nada fuera del nivel
+// x donde aparece el personaje al empezar un nivel: lo más cerca posible del 30 % del ancho visible,
+// sobre el suelo de abajo, sin plataformas ni bloques encima y sin lava (si no hay, en x = 50)
+function lugarDeInicio(scene, anchoVista) {
+    const piezas = scene.floor.getChildren().filter(p => p.body && p.body.enable && !p.esFalso);
+    const libre = x => {
+        const aqui = piezas.filter(p => x - 20 > p.body.left && x + 20 < p.body.right);
+        return aqui.some(p => Math.abs(p.body.top - SUELO_Y) < 6) && !aqui.some(p => p.body.top < SUELO_Y - 6);
+    };
+    for (let x = Math.round(anchoVista * INICIO_POS_PJ); x > 50; x -= 10) if (libre(x)) return x;
+    return 50;
+}
+
 function moverCamara(scene) {
     const g = scene.mascotaGesi;
     const cam = scene.cameras.main;
@@ -631,17 +735,42 @@ function moverCamara(scene) {
     // modo cadena: se sigue el punto medio entre los dos jugadores
     const c = scene.compa?.active ? scene.compa : null;
     const fx = c ? (g.x + c.x) / 2 : g.x, fy = c ? (g.y + c.y) / 2 : g.y;
-    if (!g.isDead || scene.camaraArena) {
-        const centro = scene.camaraArena ?? fx;
-        cam.scrollX = Phaser.Math.Clamp(centro - anchoVista / 2, 0, Math.max(0, scene.anchoNivel - anchoVista));
+    const dt = scene.game.loop.delta;
+    if (scene.camaraArena) {
+        cam.scrollX = Phaser.Math.Clamp(scene.camaraArena - anchoVista / 2, 0, Math.max(0, scene.anchoNivel - anchoVista));
+    } else if (!g.isDead) {
+        // mira hacia donde se mueve: yendo a la derecha el personaje queda a ~40 % (más espacio delante);
+        // quieto, mantiene la última dirección (la cámara no se mueve por soltar la tecla)
+        const vx = c ? (g.body.velocity.x + c.body.velocity.x) / 2 : g.body.velocity.x;
+        if (Math.abs(vx) > 40) scene.camaraMira = Math.sign(vx);
+        const lista = scene.camaraHorizontalLista;
+        const objetivoMira = (0.5 - CAMARA_POS_PJ) * (scene.camaraMira ?? 1);
+        scene.camaraAdelanto = lista
+            ? scene.camaraAdelanto + (objetivoMira - scene.camaraAdelanto) * (1 - Math.exp(-dt / CAMARA_GIRO_MS))
+            : objetivoMira;
+        const objetivo = Phaser.Math.Clamp(fx - anchoVista * (0.5 - scene.camaraAdelanto), 0, Math.max(0, scene.anchoNivel - anchoVista));
+        // zona muerta: mientras el personaje no se aleje del punto ideal, la cámara no se mueve
+        const zona = anchoVista * CAMARA_ZONA_MUERTA, error = objetivo - cam.scrollX;
+        const destino = Math.abs(error) > zona ? objetivo - Math.sign(error) * zona : cam.scrollX;
+        // al empezar (o reaparecer) se coloca de golpe; después lo sigue con suavidad
+        cam.scrollX = lista ? cam.scrollX + (destino - cam.scrollX) * (1 - Math.exp(-dt / CAMARA_SIGUE_MS)) : objetivo;
+        scene.camaraHorizontalLista = true;
     }
     const abajo = VISTA.height - altoVista; // el suelo abajo del todo; lo extra se ve arriba (cielo)
     if (!scene.altoNivel || scene.camaraArena) {
         cam.scrollY = abajo;
     } else if (!g.isDead) {
         // en los niveles con altura la cámara sigue al personaje en vertical, con suavidad
-        // (lo deja algo por debajo del centro: se ve más de lo que hay arriba, adonde se va)
-        const objetivo = Phaser.Math.Clamp(fy - altoVista * CAMARA_ALTURA_PJ, abajo - scene.altoNivel, abajo);
+        // (lo deja algo por debajo del centro: se ve más de lo que hay arriba, adonde se va).
+        // No sube con los saltos (así siempre se ve dónde vas a caer): usa la altura del último piso.
+        // Al caer por debajo de ese piso baja enseguida; al aterrizar más arriba sube con suavidad
+        const pisando = g.body.blocked.down || g.body.touching.down;
+        if (!scene.camaraVerticalLista || pisando) scene.camaraAlturaRef = fy;
+        else if (fy > scene.camaraAlturaRef + CAMARA_BANDA_Y) scene.camaraAlturaRef = fy - CAMARA_BANDA_Y;
+        let objetivo = scene.camaraAlturaRef - altoVista * CAMARA_ALTURA_PJ;
+        // salvo que el personaje esté por salir de la pantalla por arriba (salto muy alto, seta, doble salto)
+        objetivo = Math.min(objetivo, fy - altoVista * CAMARA_MARGEN_ARRIBA);
+        objetivo = Phaser.Math.Clamp(objetivo, abajo - scene.altoNivel, abajo);
         // al empezar (o reaparecer) se coloca de golpe; después lo sigue con suavidad
         const k = scene.camaraVerticalLista ? 1 - Math.exp(-scene.game.loop.delta / CAMARA_SUAVIDAD_MS) : 1;
         cam.scrollY += (objetivo - cam.scrollY) * k;
@@ -690,101 +819,249 @@ function prepararAnimaciones(scene) {
 }
 
 // ---------- Pantalla de selección de personaje ----------
+// El héroe marcado se muestra GRANDE en el escenario (con su color de fondo y su nombre gigante
+// detrás); a la derecha, sus datos; abajo, los 6 héroes en miniatura para cambiar.
+const HEROE = { x: 230, pie: 318, escala: 3.1 };
+const MINI = { y: 338, w: 58, h: 46, paso: 66 };
+
 function crearSeleccion() {
     prepararAnimaciones(this);
     this.cameras.main.setOrigin(0).setZoom(ZOOM);
+    resplandor(this);
+
+    // fondo: degradado azul noche, estrellas y el castillo apenas visible
+    this.add.graphics().fillGradientStyle(0x141b38, 0x141b38, 0x05060c, 0x05060c, 1).fillRect(0, 0, VISTA.width, VISTA.height);
+    for (let i = 0; i < 50; i++) {
+        this.add.circle(Phaser.Math.Between(0, VISTA.width), Phaser.Math.Between(0, 220), Math.random() < 0.15 ? 1.1 : 0.6, 0xdfe4ff, Phaser.Math.FloatBetween(0.2, 0.7));
+    }
+    this.add.image(VISTA.width - 120, VISTA.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(0.5).setTint(0x161b30).setAlpha(0.8);
     crearNieblaSeleccion(this);
-    this.add.image(VISTA.width / 2, VISTA.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(0.625).setTint(0x2c3140);
-    this.nieblaAlta.setDepth(1);
+    this.nieblaAlta.setDepth(1).setTint(0x8b9cff).setAlpha(0.15); // niebla lavanda (antes verde)
+    this.nieblaBaja.setTint(0x8b9cff).setAlpha(0.22);
 
-    this.add.text(VISTA.width / 2, 22, 'ELIGE TU HEROE', {
-        fontFamily: '"Press Start 2P", monospace', fontSize: '18px', fill: '#fff', stroke: '#000', strokeThickness: 5
-    }).setOrigin(0.5);
+    this.add.text(VISTA.width / 2, 22, 'Elige tu héroe', { fontSize: '20px', fill: '#fff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
 
-    const estilo = (tam, color = '#fff') => ({ fontFamily: 'monospace', fontSize: tam, fill: color, stroke: '#000', strokeThickness: 3, align: 'center' });
     // si hay partida guardada, se elige el personaje con el que se venía jugando
     this.partida = leerPartida();
     if (this.partida && this.partida.nivel === 0 && !this.partida.score) this.partida = null; // nada que continuar
     if (this.partida) personajeId = this.partida.personaje || personajeId;
     this.indiceSel = Math.max(0, PERSONAJES.findIndex(pj => pj.id === personajeId));
-    // tarjetas pequeñas en fila (caben los 6) y abajo el detalle del personaje marcado
-    const ANCHO_TARJETA = 118, PASO = 126;
-    this.tarjetas = PERSONAJES.map((pj, i) => {
-        const x = VISTA.width / 2 + (i - (PERSONAJES.length - 1) / 2) * PASO;
-        const panel = this.add.rectangle(x, 133, ANCHO_TARJETA, 150, 0x000000, 0.55).setStrokeStyle(3, 0x666666)
+
+    // escenario del héroe: luz de su color, nombre gigante detrás, sombra y aro de luz en el piso
+    const e = this.escenario = {};
+    e.luz = this.add.image(HEROE.x, HEROE.pie - 110, 'resplandor').setScale(3.6).setAlpha(0.3).setBlendMode('ADD').setDepth(2);
+    e.marca = this.add.text(HEROE.x, HEROE.pie - 120, '', { fontSize: '96px', fontStyle: '700', color: '#ffffff' })
+        .setOrigin(0.5).setAlpha(0.05).setDepth(2);
+    e.piso = this.add.image(HEROE.x, HEROE.pie, 'resplandor').setScale(1.9, 0.35).setAlpha(0.5).setBlendMode('ADD').setDepth(3);
+    e.sombra = this.add.ellipse(HEROE.x, HEROE.pie, 110, 16, 0x000000, 0.45).setDepth(3);
+    e.sprite = this.add.sprite(HEROE.x, HEROE.pie + 4, `${animSel(this, PERSONAJES[this.indiceSel])}-idle`).setOrigin(0.5, 1)
+        .setScale(HEROE.escala).setDepth(4).setInteractive({ useHandCursor: true });
+    e.sprite.on('pointerdown', () => empezarJuego(this, true));
+    // después de un ataque vuelve a quedarse quieto
+    e.sprite.on('animationcomplete', anim => {
+        if (!anim.key.endsWith('-idle')) e.sprite.anims.play(`${animSel(this, PERSONAJES[this.indiceSel])}-idle`, true);
+    });
+    // cada tanto el héroe hace un ataque, para lucirse
+    this.time.addEvent({
+        delay: 3200, loop: true, callback: () => {
+            const pj = PERSONAJES[this.indiceSel];
+            if (this.anims.exists(`${animSel(this, pj)}-atk1`)) e.sprite.anims.play(`${animSel(this, pj)}-atk1`, true);
+        },
+    });
+    // flechas para cambiar de héroe
+    const cambiar = paso => {
+        this.indiceSel = (this.indiceSel + paso + PERSONAJES.length) % PERSONAJES.length;
+        marcarSeleccion(this);
+        this.sound.play('menu_mover', { volume: 0.5 });
+    };
+    [-1, 1].forEach(lado => {
+        const x = HEROE.x + lado * 150;
+        const boton = this.add.circle(x, HEROE.pie - 100, 19, 0xffffff, 0.1).setStrokeStyle(1, 0xffffff, 0.3).setDepth(5)
             .setInteractive({ useHandCursor: true });
-        const sprite = this.add.sprite(x - 2, 98, `${pj.id}-idle`).anims.play(`${pj.id}-idle`);
-        this.add.text(x, 180, pj.nombre, { ...estilo('14px', colorTexto(pj)), fontStyle: 'bold' }).setOrigin(0.5);
-        this.add.text(x, 196, pj.titulo, estilo('9px', '#ddd')).setOrigin(0.5);
-        panel.on('pointerdown', () => {
-            if (this.indiceSel === i) empezarJuego(this, true);
-            else this.sound.play('menu_mover', { volume: 0.5 });
-            this.indiceSel = i;
-            marcarSeleccion(this);
-        });
-        return { panel, sprite, pj };
+        this.add.text(x, HEROE.pie - 102, lado < 0 ? '‹' : '›', { fontSize: '28px', color: '#ffffff', fontStyle: '600' }).setOrigin(0.5).setDepth(5);
+        boton.on('pointerover', () => boton.setFillStyle(0xffffff, 0.22));
+        boton.on('pointerout', () => boton.setFillStyle(0xffffff, 0.1));
+        boton.on('pointerdown', () => cambiar(lado));
     });
 
-    // detalle del marcado: poderes, pasiva y su frase
-    this.add.rectangle(VISTA.width / 2, 284, 748, 126, 0x000000, 0.6).setStrokeStyle(2, 0x2f8fb0);
+    // datos del héroe (derecha), sobre un panel de vidrio
+    const P = { x: 440, y: 62, w: 330, h: 240 };
+    this.add.graphics().setDepth(4).fillStyle(0x0d1220, 0.72).fillRoundedRect(P.x, P.y, P.w, P.h, 18)
+        .lineStyle(1, 0xffffff, 0.09).strokeRoundedRect(P.x, P.y, P.w, P.h, 18);
+    const X = P.x + 22;
     this.detalle = {
-        nombre: this.add.text(40, 232, '', { ...estilo('16px'), fontStyle: 'bold', align: 'left' }),
-        titulo: this.add.text(40, 254, '', { ...estilo('11px', '#ddd'), align: 'left' }),
-        pasiva: this.add.text(40, 276, '', { ...estilo('11px', '#ffe066'), align: 'left' }),
-        frase: this.add.text(40, 300, '', { ...estilo('10px', '#b9c6e0'), fontStyle: 'italic', align: 'left', wordWrap: { width: 320 } }),
-        poderes: this.add.text(392, 236, '', { ...estilo('11px'), align: 'left', lineSpacing: 9 }),
+        nombre: this.add.text(X, P.y + 32, '', { fontSize: '30px', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5),
+        titulo: this.add.text(X, P.y + 60, '', { fontSize: '12px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5),
+        pasiva: this.add.text(X, P.y + 86, '', { fontSize: '11px', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: { x: 8, y: 4 } })
+            .setOrigin(0, 0.5).setDepth(5),
+        frase: this.add.text(X, P.y + 114, '', { fontSize: '11px', color: '#7f88a6', fontStyle: 'italic', wordWrap: { width: P.w - 44 } })
+            .setOrigin(0, 0.5).setDepth(5),
+        // poderes: tecla en una pastilla y el nombre al lado
+        teclas: ['ESPACIO', 'X', 'C'].map((t, i) => this.add.text(X, P.y + 142 + i * 22, t, {
+            fontSize: '9px', fontStyle: '600', color: '#c9d0e6', backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: { x: 6, y: 3 },
+        }).setOrigin(0, 0.5).setDepth(5)),
+        poderes: [0, 1, 2].map(i => this.add.text(X + 74, P.y + 142 + i * 22, '', { fontSize: '12px', color: '#eef1f7' })
+            .setOrigin(0, 0.5).setDepth(5)),
     };
+
+    // botón para elegir al héroe marcado (se pinta con su color en marcarSeleccion)
+    const B = { x: X, y: P.y + P.h - 40, w: P.w - 44, h: 30 };
+    this.botonElegir = {
+        ...B,
+        fondo: this.add.graphics().setDepth(5),
+        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2, '', { fontSize: '13px', fontStyle: '600', color: '#ffffff' }).setOrigin(0.5).setDepth(6),
+        encima: false,
+    };
+    const zonaElegir = this.add.zone(B.x + B.w / 2, B.y + B.h / 2, B.w, B.h).setDepth(7).setInteractive({ useHandCursor: true });
+    zonaElegir.on('pointerover', () => { this.botonElegir.encima = true; pintarBotonElegir(this); });
+    zonaElegir.on('pointerout', () => { this.botonElegir.encima = false; pintarBotonElegir(this); });
+    zonaElegir.on('pointerdown', () => empezarJuego(this, true));
+
+    // los 6 héroes en miniatura (abajo), con flechas a los lados para ver el anterior y el siguiente
+    const x0 = VISTA.width / 2 - ((PERSONAJES.length - 1) * MINI.paso) / 2;
+    [-1, 1].forEach(lado => {
+        const x = lado < 0 ? x0 - MINI.w / 2 - 22 : x0 + (PERSONAJES.length - 1) * MINI.paso + MINI.w / 2 + 22;
+        const boton = this.add.circle(x, MINI.y, 14, 0xffffff, 0.1).setStrokeStyle(1, 0xffffff, 0.3).setDepth(5)
+            .setInteractive({ useHandCursor: true });
+        this.add.text(x, MINI.y - 2, lado < 0 ? '‹' : '›', { fontSize: '22px', color: '#ffffff', fontStyle: '600' }).setOrigin(0.5).setDepth(5);
+        boton.on('pointerover', () => boton.setFillStyle(0xffffff, 0.22));
+        boton.on('pointerout', () => boton.setFillStyle(0xffffff, 0.1));
+        boton.on('pointerdown', () => cambiar(lado));
+    });
+    this.tarjetas = PERSONAJES.map((pj, i) => {
+        const x = x0 + i * MINI.paso;
+        const fondo = this.add.graphics().setDepth(5);
+        const sprite = this.add.sprite(x, MINI.y + MINI.h / 2 + 2, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.62).setDepth(6);
+        const zona = this.add.zone(x, MINI.y, MINI.w, MINI.h).setDepth(7).setInteractive({ useHandCursor: true });
+        zona.on('pointerdown', () => {
+            if (this.indiceSel === i) empezarJuego(this, true);
+            else { this.indiceSel = i; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
+        });
+        return { fondo, x, sprite, pj };
+    });
 
     if (this.partida) {
         // botón para empezar desde cero (pide un segundo clic para confirmar)
-        const boton = this.add.text(16, 14, '↺ DESDE EL NIVEL 1', {
-            fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#ffd6d6',
-            backgroundColor: '#6e141e', padding: { x: 6, y: 6 },
+        const boton = this.add.text(16, 14, '↺ Desde el nivel 1', {
+            fontSize: '11px', color: '#ff8a94', backgroundColor: 'rgba(255, 107, 120, 0.14)', padding: { x: 10, y: 6 },
         }).setDepth(5).setInteractive({ useHandCursor: true });
         let confirmar = false;
         boton.on('pointerdown', () => {
             if (!confirmar) {
                 confirmar = true;
-                boton.setText('¿SEGURO? CLIC OTRA VEZ').setBackgroundColor('#a3122a');
+                boton.setText('¿Seguro? Clic otra vez').setBackgroundColor('rgba(255, 107, 120, 0.32)');
                 this.sound.play('vacio', { volume: 0.5 });
                 this.time.delayedCall(3000, () => {
-                    if (boton.active) { confirmar = false; boton.setText('↺ DESDE EL NIVEL 1').setBackgroundColor('#6e141e'); }
+                    if (boton.active) { confirmar = false; boton.setText('↺ Desde el nivel 1').setBackgroundColor('rgba(255, 107, 120, 0.14)'); }
                 });
             } else {
                 empezarJuego(this, false);
             }
         });
         const n = this.partida.nivel;
-        this.add.text(VISTA.width / 2, 44, `Partida guardada: Nivel ${n + 1} · ${NIVELES[n].nombre}`, estilo('11px', '#9fe6ff')).setOrigin(0.5);
-        this.add.text(VISTA.width / 2, 366, `← → personaje   ·   ENTER: continuar en el Nivel ${n + 1}   ·   N: nueva partida`, estilo('12px', '#ffe066')).setOrigin(0.5);
+        this.add.text(VISTA.width / 2, 44, `Partida guardada · Nivel ${n + 1}: ${NIVELES[n].nombre}`, { fontSize: '11px', color: '#9aa3bf' }).setOrigin(0.5).setDepth(5);
+        this.add.text(VISTA.width / 2, 372, `← → elegir  ·  Enter: continuar en el nivel ${n + 1}  ·  N: nueva partida`, { fontSize: '9px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
     } else {
-        this.add.text(VISTA.width / 2, 366, '← → elegir   ·   ENTER o ESPACIO jugar   ·   F pantalla completa', estilo('12px', '#ffe066')).setOrigin(0.5);
+        this.add.text(VISTA.width / 2, 372, '← → elegir  ·  Enter o Espacio: jugar  ·  F: pantalla completa', { fontSize: '9px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
     }
-    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N' });
-    marcarSeleccion(this);
+    // vestidor: colores de la ropa, el pelo y los ojos del héroe marcado (botón sobre el héroe o tecla V)
+    const botonVestir = this.add.text(HEROE.x, 70, '🎨  Personalizar', {
+        fontSize: '11px', fontStyle: '600', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: { x: 12, y: 6 },
+    }).setOrigin(0.5).setDepth(6).setInteractive({ useHandCursor: true });
+    botonVestir.on('pointerover', () => botonVestir.setBackgroundColor('rgba(255, 255, 255, 0.2)'));
+    botonVestir.on('pointerout', () => botonVestir.setBackgroundColor('rgba(255, 255, 255, 0.1)'));
+    this.abrirVestidorSel = () => {
+        if (this.tiendaAbierta) return;
+        this.tiendaAbierta = true; // (bloquea las teclas igual que la tienda)
+        abrirVestidor(PERSONAJES[this.indiceSel].id, () => {
+            this.tiendaAbierta = false;
+            this.tarjetas.forEach(t => t.sprite.setTexture(`${animSel(this, t.pj)}-idle`, 0));
+            marcarSeleccion(this, true);
+        });
+    };
+    botonVestir.on('pointerdown', this.abrirVestidorSel);
+
+    // tienda (arriba a la derecha, o tecla T)
+    const botonTienda = this.add.text(VISTA.width - 16, 14, `◉ ${saldo()}  ·  Tienda`, {
+        fontSize: '11px', fontStyle: '600', color: '#ffd27a', backgroundColor: 'rgba(255, 210, 122, 0.14)', padding: { x: 10, y: 6 },
+    }).setOrigin(1, 0).setDepth(5).setInteractive({ useHandCursor: true });
+    this.abrirTiendaSel = () => {
+        if (this.tiendaAbierta) return;
+        this.tiendaAbierta = true;
+        abrirTienda(() => {
+            this.tiendaAbierta = false;
+            botonTienda.setText(`◉ ${saldo()}  ·  Tienda`);
+            marcarSeleccion(this, true); // (la cantidad de corazones puede haber cambiado)
+        });
+    };
+    botonTienda.on('pointerdown', this.abrirTiendaSel);
+    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N', tienda: 'T', vestir: 'V' });
+    marcarSeleccion(this, true);
 }
 
 const colorTexto = pj => '#' + pj.color.toString(16).padStart(6, '0');
+// prefijo de animaciones del héroe con los colores del vestidor (arma la variante si hace falta)
+const animSel = (scene, pj) => prepararVariante(scene, animDe(pj));
 
-function marcarSeleccion(scene) {
+// brillo radial suave (propio de estas pantallas: no depende de que se haya creado el de los niveles)
+function resplandor(scene) {
+    if (scene.textures.exists('resplandor')) return;
+    const t = scene.textures.createCanvas('resplandor', 128, 128), ctx = t.getContext();
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    g.addColorStop(0.4, 'rgba(255, 255, 255, 0.35)');
+    g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    t.refresh();
+}
+
+function marcarSeleccion(scene, inicio = false) {
+    const pj = PERSONAJES[scene.indiceSel], h = pj.habilidades, d = scene.detalle, e = scene.escenario;
+    // miniaturas: la elegida con el borde de su color
     scene.tarjetas.forEach((t, i) => {
         const elegido = i === scene.indiceSel;
-        t.panel.setStrokeStyle(elegido ? 4 : 2, elegido ? t.pj.color : 0x666666);
-        t.panel.setFillStyle(0x000000, elegido ? 0.75 : 0.45);
-        t.sprite.setAlpha(elegido ? 1 : 0.6);
-        t.sprite.anims.play(`${t.pj.id}-${elegido ? 'run' : 'idle'}`, true);
+        t.fondo.clear()
+            .fillStyle(elegido ? 0x1a2240 : 0x0d1220, elegido ? 0.92 : 0.6).fillRoundedRect(t.x - MINI.w / 2, MINI.y - MINI.h / 2, MINI.w, MINI.h, 12)
+            .lineStyle(elegido ? 2 : 1, elegido ? t.pj.color : 0xffffff, elegido ? 1 : 0.1)
+            .strokeRoundedRect(t.x - MINI.w / 2, MINI.y - MINI.h / 2, MINI.w, MINI.h, 12);
+        t.sprite.setAlpha(elegido ? 1 : 0.55);
     });
-    const pj = PERSONAJES[scene.indiceSel], h = pj.habilidades, d = scene.detalle;
+    // héroe grande: entra con un salto y se queda quieto
+    e.sprite.anims.play(`${animSel(scene, pj)}-${inicio ? 'idle' : 'jump'}`, true);
+    e.luz.setTint(pj.color);
+    e.piso.setTint(pj.color);
+    e.marca.setText(pj.nombre.toUpperCase());
+    if (!inicio && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        scene.tweens.killTweensOf([e.sprite, e.marca]);
+        e.sprite.setAlpha(0.3).setScale(HEROE.escala * 0.92);
+        scene.tweens.add({ targets: e.sprite, alpha: 1, scale: HEROE.escala, duration: 260, ease: 'Back.out' });
+        e.marca.setAlpha(0);
+        scene.tweens.add({ targets: e.marca, alpha: 0.05, duration: 400 });
+    }
     d.nombre.setText(pj.nombre).setColor(colorTexto(pj));
     d.titulo.setText(pj.titulo);
     d.pasiva.setText(`★ ${pj.pasiva}`);
     d.frase.setText(`"${pj.frase}"`);
-    d.poderes.setText([`ESPACIO: ${h.espacio.nombre}`, `X:       ${h.x.nombre}`, `C:       ${h.c.nombre}`].join('\n'));
+    const mejorado = personajeConMejoras(pj).habilidades;
+    ['espacio', 'x', 'c'].forEach((k, i) => d.poderes[i].setText(`${h[k].nombre}${mejorado[k].mejorada ? '  ✦ mejorada' : ''}`));
+    pintarBotonElegir(scene);
+}
+
+// botón "Jugar con ..." del color del héroe marcado (más claro con el mouse encima)
+function pintarBotonElegir(scene) {
+    const b = scene.botonElegir, pj = PERSONAJES[scene.indiceSel];
+    const color = b.encima ? Phaser.Display.Color.ValueToColor(pj.color).lighten(12).color : pj.color;
+    b.fondo.clear().fillStyle(color, 1).fillRoundedRect(b.x, b.y, b.w, b.h, b.h / 2);
+    b.texto.setText(`${scene.partida ? 'Continuar' : 'Jugar'} con ${pj.nombre}  →`);
 }
 
 function actualizarSeleccion(time) {
     moverNieblaSeleccion(this, time);
     const k = this.teclasSel, JD = Phaser.Input.Keyboard.JustDown;
+    if (this.tiendaAbierta) return; // con la tienda abierta, las teclas son de la tienda
+    if (JD(k.tienda)) { this.abrirTiendaSel(); return; }
+    if (JD(k.vestir)) { this.abrirVestidorSel(); return; }
     if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.enter) || JD(k.espacio)) empezarJuego(this, true);
@@ -806,7 +1083,8 @@ function empezarJuego(scene, continuar = true) {
 
 function reiniciarPartida() {
     vidaJefeGuardada = null;
-    vidas = VIDAS_INICIALES = vidasMaximas();
+    vidas = VIDAS_INICIALES = vidasTotales();
+    runaNivel = -1;
     nivelActual = 0;
     score = 0;
     scoreInicioNivel = 0;
@@ -838,7 +1116,8 @@ function borrarPartida() {
 // sigue desde el comienzo del nivel guardado, con las vidas llenas
 function continuarPartida(p) {
     vidaJefeGuardada = null;
-    vidas = VIDAS_INICIALES = vidasMaximas();
+    vidas = VIDAS_INICIALES = vidasTotales();
+    runaNivel = -1;
     nivelActual = p.nivel;
     score = p.score || 0;
     scoreInicioNivel = score;
@@ -1257,7 +1536,8 @@ function activarCheckpoint(scene, cp, remoto = false) {
     checkpointX = Math.max(checkpointX ?? 0, cp.x);
     encenderEstatua(scene, cp);
     scene.sound.play('punto_control', { volume: 0.6 });
-    mostrarMensaje(scene, '¡PUNTO DE CONTROL!', 1200);
+    mostrarMensaje(scene, scene.bolsa ? `¡PUNTO DE CONTROL!\n◉ ${scene.bolsa} monedas guardadas` : '¡PUNTO DE CONTROL!', 1200);
+    guardarBolsa(scene);
 }
 
 // tipo: clave de ENEMIGOS; sin tipo se usa el siguiente de la mezcla del nivel
@@ -1737,6 +2017,7 @@ function golpearBloque(mascotaGesi, pieza) {
     this.tweens.add({ targets: moneda, y: moneda.y - 40, alpha: 0, duration: 500, onComplete: () => moneda.destroy() });
     this.sound.play('moneda');
     addToScore(100, bloque, this);
+    sumarABolsa(this);
 }
 
 function revelarBloque(_mascotaGesi, bloque) {
@@ -1804,7 +2085,7 @@ function actualizarRecurso(scene) {
 
 function animar(scene, clave) {
     if (scene.atacando) return; // no cortar la animación de ataque
-    scene.mascotaGesi.anims.play(`${scene.pj.id}-${clave}`, true);
+    scene.mascotaGesi.anims.play(`${scene.pj.anim}-${clave}`, true);
 }
 
 // ---------- Habilidades (ESPACIO, X, C) ----------
@@ -1839,7 +2120,7 @@ function usarHabilidad(scene, tecla) {
     const g = scene.mascotaGesi;
     // la parada de Leo empieza en cuanto aprieta la tecla (no cuando sale el golpe)
     if (h.parada) scene.paradaHasta = scene.time.now + h.parada;
-    const clave = `${scene.pj.id}-${h.anim}`;
+    const clave = `${scene.pj.anim}-${h.anim}`;
     const anim = scene.anims.get(clave);
     scene.atacando = true;
     g.anims.play(clave, true);
@@ -2024,6 +2305,24 @@ function actualizarTrampas(scene) {
     });
 }
 
+// Imán de monedas (tienda.js): las monedas cercanas vuelan hacia el personaje... también las falsas
+const ALCANCE_IMAN = 60;
+function atraerMonedas(scene) {
+    const g = scene.mascotaGesi;
+    if (g.isDead) return;
+    const c = g.body.center;
+    scene.coins.getChildren().forEach(m => {
+        if (!m.active || !m.body?.enable || m.atraida) return;
+        if (Phaser.Math.Distance.Between(m.x, m.y, c.x, c.y) > ALCANCE_IMAN) return;
+        m.atraida = true;
+        m.body.enable = false;
+        scene.tweens.add({
+            targets: m, x: c.x, y: c.y, duration: 140, ease: 'Quad.in',
+            onComplete: () => { m.body.enable = true; collectCoin.call(scene, g, m); },
+        });
+    });
+}
+
 function collectCoin(_mascotaGesi, coin) {
     coin.disableBody(true, true);
     if (coin.trampa) {
@@ -2032,6 +2331,25 @@ function collectCoin(_mascotaGesi, coin) {
     }
     this.sound.play('moneda');
     addToScore(100, coin, this);
+    sumarABolsa(this);
+}
+
+// moneda juntada: a la bolsa (se guarda al activar un punto de control o al terminar el nivel)
+function sumarABolsa(scene, n = 1) {
+    scene.bolsa = (scene.bolsa || 0) + n;
+    actualizarMonedasHud(scene);
+}
+function guardarBolsa(scene) {
+    if (!scene.bolsa) return;
+    sumarMonedas(scene.bolsa);
+    scene.bolsa = 0;
+    actualizarMonedasHud(scene);
+    if (scene.monedasText) scene.tweens.add({ targets: scene.monedasText, scale: 1.25, yoyo: true, duration: 150 });
+}
+function actualizarMonedasHud(scene) {
+    if (!scene.monedasText) return;
+    scene.monedasText.setText(`◉ ${saldo()}`);
+    scene.bolsaText.setText(scene.bolsa ? `+${scene.bolsa}` : '');
 }
 
 function addToScore(scoreToAdd, origin, game) {
@@ -2137,6 +2455,8 @@ function completarNivel(mascotaGesi) {
     this.sound.play('victoria');
     encenderFaro(this);
     addToScore(1000, mascotaGesi, this);
+    guardarBolsa(this);
+    registrarNivel(nivelActual + 1);
 
     const ultimo = nivelActual === NIVELES.length - 1;
     mostrarMensaje(this, ultimo
@@ -2154,6 +2474,7 @@ function completarNivel(mascotaGesi) {
         }
         nivelActual++;
         vidaJefeGuardada = null;
+        runaNivel = -1;
         scoreInicioNivel = score;
         checkpointX = null;
         guardarPartida();
@@ -2382,7 +2703,7 @@ function actualizarJugador(time, delta) {
         this.saltosAire++;
         g.setVelocityY(Math.min(g.body.velocity.y - 120, -440));
         this.sound.play('salto', { volume: 0.3, rate: 1.35 });
-        g.anims.play(`${this.pj.id}-jump`, false);
+        g.anims.play(`${this.pj.anim}-jump`, false);
     }
 
     const deathThreshold = 90;
@@ -2392,6 +2713,8 @@ function actualizarJugador(time, delta) {
     }
 
     if (nivelActual === 0) trampasNivel1(this);
+    if (tiene('iman')) atraerMonedas(this);
+    actualizarEstela(this);
     actualizarTrampas(this);
     actualizarSorpresas(this, apiSorpresas);
     // en línea las trampas también se activan cuando pasa otro jugador (sin hacerte daño a ti)
@@ -2446,6 +2769,16 @@ function caerMuerto(game, causa) {
 }
 
 // origenX: de dónde vino el golpe (enemigos, disparos, troll); las trampas no lo pasan
+// Runa de reserva (tienda.js): la primera vez que se rompe el escudo en un nivel, se recarga
+function usarRunaDeReserva(game) {
+    if (!llevaEscudo() || runaNivel === nivelActual) return;
+    runaNivel = nivelActual;
+    usarConsumible('escudo');
+    game.time.delayedCall(700, () => {
+        if (!game.mascotaGesi.isDead) recuperarEscudo(game, texto => mostrarMensaje(game, texto, 900), '¡RUNA DE RESERVA!');
+    });
+}
+
 function killgesi(game, causa, daño = 20, origenX) {
     if (game.soloActivar) return; // trampa o enemigo revisado con otro jugador (fantasma): el daño no es aquí
     const { mascotaGesi, scene, sound } = game;
@@ -2459,6 +2792,7 @@ function killgesi(game, causa, daño = 20, origenX) {
         let factor = 1;
         if (game.tieneEscudo) {
             romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
+            usarRunaDeReserva(game);
             factor *= 0.5; // el escudo absorbe la mitad y se rompe
         }
         if (d === 'parada') factor *= 0.25; // la parada de Leo frena casi todo el garrotazo
@@ -2478,6 +2812,7 @@ function killgesi(game, causa, daño = 20, origenX) {
         // el primer golpe solo rompe el escudo
         if (game.tieneEscudo) {
             romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
+            usarRunaDeReserva(game);
             return;
         }
     }
@@ -2487,7 +2822,7 @@ function killgesi(game, causa, daño = 20, origenX) {
     game.dashHasta = 0;
     game.volteretaHasta = 0;
     game.paradaHasta = 0;
-    mascotaGesi.anims.play(`${game.pj.id}-dead`);
+    mascotaGesi.anims.play(`${game.pj.anim}-dead`);
     caerMuerto(game, causa);
     game.musica.stop();
     game.musicaBatalla?.stop();
@@ -2503,20 +2838,37 @@ function killgesi(game, causa, daño = 20, origenX) {
 
 
     if (vidas <= 0) {
-        // sin corazones: GAME OVER y se vuelve al inicio del juego
-        mostrarMensaje(game, `GAME OVER\nVuelves al inicio\ndel nivel ${nivelActual + 1}`);
-        game.time.delayedCall(900, () => sound.play('game_over', { volume: 0.7 }));
-        game.time.delayedCall(3500, () => {
-            continuarPartida({ nivel: nivelActual, score: scoreInicioNivel });
-            if (enLinea()) { scene.restart(); return; } // en línea el equipo repite el nivel
-            guardarPartida();
-            scene.start('seleccion');
+        // sin corazones: GAME OVER, pero NO se repite todo el nivel: se vuelve al último punto de
+        // control con las vidas llenas y se pierden los puntos ganados en el nivel
+        mostrarMensaje(game, 'GAME OVER\nPierdes los puntos del nivel', GAME_OVER_MS);
+        game.time.delayedCall(600, () => sound.play('game_over', { volume: 0.7 }));
+        reaparecer(game, GAME_OVER_MS, () => {
+            vidas = VIDAS_INICIALES;
+            score = scoreInicioNivel;
+            if (!enLinea()) guardarPartida();
         });
         return;
     }
 
-    mostrarMensaje(game, BURLAS[Math.floor(Math.random() * BURLAS.length)], 1600);
-
+    const burla = BURLAS[Math.floor(Math.random() * BURLAS.length)];
+    mostrarMensaje(game, game.bolsa ? `${burla}\n◉ -${game.bolsa} sin guardar` : burla, REINTENTO_MS);
     // vuelve a aparecer en el último punto de control
-    game.time.delayedCall(2200, () => scene.restart());
+    reaparecer(game, REINTENTO_MS);
+}
+
+// reaparece en el último punto de control después de 'espera' ms; pasado un instante, cualquier
+// tecla o toque lo hace al momento (para reintentar sin esperar). antes(): lo que cambia al reaparecer
+function reaparecer(game, espera, antes) {
+    let hecho = false;
+    const ir = () => {
+        if (hecho || !game.scene.isActive()) return;
+        hecho = true;
+        antes?.();
+        game.scene.restart();
+    };
+    game.time.delayedCall(espera, ir);
+    game.time.delayedCall(SALTAR_ESPERA_MS, () => {
+        game.input.keyboard?.on('keydown', e => { if (!e.repeat) ir(); }); // (una tecla que se venía apretando no cuenta)
+        game.input.once('pointerdown', ir);
+    });
 }

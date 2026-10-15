@@ -201,6 +201,9 @@ export const PERSONAJES = [
         },
     },
 ];
+// prefijo de las animaciones de cada héroe ("arquera-run"...); con otros colores, el vestidor
+// arma variantes con otro prefijo (vestidor.js)
+PERSONAJES.forEach(pj => { pj.anim = pj.id; });
 
 export const MANA_MAXIMO = 100;
 

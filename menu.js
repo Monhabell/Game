@@ -1,25 +1,43 @@
-// Menú de pausa (botón ⏸, teclas P / Esc) y de configuración (botón ⚙).
+// Menú de pausa (botón ⏸, teclas P / Esc), de configuración (botón ⚙) y acceso a la tienda
+// (botón dorado de la bolsa, siempre visible, y "Tienda" dentro de la pausa).
 // Son capas HTML encima del juego: funcionan igual con mouse, teclado y en el celular.
 // Pausar detiene la escena del nivel (física, enemigos, temporizadores) y los sonidos que sonaban.
 
 import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION } from "./ajustes.js"
 import { enLinea } from "./red.js"
+import { saldo } from "./tienda.js"
 
 // dentro del APK (Capacitor): se puede cerrar la app y usar el botón "atrás" de Android
 const APP = !!window.Capacitor?.isNativePlatform?.();
 const pluginApp = () => window.Capacitor?.Plugins?.App;
 
 // aplicar(): el juego aplica los ajustes que cambiaron; salirAlMenu(): vuelve a elegir personaje
-export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
+// abrirTienda(alCerrar): abre la tienda; tiendaFuera(): abrirla fuera de un nivel (cada pantalla sabe cómo)
+export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaFuera }) {
     const contenedor = document.getElementById('game');
     const flotantes = contenedor.querySelector('.botones-flotantes');
+
+    // los toques en las capas HTML (menús, tienda, vestidor, sala) y en los botones flotantes NO
+    // llegan al juego: Phaser también escucha fuera del lienzo y "tocaría" lo que hay debajo
+    // (por ejemplo, al tocar "Listo" en el vestidor se empezaba a jugar)
+    ['mousedown', 'touchstart', 'pointerdown'].forEach(tipo => contenedor.addEventListener(tipo, e => {
+        if (e.target.closest?.('.menu-capa, .botones-flotantes')) e.stopPropagation();
+    }));
 
     // ---------- botones flotantes: pausa y configuración ----------
     const botonPausa = boton('btn-pausa', 'Pausa (tecla P)',
         '<path d="M8 5v14M16 5v14"/>');
     const botonAjustes = boton('btn-ajustes', 'Configuración',
         '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>');
-    flotantes.prepend(botonPausa, botonAjustes);
+    // tienda: dorada y con el saldo encima, para que se encuentre fácil
+    const botonTienda = boton('btn-tienda', 'Tienda (tecla T)',
+        '<path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>');
+    botonTienda.classList.add('boton-tienda');
+    const insignia = document.createElement('span');
+    insignia.className = 'insignia-tienda';
+    insignia.setAttribute('aria-hidden', 'true');
+    botonTienda.append(insignia);
+    flotantes.prepend(botonTienda, botonPausa, botonAjustes);
 
     function boton(id, titulo, svg) {
         const b = document.createElement('button');
@@ -40,6 +58,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         <div class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-pausa">
             <h2 id="titulo-pausa">PAUSA</h2>
             <button type="button" class="menu-boton" data-accion="seguir">▶ Continuar</button>
+            <button type="button" class="menu-boton" data-accion="tienda">◉ Tienda</button>
             <button type="button" class="menu-boton" data-accion="ajustes">⚙ Configuración</button>
             <button type="button" class="menu-boton menu-salir" data-accion="salir">⌂ Salir al menú</button>
             ${APP ? '<button type="button" class="menu-boton menu-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
@@ -151,6 +170,26 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         mostrar(capaAjustes);
     }
 
+    // tienda en medio de un nivel: el juego queda en pausa mientras está abierta.
+    // Desde la pausa, al cerrarla se vuelve a la pausa; desde el botón dorado, se sigue jugando
+    let tiendaAbierta = false;
+    function abrirTiendaEnNivel(desdePausa) {
+        if (tiendaAbierta) return;
+        tiendaAbierta = true;
+        pausar();
+        ocultar(capaPausa);
+        abrirTienda(() => {
+            tiendaAbierta = false;
+            if (desdePausa) mostrar(capaPausa);
+            else reanudar();
+        });
+    }
+    function abrirTiendaDesdeBoton() {
+        if (tiendaAbierta) return;
+        if (juego.scene.isActive('juego') || pausado) abrirTiendaEnNivel(pausado);
+        else tiendaFuera();
+    }
+
     function cerrarAjustes() {
         ocultar(capaAjustes);
         if (pausado) mostrar(capaPausa);
@@ -202,6 +241,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
         const accion = e.target.closest('[data-accion]')?.dataset.accion;
         if (accion === 'seguir') reanudar();
         else if (accion === 'ajustes') abrirAjustes();
+        else if (accion === 'tienda') abrirTiendaEnNivel(true);
         else if (accion === 'salir') {
             ocultar(capaPausa);
             pausado = false;
@@ -231,6 +271,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
     });
     botonPausa.addEventListener('click', e => { e.currentTarget.blur(); pausado ? reanudar() : pausar(); });
     botonAjustes.addEventListener('click', e => { e.currentTarget.blur(); capaAjustes.hidden ? abrirAjustes() : cerrarAjustes(); });
+    botonTienda.addEventListener('click', e => { e.currentTarget.blur(); abrirTiendaDesdeBoton(); });
 
     // tocar fuera del panel cierra el menú
     [capaPausa, capaAjustes].forEach(capa => capa.addEventListener('pointerdown', e => {
@@ -241,6 +282,11 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
     // teclado: P pausa; Esc pausa o cierra (si el juego está agrandado, Esc solo lo achica: game.js)
     document.addEventListener('keydown', e => {
         if (e.repeat || e.target.closest?.('input[type="text"], textarea, select')) return;
+        // T abre la tienda en medio de un nivel (en las otras pantallas la abre cada pantalla)
+        if (e.key.toLowerCase() === 't' && juego.scene.isActive('juego') && capaPausa.hidden && capaAjustes.hidden) {
+            abrirTiendaEnNivel(false);
+            return;
+        }
         const esc = e.key === 'Escape';
         if (esc && !capaAjustes.hidden) { cerrarAjustes(); return; }
         if (e.key.toLowerCase() === 'p' || (esc && !document.body.classList.contains('modo-grande'))) {
@@ -251,8 +297,11 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu }) {
     // si la app o la pestaña pasan a segundo plano, el juego queda en pausa
     document.addEventListener('visibilitychange', () => { if (document.hidden) pausar(); });
 
-    // el botón de pausa solo se ve durante un nivel
-    setInterval(() => { botonPausa.hidden = !enNivel(); }, 250);
+    // el botón de pausa solo se ve durante un nivel; la insignia de la tienda muestra el saldo
+    setInterval(() => {
+        botonPausa.hidden = !enNivel();
+        insignia.textContent = saldo() > 999 ? '999+' : saldo();
+    }, 250);
 
     aplicar();
 }

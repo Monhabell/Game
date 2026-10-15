@@ -1,2060 +1,2570 @@
 {
   "ambiente.js": {
-    "mtime": 1791850607.295915,
-    "seen": 1791856233.530747,
-    "ast_hash": "e8bf7ea1412677581bae92b73bc2eefd",
+    "mtime": 1792020117.91825,
+    "seen": 1792087617.279115,
+    "ast_hash": "555c027bb7d15c5731831ccd23643d15",
     "semantic_hash": ""
   },
   "animations.js": {
     "mtime": 1791763526.5978217,
-    "seen": 1791856233.5307546,
+    "seen": 1792087617.2791328,
     "ast_hash": "3883b580a955bd206601742e070316bd",
     "semantic_hash": ""
   },
   "azar.js": {
-    "mtime": 1791856196.4334815,
-    "seen": 1791856233.530765,
-    "ast_hash": "b0cd13a9e79b8c5b0490e4c63d7c8275",
+    "mtime": 1792082289.2001555,
+    "seen": 1792087617.2791357,
+    "ast_hash": "2a7b1b1f121318ecccdc79b5f29d9e1a",
     "semantic_hash": ""
   },
   "castillos.js": {
     "mtime": 1791763526.904859,
-    "seen": 1791856233.5307686,
+    "seen": 1792087617.2791407,
     "ast_hash": "49d73f0f05f709828cc0a46b929687a9",
     "semantic_hash": ""
   },
   "deno.json": {
-    "mtime": 1791763526.9058585,
-    "seen": 1791856233.530772,
-    "ast_hash": "1c1c7c903c67164b3a5fefc2cc6b62c0",
+    "mtime": 1792020117.980762,
+    "seen": 1792087617.2791414,
+    "ast_hash": "693cdad47ee75b8634347a0012b981ca",
     "semantic_hash": ""
   },
   "enemigos.js": {
     "mtime": 1791763526.9058585,
-    "seen": 1791856233.530775,
+    "seen": 1792087617.2791429,
     "ast_hash": "cbce2055cd56db9859142857f3e83e72",
     "semantic_hash": ""
   },
   "escudo.js": {
-    "mtime": 1791768764.1942728,
-    "seen": 1791856233.5307782,
-    "ast_hash": "168c47379c59e7df4a71c979ea6a34f4",
+    "mtime": 1792020117.980762,
+    "seen": 1792087617.2791443,
+    "ast_hash": "4f3f824890c3128d5c6d2b035572031c",
     "semantic_hash": ""
   },
   "game.js": {
-    "mtime": 1791856114.909402,
-    "seen": 1791856233.5307815,
-    "ast_hash": "b3f0783caa200fe4cadf9e08091c3453",
+    "mtime": 1792087161.189605,
+    "seen": 1792087617.2791455,
+    "ast_hash": "201fd3e8c58814fb6e80b1e8953115a9",
     "semantic_hash": ""
   },
   "historia.js": {
-    "mtime": 1791766733.9859378,
-    "seen": 1791856233.5307844,
-    "ast_hash": "e7342ed710e633fa70b4e94887505900",
+    "mtime": 1792087161.1906118,
+    "seen": 1792087617.2791467,
+    "ast_hash": "7c4748fac0cd8f74e2388e02f584db54",
     "semantic_hash": ""
   },
   "jefes.js": {
-    "mtime": 1791769689.4692485,
-    "seen": 1791856233.5307872,
-    "ast_hash": "75c77544116970c1c387096bcb993bfb",
+    "mtime": 1792020117.9857652,
+    "seen": 1792087617.2791479,
+    "ast_hash": "b329625ec12c3243db479e0bf3da951e",
     "semantic_hash": ""
   },
   "mapa.js": {
-    "mtime": 1791763526.9078598,
-    "seen": 1791856233.5307937,
-    "ast_hash": "c43d4c0b1e66acb881387377cfbd0570",
+    "mtime": 1792085938.680516,
+    "seen": 1792087617.2791502,
+    "ast_hash": "69b15e5f023382e8c950a5014e819ba5",
     "semantic_hash": ""
   },
   "mazmorra.js": {
-    "mtime": 1791854237.295271,
-    "seen": 1791856233.5307972,
-    "ast_hash": "7843035a9bca8ef2a6c841ae2ddc4256",
+    "mtime": 1792020117.9887638,
+    "seen": 1792087617.2791514,
+    "ast_hash": "91e74b52574b1525794c5daed0e3596c",
     "semantic_hash": ""
   },
   "monedas.js": {
     "mtime": 1791763526.9088595,
-    "seen": 1791856233.5308003,
+    "seen": 1792087617.2791553,
     "ast_hash": "7e99b7012f4f25650bbe702636d40340",
     "semantic_hash": ""
   },
   "niveles.js": {
-    "mtime": 1791854580.991979,
-    "seen": 1791856233.5308027,
-    "ast_hash": "acbb1981700b3ce3b4f28b275fa480b9",
+    "mtime": 1792082289.1991558,
+    "seen": 1792087617.2791593,
+    "ast_hash": "a7696d1057a4289216fec99e5106f018",
     "semantic_hash": ""
   },
   "niveles_test.js": {
     "mtime": 1791854397.127009,
-    "seen": 1791856233.5308063,
+    "seen": 1792087617.2791615,
     "ast_hash": "74c479ce05bfe9aa56a7c9d3fcaf588a",
     "semantic_hash": ""
   },
   "personajes.js": {
-    "mtime": 1791768676.5012815,
-    "seen": 1791856233.530809,
-    "ast_hash": "ca429d397f62a0007019d6581d9223f5",
+    "mtime": 1792087161.1866052,
+    "seen": 1792087617.2791655,
+    "ast_hash": "857650785c16a75ed44de2cb5c059427",
     "semantic_hash": ""
   },
   "phaser.min.js": {
     "mtime": 1791763526.9148583,
-    "seen": 1791856233.5308113,
+    "seen": 1792087617.2791672,
     "ast_hash": "db3bcd6be911c52e843bcd3ac4006d1b",
     "semantic_hash": ""
   },
   "sonidos.js": {
     "mtime": 1791763526.9148583,
-    "seen": 1791856233.5308208,
+    "seen": 1792087617.2791903,
     "ast_hash": "761aa479824b0abe4eb74f11393f579e",
     "semantic_hash": ""
   },
   "sorpresas.js": {
-    "mtime": 1791856124.998611,
-    "seen": 1791856233.5308235,
-    "ast_hash": "a98adfc8423266660208362b8997f411",
+    "mtime": 1792082289.1686468,
+    "seen": 1792087617.2791922,
+    "ast_hash": "cfbf9e34534f1124936cd6f22ecbb981",
     "semantic_hash": ""
   },
   ".github/workflows/deno.yml": {
     "mtime": 1791763526.595822,
-    "seen": 1791856233.530829,
+    "seen": 1792087617.2792048,
     "ast_hash": "2fb4a2f68dda1e0e30d029ede9aea1e9",
     "semantic_hash": ""
   },
   "assets/castillos/LICENCIA-craftpix.txt": {
     "mtime": 1791763526.6068213,
-    "seen": 1791856233.530832,
+    "seen": 1792087617.2792065,
     "ast_hash": "ca5a9ba2c9fc0df38200b146f62ec278",
     "semantic_hash": ""
   },
   "assets/efectos/license.txt": {
     "mtime": 1791763526.6603293,
-    "seen": 1791856233.530835,
+    "seen": 1792087617.2792077,
     "ast_hash": "ca5a9ba2c9fc0df38200b146f62ec278",
     "semantic_hash": ""
   },
   "assets/efectos/readme.txt": {
     "mtime": 1791763526.66133,
-    "seen": 1791856233.530838,
+    "seen": 1792087617.2792087,
     "ast_hash": "b34941c08f665f63b993c6aca2c8f784",
     "semantic_hash": ""
   },
   "assets/jefes/LICENCIA-craftpix.txt": {
     "mtime": 1791763526.7653494,
-    "seen": 1791856233.530841,
+    "seen": 1792087617.2792096,
     "ast_hash": "ca5a9ba2c9fc0df38200b146f62ec278",
     "semantic_hash": ""
   },
   "assets/mazmorra/LICENCIA-craftpix.txt": {
     "mtime": 1791763526.7893503,
-    "seen": 1791856233.5308444,
+    "seen": 1792087617.279211,
     "ast_hash": "ca5a9ba2c9fc0df38200b146f62ec278",
     "semantic_hash": ""
   },
   "assets/personajes/LICENCIA-craftpix.txt": {
     "mtime": 1791763526.8093512,
-    "seen": 1791856233.5308473,
+    "seen": 1792087617.279212,
     "ast_hash": "ca5a9ba2c9fc0df38200b146f62ec278",
     "semantic_hash": ""
   },
   "index.html": {
-    "mtime": 1791766728.083678,
-    "seen": 1791856233.5308492,
-    "ast_hash": "cdb53ce44c1e6c1388508bd938eb4c8e",
+    "mtime": 1792087161.1926131,
+    "seen": 1792087617.2792134,
+    "ast_hash": "392ec85aadcd98b8d275dccba981a9f5",
     "semantic_hash": ""
   },
   "assets/Dead.png": {
     "mtime": 1791763526.5988226,
-    "seen": 1791856233.5308528,
+    "seen": 1792087617.2792482,
     "ast_hash": "5b0bca5617c4528bc4894833717578f2",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_21.png": {
     "mtime": 1791763526.6088214,
-    "seen": 1791856233.5308561,
+    "seen": 1792087617.279249,
     "ast_hash": "bfe63b86f43cbcaf9b398e62613a6383",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_22.png": {
     "mtime": 1791763526.6118207,
-    "seen": 1791856233.530861,
+    "seen": 1792087617.27925,
     "ast_hash": "40a8fd4ef0bbb73dd5699f5d41ca4148",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_23.png": {
     "mtime": 1791763526.6138217,
-    "seen": 1791856233.5308638,
+    "seen": 1792087617.2792506,
     "ast_hash": "ac187e599817ed6a5304608ace4505aa",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_24.png": {
     "mtime": 1791763526.6158226,
-    "seen": 1791856233.5308666,
+    "seen": 1792087617.279252,
     "ast_hash": "729a3c54a51fae3d006a596dad196e63",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_25.png": {
     "mtime": 1791763526.616825,
-    "seen": 1791856233.5308704,
+    "seen": 1792087617.2792532,
     "ast_hash": "66f239dab67e956dc420a7ed191d6cdc",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_26.png": {
     "mtime": 1791763526.618822,
-    "seen": 1791856233.5308728,
+    "seen": 1792087617.279254,
     "ast_hash": "4be845184954ca0326569398f7ec2346",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_27.png": {
     "mtime": 1791763526.6208224,
-    "seen": 1791856233.530878,
+    "seen": 1792087617.2792552,
     "ast_hash": "cebe9b134e8539f42e2c1daab6248490",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_28.png": {
     "mtime": 1791763526.6218216,
-    "seen": 1791856233.530881,
+    "seen": 1792087617.279256,
     "ast_hash": "0b7600919aa093d803627ada9b73c973",
     "semantic_hash": ""
   },
   "assets/castillos/castillo_29.png": {
     "mtime": 1791763526.6233249,
-    "seen": 1791856233.5308845,
+    "seen": 1792087617.2792568,
     "ast_hash": "a27bdc764d67f578242a3f041fa81466",
     "semantic_hash": ""
   },
   "assets/castillos/muro_1_33.png": {
     "mtime": 1791763526.6243298,
-    "seen": 1791856233.530888,
+    "seen": 1792087617.2792575,
     "ast_hash": "b41bf9dc652fac5efdeff5acc4ab9c5b",
     "semantic_hash": ""
   },
   "assets/castillos/muro_1_34.png": {
     "mtime": 1791763526.6243298,
-    "seen": 1791856233.5308914,
+    "seen": 1792087617.2792587,
     "ast_hash": "66d4f3320c2a964cea9574fbb133f4c9",
     "semantic_hash": ""
   },
   "assets/castillos/muro_1_35.png": {
     "mtime": 1791763526.6253302,
-    "seen": 1791856233.5308945,
+    "seen": 1792087617.2792594,
     "ast_hash": "bbfd475fb7a3919cfe615ea3e0fcded7",
     "semantic_hash": ""
   },
   "assets/castillos/muro_1_36.png": {
     "mtime": 1791763526.6253302,
-    "seen": 1791856233.5308979,
+    "seen": 1792087617.2792604,
     "ast_hash": "edfc5e1bf258d76fb095171b6feedb3a",
     "semantic_hash": ""
   },
   "assets/castillos/muro_1_37.png": {
     "mtime": 1791763526.6263297,
-    "seen": 1791856233.5309017,
+    "seen": 1792087617.279261,
     "ast_hash": "64a6dedf82bfbf191dfbc1384e7568f9",
     "semantic_hash": ""
   },
   "assets/castillos/muro_1_38.png": {
     "mtime": 1791763526.6263297,
-    "seen": 1791856233.530904,
+    "seen": 1792087617.279262,
     "ast_hash": "10aac5dee6810ae754114cd6c8c75496",
     "semantic_hash": ""
   },
   "assets/castillos/muro_2_33.png": {
     "mtime": 1791763526.6263297,
-    "seen": 1791856233.5309074,
+    "seen": 1792087617.2792628,
     "ast_hash": "1378502a2f02848aad95d321bc017429",
     "semantic_hash": ""
   },
   "assets/castillos/muro_2_34.png": {
     "mtime": 1791763526.6273293,
-    "seen": 1791856233.5309107,
+    "seen": 1792087617.2792637,
     "ast_hash": "4247658785b8336dd0ddde5dbec376f1",
     "semantic_hash": ""
   },
   "assets/castillos/muro_2_35.png": {
     "mtime": 1791763526.6273293,
-    "seen": 1791856233.5309143,
+    "seen": 1792087617.2792645,
     "ast_hash": "5b9b928edeeb9b5af5dd556c4364f766",
     "semantic_hash": ""
   },
   "assets/castillos/muro_2_36.png": {
     "mtime": 1791763526.6283312,
-    "seen": 1791856233.5309181,
+    "seen": 1792087617.2792656,
     "ast_hash": "eb6f130929ef3bf7dcd40a736338997b",
     "semantic_hash": ""
   },
   "assets/castillos/muro_2_37.png": {
     "mtime": 1791763526.6283312,
-    "seen": 1791856233.530921,
+    "seen": 1792087617.2792664,
     "ast_hash": "c28fc3050178656ac71d63b3a4cf70db",
     "semantic_hash": ""
   },
   "assets/castillos/muro_2_38.png": {
     "mtime": 1791763526.6293294,
-    "seen": 1791856233.5309243,
+    "seen": 1792087617.2792673,
     "ast_hash": "0b4e099bed41e977e9fa0b9ce5f4ae11",
     "semantic_hash": ""
   },
   "assets/castillos/muro_3_33.png": {
     "mtime": 1791763526.6293294,
-    "seen": 1791856233.5309277,
+    "seen": 1792087617.2792685,
     "ast_hash": "39be8769ee15dfabf0871b30dc6ea6b7",
     "semantic_hash": ""
   },
   "assets/castillos/muro_3_34.png": {
     "mtime": 1791763526.6293294,
-    "seen": 1791856233.5309312,
+    "seen": 1792087617.2792697,
     "ast_hash": "75cb4ba200a174bb85a6441744cb7422",
     "semantic_hash": ""
   },
   "assets/castillos/muro_3_35.png": {
     "mtime": 1791763526.6303296,
-    "seen": 1791856233.5309336,
+    "seen": 1792087617.2792704,
     "ast_hash": "a57c5137f12136838df1fa8f94d1c097",
     "semantic_hash": ""
   },
   "assets/castillos/muro_3_36.png": {
     "mtime": 1791763526.6303296,
-    "seen": 1791856233.530938,
+    "seen": 1792087617.2792711,
     "ast_hash": "76940bc9842e4da5ff95acf3edc59d2b",
     "semantic_hash": ""
   },
   "assets/castillos/muro_3_37.png": {
     "mtime": 1791763526.6313305,
-    "seen": 1791856233.5309417,
+    "seen": 1792087617.2792718,
     "ast_hash": "4272520123763b9e4b0dcb1c2af6c081",
     "semantic_hash": ""
   },
   "assets/castillos/muro_3_38.png": {
     "mtime": 1791763526.6323307,
-    "seen": 1791856233.530944,
+    "seen": 1792087617.279273,
     "ast_hash": "fd0c6d1af6d5127f2386804564776297",
     "semantic_hash": ""
   },
   "assets/castillos/paisaje.jpg": {
     "mtime": 1791763526.6333323,
-    "seen": 1791856233.5309465,
+    "seen": 1792087617.2792737,
     "ast_hash": "a4a5358cab91ad9743cf38f76dcec51d",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_24.png": {
     "mtime": 1791763526.63433,
-    "seen": 1791856233.5309494,
+    "seen": 1792087617.2792745,
     "ast_hash": "1236af45b4c04b0b315e3de4476f7899",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_25.png": {
     "mtime": 1791763526.63433,
-    "seen": 1791856233.530954,
+    "seen": 1792087617.2792754,
     "ast_hash": "170a22d7d150223bb9e516dbb60b6b37",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_26.png": {
     "mtime": 1791763526.6353314,
-    "seen": 1791856233.5309565,
+    "seen": 1792087617.2792768,
     "ast_hash": "24276d41efd12efe3925a8e5f21c88ef",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_27.png": {
     "mtime": 1791763526.636331,
-    "seen": 1791856233.5309594,
+    "seen": 1792087617.2792778,
     "ast_hash": "eef8d5e509cd7e9aa31c83623fac8396",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_28.png": {
     "mtime": 1791763526.636331,
-    "seen": 1791856233.530963,
+    "seen": 1792087617.2792788,
     "ast_hash": "7653619e292715b6ea373e24a064496c",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_29.png": {
     "mtime": 1791763526.6373293,
-    "seen": 1791856233.5309656,
+    "seen": 1792087617.27928,
     "ast_hash": "2e3ce174bef48c123a08601e373f9848",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_30.png": {
     "mtime": 1791763526.6373293,
-    "seen": 1791856233.5309696,
+    "seen": 1792087617.2792807,
     "ast_hash": "a136f3576edd48470c67c4145adddb74",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_31.png": {
     "mtime": 1791763526.6383295,
-    "seen": 1791856233.5309727,
+    "seen": 1792087617.2792814,
     "ast_hash": "5059bf656d34b33e33ff3ee2f68661dc",
     "semantic_hash": ""
   },
   "assets/castillos/torre_1_32.png": {
     "mtime": 1791763526.6383295,
-    "seen": 1791856233.530976,
+    "seen": 1792087617.279282,
     "ast_hash": "277be0a61559f6408f92f0a5f5ca8c57",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_24.png": {
     "mtime": 1791763526.63933,
-    "seen": 1791856233.530979,
+    "seen": 1792087617.2792833,
     "ast_hash": "64d62b3aeac964dec74834e7347b3a1e",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_25.png": {
     "mtime": 1791763526.6403294,
-    "seen": 1791856233.530981,
+    "seen": 1792087617.2792845,
     "ast_hash": "7d15687242454f89192fef8b6784a271",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_26.png": {
     "mtime": 1791763526.6403294,
-    "seen": 1791856233.5309846,
+    "seen": 1792087617.2792852,
     "ast_hash": "c6147b484b8a417b65650e51edd26674",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_27.png": {
     "mtime": 1791763526.6413295,
-    "seen": 1791856233.5309877,
+    "seen": 1792087617.279286,
     "ast_hash": "42a5c0395f60c128a1aabd6acd327f08",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_28.png": {
     "mtime": 1791763526.6423297,
-    "seen": 1791856233.5309908,
+    "seen": 1792087617.2792869,
     "ast_hash": "d881fd66981d14085c11d5dcfd300496",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_29.png": {
     "mtime": 1791763526.6433296,
-    "seen": 1791856233.530995,
+    "seen": 1792087617.2792873,
     "ast_hash": "a1f6a09cbc1da56ed7a9ed38e28ff584",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_30.png": {
     "mtime": 1791763526.6443305,
-    "seen": 1791856233.5309985,
+    "seen": 1792087617.2792883,
     "ast_hash": "7f6c991bb939767d5b8e8731044aa59c",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_31.png": {
     "mtime": 1791763526.6443305,
-    "seen": 1791856233.531002,
+    "seen": 1792087617.2792892,
     "ast_hash": "0399e03f99873988c0622806b99f3173",
     "semantic_hash": ""
   },
   "assets/castillos/torre_2_32.png": {
     "mtime": 1791763526.6463292,
-    "seen": 1791856233.5310054,
+    "seen": 1792087617.2792902,
     "ast_hash": "c9ebd547f2257e8ecda3742142c2b094",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_24.png": {
     "mtime": 1791763526.6463292,
-    "seen": 1791856233.5310097,
+    "seen": 1792087617.279291,
     "ast_hash": "ca24370b1f74455d4f2aa8bc4c4402ef",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_25.png": {
     "mtime": 1791763526.647329,
-    "seen": 1791856233.531012,
+    "seen": 1792087617.279292,
     "ast_hash": "41041b7b70dbfc3c79db2968d3d672ef",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_26.png": {
     "mtime": 1791763526.6483305,
-    "seen": 1791856233.5310163,
+    "seen": 1792087617.2792928,
     "ast_hash": "7195d2f3a346f10a6f281ba8443fa45c",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_27.png": {
     "mtime": 1791763526.6493325,
-    "seen": 1791856233.531019,
+    "seen": 1792087617.2792938,
     "ast_hash": "4b643d6d9ea8d66e7cb50f394d0cab5e",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_28.png": {
     "mtime": 1791763526.6493325,
-    "seen": 1791856233.5310216,
+    "seen": 1792087617.2792945,
     "ast_hash": "cc15a1dc033ebd3cc1911701509ed1ca",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_29.png": {
     "mtime": 1791763526.6503313,
-    "seen": 1791856233.5310245,
+    "seen": 1792087617.2792952,
     "ast_hash": "9ec20d1ccefff855be551dda84730b9a",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_30.png": {
     "mtime": 1791763526.6513295,
-    "seen": 1791856233.5310278,
+    "seen": 1792087617.279296,
     "ast_hash": "e632b9133ae9cc8613352ce0e25af27a",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_31.png": {
     "mtime": 1791763526.65233,
-    "seen": 1791856233.5310295,
+    "seen": 1792087617.2792969,
     "ast_hash": "7f7f7c55e49ff4295c1e0a90531da9f3",
     "semantic_hash": ""
   },
   "assets/castillos/torre_3_32.png": {
     "mtime": 1791763526.65233,
-    "seen": 1791856233.531033,
+    "seen": 1792087617.2792976,
     "ast_hash": "54a68f9fa7a78e274abb87d01b3ffe0c",
     "semantic_hash": ""
   },
   "assets/efectos/escudo.png": {
     "mtime": 1791763526.6603293,
-    "seen": 1791856233.531036,
+    "seen": 1792087617.2792983,
     "ast_hash": "ee05fc70db98ab4f3968d61db2a04a2d",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Attack.png": {
     "mtime": 1791763526.66233,
-    "seen": 1791856233.5310395,
+    "seen": 1792087617.2792997,
     "ast_hash": "95b4ca2805c2392c45edd691e9203d45",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Dead.png": {
     "mtime": 1791763526.6633294,
-    "seen": 1791856233.531041,
+    "seen": 1792087617.2793007,
     "ast_hash": "34d1c03a7b5c569a789c4a261685f1dc",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Fire.png": {
     "mtime": 1791763526.66433,
-    "seen": 1791856233.5310433,
+    "seen": 1792087617.2793014,
     "ast_hash": "7431b317f7976dcc1e3e323a6bfb262a",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Hurt.png": {
     "mtime": 1791763526.6653311,
-    "seen": 1791856233.5310452,
+    "seen": 1792087617.2793024,
     "ast_hash": "c29e2c6d1cc6997d7577080295cb300e",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Idle.png": {
     "mtime": 1791763526.6663308,
-    "seen": 1791856233.5310485,
+    "seen": 1792087617.2793033,
     "ast_hash": "dad0085f255e9c72c13be93f414726a2",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Jump.png": {
     "mtime": 1791763526.6673307,
-    "seen": 1791856233.5310512,
+    "seen": 1792087617.2793043,
     "ast_hash": "9616e2bd8233e4b3871c72ff8cb217b4",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Run.png": {
     "mtime": 1791763526.6683316,
-    "seen": 1791856233.5310552,
+    "seen": 1792087617.2793052,
     "ast_hash": "798ad0c1a49700b608eb18678e9bcf2c",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_armor/Walk.png": {
     "mtime": 1791763526.6693301,
-    "seen": 1791856233.5310585,
+    "seen": 1792087617.279306,
     "ast_hash": "68b39b04b7249de7f5896d54abcb1a99",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Attack.png": {
     "mtime": 1791763526.6703293,
-    "seen": 1791856233.5310624,
+    "seen": 1792087617.2793071,
     "ast_hash": "8719615162a572473f84f090424ca952",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Dead.png": {
     "mtime": 1791763526.6713295,
-    "seen": 1791856233.531065,
+    "seen": 1792087617.279308,
     "ast_hash": "319f44333fa84cb232898dcfe185e923",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Fire.png": {
     "mtime": 1791763526.6723294,
-    "seen": 1791856233.531068,
+    "seen": 1792087617.279309,
     "ast_hash": "ae0b3b2bbac74e11b7199954c7b2edf9",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Hurt.png": {
     "mtime": 1791763526.6733294,
-    "seen": 1791856233.531071,
+    "seen": 1792087617.2793097,
     "ast_hash": "d4e82a87f73a0106caa88b2ea9493c08",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Idle.png": {
     "mtime": 1791763526.674333,
-    "seen": 1791856233.531075,
+    "seen": 1792087617.279311,
     "ast_hash": "677718f7a5dfcaa7610ff70c08e0162a",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Jump.png": {
     "mtime": 1791763526.67533,
-    "seen": 1791856233.5310788,
+    "seen": 1792087617.2793117,
     "ast_hash": "4fa10d2ac3ea3e2e4b21650e32e8a7f1",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Run.png": {
     "mtime": 1791763526.6763291,
-    "seen": 1791856233.5310824,
+    "seen": 1792087617.2793124,
     "ast_hash": "d5803b26eea32833b626838d93a0b94d",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_blue/Walk.png": {
     "mtime": 1791763526.6763291,
-    "seen": 1791856233.5310864,
+    "seen": 1792087617.2793133,
     "ast_hash": "b0facc02458e174591cdbf1e12874f63",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Attack.png": {
     "mtime": 1791763526.6773312,
-    "seen": 1791856233.53109,
+    "seen": 1792087617.2793143,
     "ast_hash": "6fd18e07380974b7cd5cdce63cecf829",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Dead.png": {
     "mtime": 1791763526.6783307,
-    "seen": 1791856233.5310922,
+    "seen": 1792087617.2793157,
     "ast_hash": "cb8e23239824dfc8392d03fbd5a66cca",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Fire.png": {
     "mtime": 1791763526.68033,
-    "seen": 1791856233.5310953,
+    "seen": 1792087617.2793164,
     "ast_hash": "d8609a5f66c070dd38fad2aee4a6fbf4",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Hurt.png": {
     "mtime": 1791763526.68033,
-    "seen": 1791856233.5310977,
+    "seen": 1792087617.2793176,
     "ast_hash": "59b32a5b0b36503f12db7f9d264e3a31",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Idle.png": {
     "mtime": 1791763526.6813302,
-    "seen": 1791856233.5311005,
+    "seen": 1792087617.2793186,
     "ast_hash": "938aa52e1c3be77eb7b68d48e36ae441",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Jump.png": {
     "mtime": 1791763526.682334,
-    "seen": 1791856233.531103,
+    "seen": 1792087617.2793193,
     "ast_hash": "7bb6d8044cb4f1c048b7737468adc596",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Run.png": {
     "mtime": 1791763526.6833322,
-    "seen": 1791856233.5311053,
+    "seen": 1792087617.2793202,
     "ast_hash": "52f7d5b1326f6375526f02393b809ea8",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_dark_gray/Walk.png": {
     "mtime": 1791763526.6843314,
-    "seen": 1791856233.5311086,
+    "seen": 1792087617.2793212,
     "ast_hash": "8db45bc3a86705a62dc956e04e445037",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Attack.png": {
     "mtime": 1791763526.6853304,
-    "seen": 1791856233.531112,
+    "seen": 1792087617.2793221,
     "ast_hash": "7d1546f8fd06f73e86f4d21bd16cabf1",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Dead.png": {
     "mtime": 1791763526.6863291,
-    "seen": 1791856233.531115,
+    "seen": 1792087617.2793233,
     "ast_hash": "6d2a31b069dbae56b813009d46a8cc15",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Fire.png": {
     "mtime": 1791763526.6883292,
-    "seen": 1791856233.5311182,
+    "seen": 1792087617.2793245,
     "ast_hash": "7a31e1410cba48e0283b7ba2595df4e2",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Hurt.png": {
     "mtime": 1791763526.6883292,
-    "seen": 1791856233.5311208,
+    "seen": 1792087617.2793252,
     "ast_hash": "9059ab499ea7a61e1c78e4158559dcae",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Idle.png": {
     "mtime": 1791763526.6893306,
-    "seen": 1791856233.5311227,
+    "seen": 1792087617.2793262,
     "ast_hash": "7ff4efca9a73b6f71a234dded87ce214",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Jump.png": {
     "mtime": 1791763526.690329,
-    "seen": 1791856233.5311255,
+    "seen": 1792087617.279327,
     "ast_hash": "e2bc80e96ff62a903ac363ca4991bd26",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Run.png": {
     "mtime": 1791763526.6913297,
-    "seen": 1791856233.5311275,
+    "seen": 1792087617.279328,
     "ast_hash": "e3880282b74468206373e6aa80c17af2",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_gray/Walk.png": {
     "mtime": 1791763526.6923294,
-    "seen": 1791856233.53113,
+    "seen": 1792087617.2793288,
     "ast_hash": "5dd0d3d5a3b28ec6d163f27ebd711e06",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Attack.png": {
     "mtime": 1791763526.693329,
-    "seen": 1791856233.5311322,
+    "seen": 1792087617.2793298,
     "ast_hash": "6ae52661012980b1157c78c22daab254",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Dead.png": {
     "mtime": 1791763526.6943297,
-    "seen": 1791856233.5311346,
+    "seen": 1792087617.279331,
     "ast_hash": "4b68ad2deb77684755ca9f83e04c5af9",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Fire.png": {
     "mtime": 1791763526.6953292,
-    "seen": 1791856233.531137,
+    "seen": 1792087617.2793322,
     "ast_hash": "28b56cfaae3ccf36e179e74119493b2e",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Hurt.png": {
     "mtime": 1791763526.6963296,
-    "seen": 1791856233.531139,
+    "seen": 1792087617.279333,
     "ast_hash": "cbecd4d6ed86b8b79d03aff92143cfe3",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Idle.png": {
     "mtime": 1791763526.6963296,
-    "seen": 1791856233.531142,
+    "seen": 1792087617.279334,
     "ast_hash": "125edc4275cf82e1286c50587c486689",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Jump.png": {
     "mtime": 1791763526.6973305,
-    "seen": 1791856233.5311441,
+    "seen": 1792087617.2793353,
     "ast_hash": "5ee2a373c272afb9179a6e3542e0c318",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Run.png": {
     "mtime": 1791763526.698331,
-    "seen": 1791856233.5311458,
+    "seen": 1792087617.279336,
     "ast_hash": "8179f03da0bd2085876d08cfe1322ea3",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_green/Walk.png": {
     "mtime": 1791763526.6993308,
-    "seen": 1791856233.5311472,
+    "seen": 1792087617.2793367,
     "ast_hash": "7b851f961c9f9049d4917a9c2ff536d7",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Attack.png": {
     "mtime": 1791763526.7003314,
-    "seen": 1791856233.5311503,
+    "seen": 1792087617.2793374,
     "ast_hash": "6eab5fa466b8f8b951fe4def2135de1a",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Dead.png": {
     "mtime": 1791763526.7013307,
-    "seen": 1791856233.5311518,
+    "seen": 1792087617.279339,
     "ast_hash": "a8e9b5ffc1d2c64e6645e07047f81d54",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Fire.png": {
     "mtime": 1791763526.7033308,
-    "seen": 1791856233.5311542,
+    "seen": 1792087617.27934,
     "ast_hash": "1e3515e45be6bb5fa5aa4445a2f441d9",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Hurt.png": {
     "mtime": 1791763526.7043302,
-    "seen": 1791856233.5311558,
+    "seen": 1792087617.279341,
     "ast_hash": "7fde04b64066ca3b7721e6b68412f374",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Idle.png": {
     "mtime": 1791763526.70533,
-    "seen": 1791856233.5311582,
+    "seen": 1792087617.2793422,
     "ast_hash": "4ec25f8283628d69163508b47937b3b0",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Jump.png": {
     "mtime": 1791763526.70633,
-    "seen": 1791856233.53116,
+    "seen": 1792087617.279343,
     "ast_hash": "6f508eb636002fb3e085d13497aaa7a3",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Run.png": {
     "mtime": 1791763526.7073302,
-    "seen": 1791856233.5311613,
+    "seen": 1792087617.279344,
     "ast_hash": "641a9444ffc16817a3b9974e6bdf6186",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_predator_mask/Walk.png": {
     "mtime": 1791763526.7083304,
-    "seen": 1791856233.531163,
+    "seen": 1792087617.279345,
     "ast_hash": "f0f971d1229bfa835e4e9d18739261a9",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Attack.png": {
     "mtime": 1791763526.7093296,
-    "seen": 1791856233.5311654,
+    "seen": 1792087617.279346,
     "ast_hash": "c6f20cb3d63e74d2b269989fcd973c4b",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Dead.png": {
     "mtime": 1791763526.7103322,
-    "seen": 1791856233.531168,
+    "seen": 1792087617.279347,
     "ast_hash": "74ff412b8f71f89d714621cb65b9afa2",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Fire.png": {
     "mtime": 1791763526.712329,
-    "seen": 1791856233.5311701,
+    "seen": 1792087617.2793477,
     "ast_hash": "d93f3960de4f332a93ed524d7479c113",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Hurt.png": {
     "mtime": 1791763526.712329,
-    "seen": 1791856233.5311725,
+    "seen": 1792087617.2793484,
     "ast_hash": "2953302270707297cad7b2ab5ab2def9",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Idle.png": {
     "mtime": 1791763526.713331,
-    "seen": 1791856233.5311744,
+    "seen": 1792087617.2793493,
     "ast_hash": "aee9b4c9cc236e1c142eaa036d7bef39",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Jump.png": {
     "mtime": 1791763526.71433,
-    "seen": 1791856233.531176,
+    "seen": 1792087617.2793503,
     "ast_hash": "06928db3cfd684aa790114167fb801c2",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Run.png": {
     "mtime": 1791763526.7153304,
-    "seen": 1791856233.5311778,
+    "seen": 1792087617.2793508,
     "ast_hash": "8d0e90683b3729ae9f47e9dff8ce2321",
     "semantic_hash": ""
   },
   "assets/enemigos/alien_red/Walk.png": {
     "mtime": 1791763526.7168348,
-    "seen": 1791856233.5311797,
+    "seen": 1792087617.279352,
     "ast_hash": "61e49848e53aa22fd88f8b021c5c465c",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Attack.png": {
     "mtime": 1791763526.717841,
-    "seen": 1791856233.5311818,
+    "seen": 1792087617.279353,
     "ast_hash": "7ba9aff5385f9af1dcbebbae3efca404",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Charge.png": {
     "mtime": 1791763526.717841,
-    "seen": 1791856233.5311844,
+    "seen": 1792087617.2793539,
     "ast_hash": "475bceae3a81a004fea370d539a2cc6d",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Dead.png": {
     "mtime": 1791763526.7188418,
-    "seen": 1791856233.5311859,
+    "seen": 1792087617.279355,
     "ast_hash": "d906c52706f30d478f29343d21ccfc5e",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Explosion.png": {
     "mtime": 1791763526.7188418,
-    "seen": 1791856233.5311887,
+    "seen": 1792087617.279356,
     "ast_hash": "55b2fe15f0be88fcd8f2b8606c680539",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Flame.png": {
     "mtime": 1791763526.7198403,
-    "seen": 1791856233.531191,
+    "seen": 1792087617.279357,
     "ast_hash": "6c8c5c5d2aa85301ab7c687d6b863171",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Hurt.png": {
     "mtime": 1791763526.7198403,
-    "seen": 1791856233.5311933,
+    "seen": 1792087617.279358,
     "ast_hash": "f8634f17144d6e9cdc420a05a3a10fe5",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Idle.png": {
     "mtime": 1791763526.7198403,
-    "seen": 1791856233.531195,
+    "seen": 1792087617.2793589,
     "ast_hash": "485e7e6441937551a1d682b673e57d76",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Idle_2.png": {
     "mtime": 1791763526.7208402,
-    "seen": 1791856233.5311975,
+    "seen": 1792087617.2793598,
     "ast_hash": "5f277f14539844b42653aa364a4d5d76",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Run.png": {
     "mtime": 1791763526.7208402,
-    "seen": 1791856233.5311995,
+    "seen": 1792087617.2793608,
     "ast_hash": "448357ff5312692c599d5401d92fb4ba",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Shot.png": {
     "mtime": 1791763526.721841,
-    "seen": 1791856233.5312018,
+    "seen": 1792087617.2793615,
     "ast_hash": "1113129f36403f7c4bf6dfcd39267be9",
     "semantic_hash": ""
   },
   "assets/enemigos/espiritu/Walk.png": {
     "mtime": 1791763526.721841,
-    "seen": 1791856233.5312047,
+    "seen": 1792087617.279363,
     "ast_hash": "680670ab8bf4baa79e871ba19f7e226c",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Attack_1.png": {
     "mtime": 1791763526.721841,
-    "seen": 1791856233.5312061,
+    "seen": 1792087617.2793639,
     "ast_hash": "f4456149f1e7a2ea9d6cda885a47514e",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Attack_2.png": {
     "mtime": 1791763526.7233448,
-    "seen": 1791856233.5312276,
+    "seen": 1792087617.2793646,
     "ast_hash": "258851c7a47d9049a72857ddaff65b8c",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Attack_3.png": {
     "mtime": 1791763526.7233448,
-    "seen": 1791856233.531231,
+    "seen": 1792087617.2793658,
     "ast_hash": "ddd519bf96ebe29fd1fa7338ee9acec6",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Dead.png": {
     "mtime": 1791763526.7233448,
-    "seen": 1791856233.5312326,
+    "seen": 1792087617.279367,
     "ast_hash": "5b0bca5617c4528bc4894833717578f2",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Hurt.png": {
     "mtime": 1791763526.7243497,
-    "seen": 1791856233.531235,
+    "seen": 1792087617.2793677,
     "ast_hash": "f24e06f5d552d7c2e4a7455c9e8ed345",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Idle.png": {
     "mtime": 1791763526.7243497,
-    "seen": 1791856233.5312374,
+    "seen": 1792087617.2793686,
     "ast_hash": "3f60ddfd8858c0783a0ed07f30f9b27d",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Jump.png": {
     "mtime": 1791763526.7253506,
-    "seen": 1791856233.53124,
+    "seen": 1792087617.2793694,
     "ast_hash": "c837ded2ae6b96b628938627adc2c6a3",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Run.png": {
     "mtime": 1791763526.7253506,
-    "seen": 1791856233.5312426,
+    "seen": 1792087617.279371,
     "ast_hash": "89c984259b9827f073665ab97633c499",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Special_attack.png": {
     "mtime": 1791763526.7253506,
-    "seen": 1791856233.5312443,
+    "seen": 1792087617.2793722,
     "ast_hash": "7f9433c08dfc13006d0020fdf8a404f7",
     "semantic_hash": ""
   },
   "assets/enemigos/esqueleto/Walk.png": {
     "mtime": 1791763526.7263505,
-    "seen": 1791856233.5312467,
+    "seen": 1792087617.2793734,
     "ast_hash": "aa0394f4f5fbbf013efd4e1b9aca93f5",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Attack_1.png": {
     "mtime": 1791763526.7273505,
-    "seen": 1791856233.5312483,
+    "seen": 1792087617.2793741,
     "ast_hash": "188118567df419f5ecb3d3b5c785fe18",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Attack_2.png": {
     "mtime": 1791763526.7273505,
-    "seen": 1791856233.531251,
+    "seen": 1792087617.279375,
     "ast_hash": "ea6eaa1b54e5578aa10162348fb96bc2",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Attack_3.png": {
     "mtime": 1791763526.7283504,
-    "seen": 1791856233.5312526,
+    "seen": 1792087617.279376,
     "ast_hash": "0509f4eec793f43f1cbd27bfab536568",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Attack_Disquise.png": {
     "mtime": 1791763526.7283504,
-    "seen": 1791856233.531254,
+    "seen": 1792087617.2793772,
     "ast_hash": "4a98537b7811d66adfe216cb393ead1f",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Cloud_posion.png": {
     "mtime": 1791763526.7283504,
-    "seen": 1791856233.531256,
+    "seen": 1792087617.2793787,
     "ast_hash": "7400c62c0afc9e0d91f38f62c1047af0",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Dead.png": {
     "mtime": 1791763526.7293513,
-    "seen": 1791856233.531258,
+    "seen": 1792087617.2793796,
     "ast_hash": "f321b6485cfd7eb4e1216f6c28646139",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Disguise.png": {
     "mtime": 1791763526.7293513,
-    "seen": 1791856233.5312605,
+    "seen": 1792087617.2793806,
     "ast_hash": "99b5b6d873ab4c647a4004ed0f513dd9",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Hurt.png": {
     "mtime": 1791763526.7303503,
-    "seen": 1791856233.531262,
+    "seen": 1792087617.2793813,
     "ast_hash": "8f0064fbdc9e120cdf820c78c52f7ee3",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Idle.png": {
     "mtime": 1791763526.7303503,
-    "seen": 1791856233.5312645,
+    "seen": 1792087617.2793822,
     "ast_hash": "3f0f9f33686c2d10c27a48a471023399",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Poison.png": {
     "mtime": 1791763526.7313507,
-    "seen": 1791856233.5312672,
+    "seen": 1792087617.2793827,
     "ast_hash": "bc1c6cabbef523f07af77a339f71be0f",
     "semantic_hash": ""
   },
   "assets/enemigos/planta/Walk.png": {
     "mtime": 1791763526.7313507,
-    "seen": 1791856233.5312698,
+    "seen": 1792087617.279384,
     "ast_hash": "923f66a2d6976c925c323f724f8f84e6",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Attack.png": {
     "mtime": 1791763526.7323496,
-    "seen": 1791856233.5312717,
+    "seen": 1792087617.2793849,
     "ast_hash": "db83ea346f0c60ab860dd9b2483a15f4",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Dead.png": {
     "mtime": 1791763526.7333517,
-    "seen": 1791856233.5312748,
+    "seen": 1792087617.279386,
     "ast_hash": "26e0bd663b81c376f7f93c04597d0bbb",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Hurt.png": {
     "mtime": 1791763526.734351,
-    "seen": 1791856233.5312767,
+    "seen": 1792087617.279387,
     "ast_hash": "86a3813c66d95c97d02b4fc146c8c209",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Idle.png": {
     "mtime": 1791763526.73535,
-    "seen": 1791856233.5312788,
+    "seen": 1792087617.2793877,
     "ast_hash": "31269b1bfd538bafa0855c05c27f1a89",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Jump.png": {
     "mtime": 1791763526.73635,
-    "seen": 1791856233.531281,
+    "seen": 1792087617.2793887,
     "ast_hash": "8dc965a45347cda1781597407bcb99fd",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Run.png": {
     "mtime": 1791763526.7373495,
-    "seen": 1791856233.5312836,
+    "seen": 1792087617.2793894,
     "ast_hash": "481c56a08712533322042c5534fc9ff4",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie1/Walk.png": {
     "mtime": 1791763526.7393496,
-    "seen": 1791856233.531287,
+    "seen": 1792087617.27939,
     "ast_hash": "c082212ab5f15d28cdaaae57d83e02c5",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Attack.png": {
     "mtime": 1791763526.74035,
-    "seen": 1791856233.53129,
+    "seen": 1792087617.279391,
     "ast_hash": "f5b786d750493a40280542755b119431",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Dead.png": {
     "mtime": 1791763526.7413497,
-    "seen": 1791856233.531292,
+    "seen": 1792087617.2793918,
     "ast_hash": "bf4511a89a639e4d4d024b4ccc865348",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Hurt.png": {
     "mtime": 1791763526.7423503,
-    "seen": 1791856233.5312948,
+    "seen": 1792087617.2793925,
     "ast_hash": "70ef37ac0e434e1000d6e64978ecb72f",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Idle.png": {
     "mtime": 1791763526.7433498,
-    "seen": 1791856233.5312965,
+    "seen": 1792087617.2793937,
     "ast_hash": "514b88c7641a8e4f1bd3f211a1958f64",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Jump.png": {
     "mtime": 1791763526.7443504,
-    "seen": 1791856233.5312994,
+    "seen": 1792087617.2793949,
     "ast_hash": "b8c856f2ad0209eeb8e8023775de00c7",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Run.png": {
     "mtime": 1791763526.7463503,
-    "seen": 1791856233.5313017,
+    "seen": 1792087617.2793956,
     "ast_hash": "8339d003b5e68b9d0f4c6063d846a9b0",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie2/Walk.png": {
     "mtime": 1791763526.7473497,
-    "seen": 1791856233.5313056,
+    "seen": 1792087617.2793965,
     "ast_hash": "856396f3719f4269075a968a17463734",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Attack.png": {
     "mtime": 1791763526.7483501,
-    "seen": 1791856233.5313067,
+    "seen": 1792087617.2793975,
     "ast_hash": "edd5a031fa54967508359e835a183bfb",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Dead.png": {
     "mtime": 1791763526.7503498,
-    "seen": 1791856233.5313091,
+    "seen": 1792087617.2793984,
     "ast_hash": "bffd07bb85cb668ab73ff773c1f919a0",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Hurt.png": {
     "mtime": 1791763526.75135,
-    "seen": 1791856233.531312,
+    "seen": 1792087617.2793994,
     "ast_hash": "f883c72e154118422fe0c8b7d2fd9bc8",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Idle.png": {
     "mtime": 1791763526.75235,
-    "seen": 1791856233.5313146,
+    "seen": 1792087617.2794,
     "ast_hash": "6e1625972dcaf3a39eee21bce9087401",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Jump.png": {
     "mtime": 1791763526.7533514,
-    "seen": 1791856233.5313163,
+    "seen": 1792087617.279401,
     "ast_hash": "2bab632d5460743efe7d15ed56191f2c",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Run.png": {
     "mtime": 1791763526.7553499,
-    "seen": 1791856233.5313182,
+    "seen": 1792087617.2794023,
     "ast_hash": "2d2d6677f14a9e1cc0b8ad09a03d4faa",
     "semantic_hash": ""
   },
   "assets/enemigos/zombie3/Walk.png": {
     "mtime": 1791763526.7573512,
-    "seen": 1791856233.5313206,
+    "seen": 1792087617.2794032,
     "ast_hash": "5f7f36132ac10ca983cbd92ad17ca537",
     "semantic_hash": ""
   },
   "assets/entities/underground/Run.png": {
     "mtime": 1791763526.7613504,
-    "seen": 1791856233.5313232,
+    "seen": 1792087617.279404,
     "ast_hash": "89c984259b9827f073665ab97633c499",
     "semantic_hash": ""
   },
   "assets/favicon.png": {
     "mtime": 1791763526.762351,
-    "seen": 1791856233.5313246,
+    "seen": 1792087617.2794049,
     "ast_hash": "39d1411b61e03fb3e21d822ffb606d12",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Attack.png": {
     "mtime": 1791763526.7663503,
-    "seen": 1791856233.5313268,
+    "seen": 1792087617.2794058,
     "ast_hash": "2fd85e9fd8a249bcad37a2b9eaedf301",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Dead.png": {
     "mtime": 1791763526.7683506,
-    "seen": 1791856233.5313299,
+    "seen": 1792087617.2794068,
     "ast_hash": "732ebf83b9226e42aeb571a3b92550dd",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Hurt.png": {
     "mtime": 1791763526.7693505,
-    "seen": 1791856233.5313325,
+    "seen": 1792087617.2794075,
     "ast_hash": "3a69669b02a5d641d9aab2cd0dab65ff",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Idle.png": {
     "mtime": 1791763526.77035,
-    "seen": 1791856233.5313346,
+    "seen": 1792087617.2794087,
     "ast_hash": "157ee4cc53d248c3c46e9afa2ffe2892",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Jump.png": {
     "mtime": 1791763526.77135,
-    "seen": 1791856233.5313368,
+    "seen": 1792087617.27941,
     "ast_hash": "5bfc737ee575296dd9f3cd2e010dfd19",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Run.png": {
     "mtime": 1791763526.7723498,
-    "seen": 1791856233.5313394,
+    "seen": 1792087617.2794106,
     "ast_hash": "0693909429c8a941e52d0dfcad2222a8",
     "semantic_hash": ""
   },
   "assets/jefes/troll1_Walk.png": {
     "mtime": 1791763526.773351,
-    "seen": 1791856233.5313418,
+    "seen": 1792087617.2794118,
     "ast_hash": "64bbebbaf69b9e9d563290d1b39120d8",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Attack.png": {
     "mtime": 1791763526.77435,
-    "seen": 1791856233.5313447,
+    "seen": 1792087617.2794127,
     "ast_hash": "a14cabdc666f478a8d31c8de53ad67c9",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Dead.png": {
     "mtime": 1791763526.7753503,
-    "seen": 1791856233.531346,
+    "seen": 1792087617.2794137,
     "ast_hash": "ff34aa41ba169b49994b7b4c47da91c7",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Hurt.png": {
     "mtime": 1791763526.7753503,
-    "seen": 1791856233.5313487,
+    "seen": 1792087617.2794144,
     "ast_hash": "2c4fdbe5934036af66e8dfab1e634c7c",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Idle.png": {
     "mtime": 1791763526.77635,
-    "seen": 1791856233.53135,
+    "seen": 1792087617.2794154,
     "ast_hash": "226d357e676a21910a0387390cff730e",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Jump.png": {
     "mtime": 1791763526.7773507,
-    "seen": 1791856233.531353,
+    "seen": 1792087617.279416,
     "ast_hash": "9b0720566fcf0f85504e4df897f733ef",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Run.png": {
     "mtime": 1791763526.7783506,
-    "seen": 1791856233.5313547,
+    "seen": 1792087617.2794173,
     "ast_hash": "1e29a7bcb71491c613a2b27b218d3487",
     "semantic_hash": ""
   },
   "assets/jefes/troll2_Walk.png": {
     "mtime": 1791763526.77935,
-    "seen": 1791856233.5313566,
+    "seen": 1792087617.2794187,
     "ast_hash": "f34df330edce2bc6b9a9f999646d1035",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Attack.png": {
     "mtime": 1791763526.78035,
-    "seen": 1791856233.5313582,
+    "seen": 1792087617.2794194,
     "ast_hash": "78caa03c38e778f0747dff2d12c18554",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Dead.png": {
     "mtime": 1791763526.7813509,
-    "seen": 1791856233.5313606,
+    "seen": 1792087617.2794204,
     "ast_hash": "6b1c2cfce2bd15035d9bfbe8ce02a91b",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Hurt.png": {
     "mtime": 1791763526.7833507,
-    "seen": 1791856233.5313625,
+    "seen": 1792087617.279421,
     "ast_hash": "c7fe6df6ea6ac1ea195612c3af32a2d5",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Idle.png": {
     "mtime": 1791763526.784354,
-    "seen": 1791856233.531365,
+    "seen": 1792087617.279422,
     "ast_hash": "043d2de0085ae478f3cd7b26705b2558",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Jump.png": {
     "mtime": 1791763526.7853498,
-    "seen": 1791856233.5313668,
+    "seen": 1792087617.2794228,
     "ast_hash": "5cda7207ab176678ae6ea8988ff7ed78",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Run.png": {
     "mtime": 1791763526.7863503,
-    "seen": 1791856233.5313685,
+    "seen": 1792087617.2794237,
     "ast_hash": "8f3b0fb4e4bbc96ee27e57f73cfec25b",
     "semantic_hash": ""
   },
   "assets/jefes/troll3_Walk.png": {
     "mtime": 1791763526.7863503,
-    "seen": 1791856233.531371,
+    "seen": 1792087617.279425,
     "ast_hash": "48a3c75aebb0ff7e94fcb165e7711e31",
     "semantic_hash": ""
   },
   "assets/mazmorra/antorcha1.png": {
     "mtime": 1791763526.7893503,
-    "seen": 1791856233.5313728,
+    "seen": 1792087617.279426,
     "ast_hash": "b732538b2d3da9f4435b86e85491224f",
     "semantic_hash": ""
   },
   "assets/mazmorra/antorcha2.png": {
     "mtime": 1791763526.7903497,
-    "seen": 1791856233.5313756,
+    "seen": 1792087617.2794268,
     "ast_hash": "1a5c4495ff7ccfde4079082598fd72a9",
     "semantic_hash": ""
   },
   "assets/mazmorra/antorcha3.png": {
     "mtime": 1791763526.7903497,
-    "seen": 1791856233.531378,
+    "seen": 1792087617.2794278,
     "ast_hash": "e431efcf4bafcf371ea5b1216a2173f3",
     "semantic_hash": ""
   },
   "assets/mazmorra/bloque.png": {
     "mtime": 1791763526.7903497,
-    "seen": 1791856233.53138,
+    "seen": 1792087617.279429,
     "ast_hash": "ee46561ba8730e16fe04650e2b76c806",
     "semantic_hash": ""
   },
   "assets/mazmorra/chest.png": {
     "mtime": 1791763526.7913506,
-    "seen": 1791856233.5313823,
+    "seen": 1792087617.2794297,
     "ast_hash": "941b85cd1b7ae2eadf4f23433ae4f69e",
     "semantic_hash": ""
   },
   "assets/mazmorra/corazon.png": {
     "mtime": 1791763526.7913506,
-    "seen": 1791856233.5313845,
+    "seen": 1792087617.2794304,
     "ast_hash": "05fab7ccd4aa6f0b18358d02c6236b70",
     "semantic_hash": ""
   },
   "assets/mazmorra/cristal.png": {
     "mtime": 1791763526.7923508,
-    "seen": 1791856233.5313861,
+    "seen": 1792087617.2794313,
     "ast_hash": "b104fe2ce754a3b917c63a1ef4dadda1",
     "semantic_hash": ""
   },
   "assets/mazmorra/door.png": {
     "mtime": 1791763526.7923508,
-    "seen": 1791856233.5313885,
+    "seen": 1792087617.2794323,
     "ast_hash": "ddfb8f71d1ac309aee69f4da287bcf52",
     "semantic_hash": ""
   },
   "assets/mazmorra/escalon.png": {
     "mtime": 1791763526.7923508,
-    "seen": 1791856233.5313897,
+    "seen": 1792087617.2794333,
     "ast_hash": "d034619fd6a27e75b0f1d0bfa9a506c3",
     "semantic_hash": ""
   },
   "assets/mazmorra/fondo_bg.png": {
     "mtime": 1791763526.7933514,
-    "seen": 1791856233.5313928,
+    "seen": 1792087617.2794342,
     "ast_hash": "412adf4c5ce2d1a5fd40ec3c937af29a",
     "semantic_hash": ""
   },
   "assets/mazmorra/fondo_myst.png": {
     "mtime": 1791763526.7933514,
-    "seen": 1791856233.5313942,
+    "seen": 1792087617.2794352,
     "ast_hash": "80ac69e1df1450eda938d2decac80b0e",
     "semantic_hash": ""
   },
   "assets/mazmorra/fondo_rock1.png": {
     "mtime": 1791763526.7943504,
-    "seen": 1791856233.5313954,
+    "seen": 1792087617.279436,
     "ast_hash": "9ac20670a6e1847a49832460e1b0fec2",
     "semantic_hash": ""
   },
   "assets/mazmorra/fondo_rock2.png": {
     "mtime": 1791763526.7943504,
-    "seen": 1791856233.531397,
+    "seen": 1792087617.279437,
     "ast_hash": "acf51e995acb080ed92bafca64c2d8af",
     "semantic_hash": ""
   },
   "assets/mazmorra/fondo_rock3.png": {
     "mtime": 1791763526.7953503,
-    "seen": 1791856233.5313997,
+    "seen": 1792087617.2794378,
     "ast_hash": "e55f74b738d75203232ec32a4727551f",
     "semantic_hash": ""
   },
   "assets/mazmorra/fondo_rock5.png": {
     "mtime": 1791763526.7953503,
-    "seen": 1791856233.5314014,
+    "seen": 1792087617.2794385,
     "ast_hash": "d76ae42390fce4fbcd1f11526552f1b6",
     "semantic_hash": ""
   },
   "assets/mazmorra/lava_fondo.png": {
     "mtime": 1791763526.7953503,
-    "seen": 1791856233.5314033,
+    "seen": 1792087617.2794397,
     "ast_hash": "3e51d0411218affd88b1cd0ce23c014a",
     "semantic_hash": ""
   },
   "assets/mazmorra/lava_sup.png": {
     "mtime": 1791763526.796352,
-    "seen": 1791856233.5314047,
+    "seen": 1792087617.279441,
     "ast_hash": "82851b7baed8fd898c8c560bd2be3df1",
     "semantic_hash": ""
   },
   "assets/mazmorra/marker_statue1.png": {
     "mtime": 1791763526.796352,
-    "seen": 1791856233.5314078,
+    "seen": 1792087617.2794418,
     "ast_hash": "a6d1a7f7747edd58cd407355b560d823",
     "semantic_hash": ""
   },
   "assets/mazmorra/marker_statue2.png": {
     "mtime": 1791763526.796352,
-    "seen": 1791856233.5314102,
+    "seen": 1792087617.2794428,
     "ast_hash": "c27d561a9b512f9b1984f90f51afb0e7",
     "semantic_hash": ""
   },
   "assets/mazmorra/marker_statue3.png": {
     "mtime": 1791763526.7973502,
-    "seen": 1791856233.5314121,
+    "seen": 1792087617.2794435,
     "ast_hash": "2a473561a923229ab33a68ef6cc9b50a",
     "semantic_hash": ""
   },
   "assets/mazmorra/marker_statue4.png": {
     "mtime": 1791763526.7983513,
-    "seen": 1791856233.5314152,
+    "seen": 1792087617.2794445,
     "ast_hash": "b9295a84c9757680884a150cec14272c",
     "semantic_hash": ""
   },
   "assets/mazmorra/moneda.png": {
     "mtime": 1791763526.7983513,
-    "seen": 1791856233.5314183,
+    "seen": 1792087617.2794454,
     "ast_hash": "2f17b1e68a9fb52324a5b7ba3a4b8b7a",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum1.png": {
     "mtime": 1791763526.7983513,
-    "seen": 1791856233.5314202,
+    "seen": 1792087617.2794468,
     "ast_hash": "612b15b56cb28a91ec640c88ae81f547",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum2.png": {
     "mtime": 1791763526.7993493,
-    "seen": 1791856233.5314226,
+    "seen": 1792087617.2794476,
     "ast_hash": "cdd9f355aad1329f1b3b8c089f36fa01",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum3.png": {
     "mtime": 1791763526.7993493,
-    "seen": 1791856233.531425,
+    "seen": 1792087617.279449,
     "ast_hash": "65fb5f3e579650109dd4887cc997e624",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum4.png": {
     "mtime": 1791763526.7993493,
-    "seen": 1791856233.5314274,
+    "seen": 1792087617.2794502,
     "ast_hash": "06dd4a57171e66a8dfffc85c13464d98",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum5.png": {
     "mtime": 1791763526.8003528,
-    "seen": 1791856233.5314288,
+    "seen": 1792087617.279452,
     "ast_hash": "b89f156ccbc35b1e1bfbfb6870f5bc6d",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum6.png": {
     "mtime": 1791763526.8003528,
-    "seen": 1791856233.531431,
+    "seen": 1792087617.2794542,
     "ast_hash": "1f71dc4db21c46c2605d09605a9669bc",
     "semantic_hash": ""
   },
   "assets/mazmorra/mushrum7.png": {
     "mtime": 1791763526.8003528,
-    "seen": 1791856233.5314329,
+    "seen": 1792087617.2794566,
     "ast_hash": "a27229593ba745084437f3ca41df81f8",
     "semantic_hash": ""
   },
   "assets/mazmorra/plat.png": {
     "mtime": 1791763526.8013515,
-    "seen": 1791856233.531435,
+    "seen": 1792087617.2794583,
     "ast_hash": "5e12f984c84c515a7fe40296d4eca2a3",
     "semantic_hash": ""
   },
   "assets/mazmorra/plat_der.png": {
     "mtime": 1791763526.8013515,
-    "seen": 1791856233.5314362,
+    "seen": 1792087617.2794604,
     "ast_hash": "3aade0960d21dd13e74bd39e712ef683",
     "semantic_hash": ""
   },
   "assets/mazmorra/plat_izq.png": {
     "mtime": 1791763526.8023496,
-    "seen": 1791856233.5314386,
+    "seen": 1792087617.2794614,
     "ast_hash": "8e96bb9818e0bd21e4e8b06d8dd98248",
     "semantic_hash": ""
   },
   "assets/mazmorra/plataforma.png": {
     "mtime": 1791763526.8023496,
-    "seen": 1791856233.5314405,
+    "seen": 1792087617.2794623,
     "ast_hash": "a484089d077a344416b8c51237897196",
     "semantic_hash": ""
   },
   "assets/mazmorra/relleno.png": {
     "mtime": 1791763526.8023496,
-    "seen": 1791856233.5314422,
+    "seen": 1792087617.2794635,
     "ast_hash": "d969bf834b95e0898ecc208a95175f31",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalactite1.png": {
     "mtime": 1791763526.803351,
-    "seen": 1791856233.5314445,
+    "seen": 1792087617.2794647,
     "ast_hash": "bb059a72ab8c2dd9f05eb3523b15aefc",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalactite2.png": {
     "mtime": 1791763526.803351,
-    "seen": 1791856233.5314462,
+    "seen": 1792087617.2794657,
     "ast_hash": "a298905bbd710a5105241ffdbcc61c42",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalactite3.png": {
     "mtime": 1791763526.803351,
-    "seen": 1791856233.5314486,
+    "seen": 1792087617.2794669,
     "ast_hash": "903d925ebb1f14fbc901a61281d38697",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalactite4.png": {
     "mtime": 1791763526.8043513,
-    "seen": 1791856233.5314503,
+    "seen": 1792087617.2794676,
     "ast_hash": "9ac66a6c46a0fd36de8e7d5cd24c9089",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalactite5.png": {
     "mtime": 1791763526.8043513,
-    "seen": 1791856233.5314524,
+    "seen": 1792087617.2794688,
     "ast_hash": "42de48efeb68bb7105c61698cc3278df",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagmite1.png": {
     "mtime": 1791763526.8043513,
-    "seen": 1791856233.5314548,
+    "seen": 1792087617.2794697,
     "ast_hash": "cbed69234b0749519128cf87905e7dd2",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagmite2.png": {
     "mtime": 1791763526.8053524,
-    "seen": 1791856233.531457,
+    "seen": 1792087617.279471,
     "ast_hash": "f1996bc7a81cb6247af7019935e237e7",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagmite3.png": {
     "mtime": 1791763526.8053524,
-    "seen": 1791856233.5314593,
+    "seen": 1792087617.2794719,
     "ast_hash": "3dd15789a637029217be81ef167f0240",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagmite4.png": {
     "mtime": 1791763526.8053524,
-    "seen": 1791856233.531462,
+    "seen": 1792087617.2794728,
     "ast_hash": "9d27f595373c556ce0f74e1de4a265af",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagmite5.png": {
     "mtime": 1791763526.8063514,
-    "seen": 1791856233.5314631,
+    "seen": 1792087617.279474,
     "ast_hash": "c5ba9b6f81db99abe5e3b238586ccc4f",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagnate1.png": {
     "mtime": 1791763526.8063514,
-    "seen": 1791856233.5314655,
+    "seen": 1792087617.279475,
     "ast_hash": "e10750d5b2915f51850634acca979f4c",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagnate2.png": {
     "mtime": 1791763526.8073504,
-    "seen": 1791856233.5314672,
+    "seen": 1792087617.279476,
     "ast_hash": "e8225a692f390fa01fc538356807c78e",
     "semantic_hash": ""
   },
   "assets/mazmorra/stalagnate3.png": {
     "mtime": 1791763526.8073504,
-    "seen": 1791856233.5314698,
+    "seen": 1792087617.2794766,
     "ast_hash": "6e55cf31ecd6e8370244aa11081c4a7b",
     "semantic_hash": ""
   },
   "assets/mazmorra/suelo.png": {
     "mtime": 1791763526.8073504,
-    "seen": 1791856233.531471,
+    "seen": 1792087617.2794778,
     "ast_hash": "fca82f8bf7740939cd2c391c92e8a878",
     "semantic_hash": ""
   },
   "assets/mazmorra/suelo_der.png": {
     "mtime": 1791763526.8083508,
-    "seen": 1791856233.5314739,
+    "seen": 1792087617.2794788,
     "ast_hash": "08d1367d779db76ab5350a5a47ef0bd2",
     "semantic_hash": ""
   },
   "assets/mazmorra/suelo_izq.png": {
     "mtime": 1791763526.8083508,
-    "seen": 1791856233.5314763,
+    "seen": 1792087617.2794802,
     "ast_hash": "defa0552ca06289de4228989d4a5839a",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Arrow.png": {
-    "mtime": 1791763526.8093512,
-    "seen": 1791856233.5314786,
-    "ast_hash": "c62a8a9e632da1ebb53207ff667244f2",
+    "mtime": 1792087397.5041935,
+    "seen": 1792087617.2794814,
+    "ast_hash": "e8bb04b13fe016a97b6d484aeacc0e83",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Attack_1.png": {
-    "mtime": 1791763526.8103504,
-    "seen": 1791856233.5314803,
-    "ast_hash": "aa5737a4a68151b70d0851c855de7730",
+    "mtime": 1792087397.5097053,
+    "seen": 1792087617.2794824,
+    "ast_hash": "70bf707f77173ec5f21f2b74ea48ac4c",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Dead.png": {
-    "mtime": 1791763526.8103504,
-    "seen": 1791856233.5314822,
-    "ast_hash": "cc9adfcf1008cb70007ac62ad703fc76",
+    "mtime": 1792087397.5147119,
+    "seen": 1792087617.2794833,
+    "ast_hash": "a7589a01ffde3d507c964497a130af13",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Hurt.png": {
-    "mtime": 1791763526.8103504,
-    "seen": 1791856233.5314841,
-    "ast_hash": "0a3df7c799ebdd27e77a7283f7abf4fa",
+    "mtime": 1792087397.5202265,
+    "seen": 1792087617.2794845,
+    "ast_hash": "2b7e2b1899eb1b8b2383ac6f9505aa2e",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Idle.png": {
-    "mtime": 1791763526.8113506,
-    "seen": 1791856233.5314865,
-    "ast_hash": "4f6bf6ac7264d09242c7f6691c5dbf76",
+    "mtime": 1792087397.5272257,
+    "seen": 1792087617.2794857,
+    "ast_hash": "115a6b1b958c55175c4a56a1e2657f56",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Idle_2.png": {
-    "mtime": 1791763526.8113506,
-    "seen": 1791856233.531488,
-    "ast_hash": "23fdfc7d5b0cbde57327fefa94fba11b",
+    "mtime": 1792087397.5337481,
+    "seen": 1792087617.2794867,
+    "ast_hash": "024b702a856ce8d2f52c72298208df2b",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Jump.png": {
-    "mtime": 1791763526.81235,
-    "seen": 1791856233.5314898,
-    "ast_hash": "cea667485b0b3767f77864cb09fae0d8",
+    "mtime": 1792087397.5432534,
+    "seen": 1792087617.2794883,
+    "ast_hash": "79ff73cda954edcc33a705a627c5a2ce",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Run.png": {
-    "mtime": 1791763526.81235,
-    "seen": 1791856233.5314915,
-    "ast_hash": "5b1ce377497d8e83e42a67b656d0a91a",
+    "mtime": 1792087397.552774,
+    "seen": 1792087617.2794893,
+    "ast_hash": "88efa10838ea11e9b62913ac2310d203",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Shot_1.png": {
-    "mtime": 1791763526.81235,
-    "seen": 1791856233.5314934,
-    "ast_hash": "33bf36caa87953b65016a8d22b71d2d7",
+    "mtime": 1792087397.5657861,
+    "seen": 1792087617.2794902,
+    "ast_hash": "8ca067fca39871f8407af5673b783db1",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Shot_2.png": {
-    "mtime": 1791763526.8133495,
-    "seen": 1791856233.5314956,
-    "ast_hash": "d7633c428322a6969a4365c189b386e0",
+    "mtime": 1792087397.578303,
+    "seen": 1792087617.2794912,
+    "ast_hash": "4eac9a3b81d80cf7fade1713aae9ad2b",
     "semantic_hash": ""
   },
   "assets/personajes/arquera/Walk.png": {
-    "mtime": 1791763526.8133495,
-    "seen": 1791856233.5314975,
-    "ast_hash": "53a4677b1084e22b02a8d43d2c0a2297",
+    "mtime": 1792087397.5883193,
+    "seen": 1792087617.2794924,
+    "ast_hash": "7978a0cb8f8152b7387d15f3ee690119",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Attack_1.png": {
-    "mtime": 1791763526.8143532,
-    "seen": 1791856233.5315008,
-    "ast_hash": "95d080193ba6f30053d18290b0ff7ada",
+    "mtime": 1792087397.662669,
+    "seen": 1792087617.279504,
+    "ast_hash": "656981506b54ec9d5b3bf2fd9f141b2d",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Attack_2.png": {
-    "mtime": 1791763526.8143532,
-    "seen": 1791856233.5315034,
-    "ast_hash": "9edc995b28fb9c0d8c372792f689e0bf",
+    "mtime": 1792087397.6681807,
+    "seen": 1792087617.2795053,
+    "ast_hash": "642f7a086db776b5395320b774c388e4",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Attack_3.png": {
-    "mtime": 1791763526.8153503,
-    "seen": 1791856233.5315049,
-    "ast_hash": "a6f6b5f7f2bba8775a787f5a72967ed6",
+    "mtime": 1792087397.6731908,
+    "seen": 1792087617.2795062,
+    "ast_hash": "d2c8126a1851e4ba17a863340c599b19",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Dead.png": {
-    "mtime": 1791763526.8153503,
-    "seen": 1791856233.5315068,
-    "ast_hash": "7d208eac22bf9327f0352c445b3b5c2e",
+    "mtime": 1792087397.6781898,
+    "seen": 1792087617.2795072,
+    "ast_hash": "444ef95847069842518345dcce65ecfc",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Hurt.png": {
-    "mtime": 1791763526.8163517,
-    "seen": 1791856233.5315092,
-    "ast_hash": "891ac3806071ced4b3f984d6a6c20890",
+    "mtime": 1792087397.6827047,
+    "seen": 1792087617.279508,
+    "ast_hash": "834cdac82a64026d691bae0a4beb6a40",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Idle.png": {
-    "mtime": 1791763526.8163517,
-    "seen": 1791856233.5315108,
-    "ast_hash": "d3b3b7d3bf48dee1abd03fed2ab3a47a",
+    "mtime": 1792087397.6917279,
+    "seen": 1792087617.2795093,
+    "ast_hash": "d3323fba67c80eec67ae28a866f905f9",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Idle_2.png": {
-    "mtime": 1791763526.8163517,
-    "seen": 1791856233.5315127,
-    "ast_hash": "94534c3e7d91bb71db2a07809f642c6e",
+    "mtime": 1792087397.6957278,
+    "seen": 1792087617.2795103,
+    "ast_hash": "7466a49a85985bc1d3811400907f6236",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Jump.png": {
-    "mtime": 1791763526.8173506,
-    "seen": 1791856233.531515,
-    "ast_hash": "280406e714994bf0af52ad19388e154d",
+    "mtime": 1792087397.7052467,
+    "seen": 1792087617.2795115,
+    "ast_hash": "ef4d68c9dd69d42af20461e7f8325dd3",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Onda.png": {
-    "mtime": 1791763526.8173506,
-    "seen": 1791856233.5315175,
-    "ast_hash": "fcd9f8a50f2aa8b172dd5eb8529ffa93",
+    "mtime": 1792087397.7062514,
+    "seen": 1792087617.2795126,
+    "ast_hash": "098e9aa771fd180defd9c5595adad3d9",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Run.png": {
-    "mtime": 1791763526.8183515,
-    "seen": 1791856233.5315192,
-    "ast_hash": "d38bd8b8d6548895925a6d5cf84676bf",
+    "mtime": 1792087397.7147684,
+    "seen": 1792087617.2795136,
+    "ast_hash": "c5baaa62177e590db77fe010e0120eb7",
     "semantic_hash": ""
   },
   "assets/personajes/espadachin/Walk.png": {
-    "mtime": 1791763526.8183515,
-    "seen": 1791856233.5315208,
-    "ast_hash": "6086c1b3e1d31cf0b385828b6d380435",
+    "mtime": 1792087397.724284,
+    "seen": 1792087617.2795143,
+    "ast_hash": "74b00ef72a7238e77691f1a0243de587",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Attack_1.png": {
-    "mtime": 1791763526.8193512,
-    "seen": 1791856233.5315223,
-    "ast_hash": "dadc6f22bc7591d3f126cf327d06cc2d",
+    "mtime": 1792087397.8114147,
+    "seen": 1792087617.2795267,
+    "ast_hash": "f98a210a860a12ee784dd124854500ec",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Attack_2.png": {
-    "mtime": 1791763526.8193512,
-    "seen": 1791856233.5315251,
-    "ast_hash": "fdc638752037612c2715b2484dfca683",
+    "mtime": 1792087397.8179188,
+    "seen": 1792087617.2795277,
+    "ast_hash": "f622646904e59732475ed6a8881e1685",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Attack_3.png": {
-    "mtime": 1791763526.820351,
-    "seen": 1791856233.5315268,
-    "ast_hash": "189bd01c3ac91981514991c64e1ac880",
+    "mtime": 1792087397.825928,
+    "seen": 1792087617.2795284,
+    "ast_hash": "c35557c503e8fdb98025e2cc21ef2961",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Dead.png": {
-    "mtime": 1791763526.820351,
-    "seen": 1791856233.5315287,
-    "ast_hash": "e74ab287c4bc20272caba8e98337569c",
+    "mtime": 1792087397.8314514,
+    "seen": 1792087617.2795296,
+    "ast_hash": "a0b0968afab854a77be84bd559f04a36",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Hurt.png": {
-    "mtime": 1791763526.820351,
-    "seen": 1791856233.531531,
-    "ast_hash": "c099928726c6f89dd95f180cb7e77156",
+    "mtime": 1792087397.8379529,
+    "seen": 1792087617.2795305,
+    "ast_hash": "346fe12ce9a768fd0315006ea27c45e0",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Idle.png": {
-    "mtime": 1791763526.82135,
-    "seen": 1791856233.5315335,
-    "ast_hash": "0f55587982da9e37e9e5c6e64e554a41",
+    "mtime": 1792087397.843961,
+    "seen": 1792087617.2795312,
+    "ast_hash": "fc354d7df7e93f991684ac012d9a20ea",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Idle_2.png": {
-    "mtime": 1791763526.82135,
-    "seen": 1791856233.5315354,
-    "ast_hash": "00a22635f0f68ac6eca88a5eacb16005",
+    "mtime": 1792087397.85148,
+    "seen": 1792087617.279532,
+    "ast_hash": "5006cbc778e14b3baa4924dedd13636f",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Jump.png": {
-    "mtime": 1791763526.822351,
-    "seen": 1791856233.5315368,
-    "ast_hash": "1a92f84976bee0328b0ecabf4db45611",
+    "mtime": 1792087397.8636925,
+    "seen": 1792087617.2795331,
+    "ast_hash": "6e3b04119e079cc4f7d6d1b758a08b49",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Magia.png": {
     "mtime": 1791763526.822351,
-    "seen": 1791856233.531539,
+    "seen": 1792087617.2795343,
     "ast_hash": "59764aea860e970c5ad65ab862efdab5",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Run.png": {
-    "mtime": 1791763526.822351,
-    "seen": 1791856233.5315418,
-    "ast_hash": "3726fae54e80bedb9a9ee5ecfddc9a97",
+    "mtime": 1792087397.873206,
+    "seen": 1792087617.2795355,
+    "ast_hash": "f7df319862a6de6eba0b17a81d85eb55",
     "semantic_hash": ""
   },
   "assets/personajes/mago/Walk.png": {
-    "mtime": 1791763526.8233495,
-    "seen": 1791856233.5315433,
-    "ast_hash": "3bd6fe370ff394a278b39e29ee6ba4e3",
+    "mtime": 1792087397.8807151,
+    "seen": 1792087617.2795365,
+    "ast_hash": "1c91f04c470bc064494ce86749d850a2",
     "semantic_hash": ""
   },
   "assets/scenery/lava1.png": {
     "mtime": 1791763526.8278582,
-    "seen": 1791856233.5315447,
+    "seen": 1792087617.279548,
     "ast_hash": "02267ceb627279e873f0068168f49ff8",
     "semantic_hash": ""
   },
   "assets/scenery/lava_callendo.png": {
     "mtime": 1791763526.8278582,
-    "seen": 1791856233.5315464,
+    "seen": 1792087617.2795491,
     "ast_hash": "a29b44c61c63e2e35e6255c6cceb29d9",
     "semantic_hash": ""
   },
   "assets/scenery/piso.png": {
     "mtime": 1791763526.83286,
-    "seen": 1791856233.5315485,
+    "seen": 1792087617.279551,
     "ast_hash": "fca82f8bf7740939cd2c391c92e8a878",
     "semantic_hash": ""
   },
   "assets/scenery/trap2.png": {
     "mtime": 1791763526.833859,
-    "seen": 1791856233.5315506,
+    "seen": 1792087617.279552,
     "ast_hash": "d66f3b97a268004ed501d11baa2ad1bc",
     "semantic_hash": ""
   },
   "assets/sound/aventura/aparece.mp3": {
     "mtime": 1791763526.8378603,
-    "seen": 1791856233.5315523,
+    "seen": 1792087617.279553,
     "ast_hash": "13fa52c08c04ec419db6914e01b051c2",
     "semantic_hash": ""
   },
   "assets/sound/aventura/bump.mp3": {
     "mtime": 1791763526.8378603,
-    "seen": 1791856233.531554,
+    "seen": 1792087617.2795541,
     "ast_hash": "744aa909d0fb4ba5483fdf723ce8cbff",
     "semantic_hash": ""
   },
   "assets/sound/aventura/disparo.mp3": {
     "mtime": 1791763526.8388593,
-    "seen": 1791856233.5315564,
+    "seen": 1792087617.279555,
     "ast_hash": "f4bd30ba51c2a1125d5fe61570e39948",
     "semantic_hash": ""
   },
   "assets/sound/aventura/escudo_roto.mp3": {
     "mtime": 1791763526.8388593,
-    "seen": 1791856233.5315578,
+    "seen": 1792087617.279556,
     "ast_hash": "fe55789dc06e2e6d8af12d254914b08f",
     "semantic_hash": ""
   },
   "assets/sound/aventura/fuego.mp3": {
     "mtime": 1791763526.8388593,
-    "seen": 1791856233.5315595,
+    "seen": 1792087617.2795572,
     "ast_hash": "794ef605fdd13fd041cfb03b868a0e1a",
     "semantic_hash": ""
   },
   "assets/sound/aventura/matar.mp3": {
     "mtime": 1791763526.8398583,
-    "seen": 1791856233.5315614,
+    "seen": 1792087617.2795584,
     "ast_hash": "de5a76b39dc4fcf4703d175afccd88f5",
     "semantic_hash": ""
   },
   "assets/sound/aventura/moneda.mp3": {
     "mtime": 1791763526.8398583,
-    "seen": 1791856233.5315642,
+    "seen": 1792087617.2795594,
     "ast_hash": "dbf170e99eba3259924cbd2b1cdda17f",
     "semantic_hash": ""
   },
   "assets/sound/aventura/muerte.mp3": {
     "mtime": 1791763526.8408587,
-    "seen": 1791856233.5315664,
+    "seen": 1792087617.27956,
     "ast_hash": "ec36b9c3e1cf95dfb356d78cb4f799dc",
     "semantic_hash": ""
   },
   "assets/sound/aventura/musica_aventura.mp3": {
     "mtime": 1791763526.8428586,
-    "seen": 1791856233.5315685,
+    "seen": 1792087617.2795613,
     "ast_hash": "cd76546b25a9a8e6bfd22ebb5afb5d1c",
     "semantic_hash": ""
   },
   "assets/sound/aventura/musica_batalla.mp3": {
     "mtime": 1791763526.8448582,
-    "seen": 1791856233.5315707,
+    "seen": 1792087617.2795622,
     "ast_hash": "c519457ca4f7c2969b9852226ed4137b",
     "semantic_hash": ""
   },
   "assets/sound/aventura/musica_cueva.mp3": {
     "mtime": 1791763526.84786,
-    "seen": 1791856233.5315726,
+    "seen": 1792087617.2795632,
     "ast_hash": "3b2fe04045805a20c5a3609dbf92549d",
     "semantic_hash": ""
   },
   "assets/sound/aventura/punto_control.mp3": {
     "mtime": 1791763526.84786,
-    "seen": 1791856233.5315742,
+    "seen": 1792087617.2795644,
     "ast_hash": "13c50ad60c049614e6f05179c898fa8d",
     "semantic_hash": ""
   },
   "assets/sound/aventura/romper.mp3": {
     "mtime": 1791763526.848859,
-    "seen": 1791856233.5315764,
+    "seen": 1792087617.279565,
     "ast_hash": "4b9031d1302f5808ad0e2cb14a292149",
     "semantic_hash": ""
   },
   "assets/sound/aventura/salto.mp3": {
     "mtime": 1791763526.848859,
-    "seen": 1791856233.5315788,
+    "seen": 1792087617.2795663,
     "ast_hash": "56e39d899e7149177bd0804a3bc836af",
     "semantic_hash": ""
   },
   "assets/sound/aventura/victoria.mp3": {
     "mtime": 1791763526.8498588,
-    "seen": 1791856233.5315819,
+    "seen": 1792087617.279567,
     "ast_hash": "e8b2584b9946b7cfb7af7ccbc32959d2",
     "semantic_hash": ""
   },
   "assets/sound/generados/apagon.wav": {
     "mtime": 1791763526.8578577,
-    "seen": 1791856233.5315835,
+    "seen": 1792087617.2795684,
     "ast_hash": "a57d646eb1b892f7b84a72298678fe15",
     "semantic_hash": ""
   },
   "assets/sound/generados/arco.wav": {
     "mtime": 1791763526.8588586,
-    "seen": 1791856233.5315852,
+    "seen": 1792087617.2795691,
     "ast_hash": "b70b5136c98bee3df9f8d35ad940886c",
     "semantic_hash": ""
   },
   "assets/sound/generados/emboscada.wav": {
     "mtime": 1791763526.8588586,
-    "seen": 1791856233.5315876,
+    "seen": 1792087617.2795699,
     "ast_hash": "9486254e151f2de53cc58e57e72643ae",
     "semantic_hash": ""
   },
   "assets/sound/generados/espada.wav": {
     "mtime": 1791763526.8598595,
-    "seen": 1791856233.5315897,
+    "seen": 1792087617.279571,
     "ast_hash": "393852a4d499183643bbb8bc61e40547",
     "semantic_hash": ""
   },
   "assets/sound/generados/game_over.wav": {
     "mtime": 1791763526.8608584,
-    "seen": 1791856233.531591,
+    "seen": 1792087617.2795718,
     "ast_hash": "49fb5ff5f21df94388d4a9faeee437fd",
     "semantic_hash": ""
   },
   "assets/sound/generados/golpe_enemigo.wav": {
     "mtime": 1791763526.8608584,
-    "seen": 1791856233.5315926,
+    "seen": 1792087617.2795727,
     "ast_hash": "d70e2e5292e94a84c1a32bb77b1cd9fd",
     "semantic_hash": ""
   },
   "assets/sound/generados/laser.wav": {
     "mtime": 1791763526.8618581,
-    "seen": 1791856233.531595,
+    "seen": 1792087617.279574,
     "ast_hash": "6ea83ad2fb6f7c38c6951ad3756cd24c",
     "semantic_hash": ""
   },
   "assets/sound/generados/latido.wav": {
     "mtime": 1791763526.8618581,
-    "seen": 1791856233.5315979,
+    "seen": 1792087617.2795749,
     "ast_hash": "6b3cd9bf3cdd91cd46d500f94e0b6f52",
     "semantic_hash": ""
   },
   "assets/sound/generados/latigo.wav": {
     "mtime": 1791763526.8618581,
-    "seen": 1791856233.5315995,
+    "seen": 1792087617.2795758,
     "ast_hash": "e65e9be721e3181e3f65cf679604110d",
     "semantic_hash": ""
   },
   "assets/sound/generados/magia.wav": {
     "mtime": 1791763526.8628585,
-    "seen": 1791856233.5316026,
+    "seen": 1792087617.2795765,
     "ast_hash": "bb8e8941ff7292387faa82c7104bd624",
     "semantic_hash": ""
   },
   "assets/sound/generados/menu_mover.wav": {
     "mtime": 1791763526.8628585,
-    "seen": 1791856233.5316052,
+    "seen": 1792087617.2795775,
     "ast_hash": "7374d4a51a885c0a06f2cde3ef1948c5",
     "semantic_hash": ""
   },
   "assets/sound/generados/menu_ok.wav": {
     "mtime": 1791763526.863859,
-    "seen": 1791856233.5316076,
+    "seen": 1792087617.2795787,
     "ast_hash": "082346a7226a3889e6b0c5feef3af3b3",
     "semantic_hash": ""
   },
   "assets/sound/generados/pinchos.wav": {
     "mtime": 1791763526.863859,
-    "seen": 1791856233.5316103,
+    "seen": 1792087617.2795794,
     "ast_hash": "dad90bfccad7f36ed496ea16307487b1",
     "semantic_hash": ""
   },
   "assets/sound/generados/rayo.wav": {
     "mtime": 1791763526.8648598,
-    "seen": 1791856233.5316122,
+    "seen": 1792087617.2795804,
     "ast_hash": "5f3bcf0d636d627768eae6530a751679",
     "semantic_hash": ""
   },
   "assets/sound/generados/rugido.wav": {
     "mtime": 1791763526.8648598,
-    "seen": 1791856233.5316136,
+    "seen": 1792087617.2795815,
     "ast_hash": "557d3dd714778293ad7ce6ad591e78c0",
     "semantic_hash": ""
   },
   "assets/sound/generados/trampa.wav": {
     "mtime": 1791763526.8658602,
-    "seen": 1791856233.5316155,
+    "seen": 1792087617.2795825,
     "ast_hash": "40d0fa9a3c772ed1838a2cd90406f516",
     "semantic_hash": ""
   },
   "assets/sound/generados/trueno.wav": {
     "mtime": 1791763526.86686,
-    "seen": 1791856233.531618,
+    "seen": 1792087617.2795832,
     "ast_hash": "8b738af00a86bfd6c2b830e6543dab62",
     "semantic_hash": ""
   },
   "assets/sound/generados/vacio.wav": {
     "mtime": 1791763526.8678598,
-    "seen": 1791856233.5316198,
+    "seen": 1792087617.279584,
     "ast_hash": "b7da810c2e748626dc5da017b38d66c5",
     "semantic_hash": ""
   },
   "assets/sound/generados/viento.wav": {
     "mtime": 1791763526.868859,
-    "seen": 1791856233.531622,
+    "seen": 1792087617.2795851,
     "ast_hash": "cba29d458023fb6c9f0a7292f2bcc5d1",
     "semantic_hash": ""
   },
   "senales.js": {
-    "mtime": 1791768089.7985358,
-    "seen": 1791856233.530818,
-    "ast_hash": "c9b9daf96511718603395b275ecfd92b",
+    "mtime": 1792085517.3125665,
+    "seen": 1792087617.2791815,
+    "ast_hash": "9f60b0da59e8071f6457c2eedc650611",
     "semantic_hash": ""
   },
   "regiones.js": {
     "mtime": 1791769886.034321,
-    "seen": 1791856233.5308146,
+    "seen": 1792087617.2791703,
     "ast_hash": "00b0535edad28103b991dc086abcab4a",
     "semantic_hash": ""
   },
   "arte.js": {
     "mtime": 1791770564.041437,
-    "seen": 1791856233.5307603,
+    "seen": 1792087617.2791345,
     "ast_hash": "572b7444eeafeed52b6c74739f102936",
     "semantic_hash": ""
   },
   "alcance.js": {
     "mtime": 1791853543.8003988,
-    "seen": 1791856233.5307314,
+    "seen": 1792087617.2790935,
     "ast_hash": "c5f0aa956e1f870ee30ea9686fdd1387",
     "semantic_hash": ""
   },
   "tramos.js": {
-    "mtime": 1791856196.4334815,
-    "seen": 1791856233.5308254,
-    "ast_hash": "dc8d2e5d0501fda486512eea9773d2ea",
+    "mtime": 1792082289.1841562,
+    "seen": 1792087617.2791996,
+    "ast_hash": "736c14a7fb017e20344b21eedf0e3624",
     "semantic_hash": ""
   },
   "locuras.js": {
-    "mtime": 1791856125.032167,
-    "seen": 1791856233.5307903,
-    "ast_hash": "1f70ae64e898e282d53a004142cbc3e8",
+    "mtime": 1792082289.2071545,
+    "seen": 1792087617.279149,
+    "ast_hash": "3f4605194da68ec4b7233c3213beb53b",
+    "semantic_hash": ""
+  },
+  "ajustes.js": {
+    "mtime": 1792020117.9172494,
+    "seen": 1792087617.2790875,
+    "ast_hash": "ba6a88e04e23100092eca65fe57d77f6",
+    "semantic_hash": ""
+  },
+  "android/app/build.gradle": {
+    "mtime": 1792020117.9202516,
+    "seen": 1792087617.2791169,
+    "ast_hash": "1b6e7dba892a118c1668c454f9bc8488",
+    "semantic_hash": ""
+  },
+  "android/app/capacitor.build.gradle": {
+    "mtime": 1792020117.9212523,
+    "seen": 1792087617.279119,
+    "ast_hash": "737acd19427c4df4fae07608fe59e0e3",
+    "semantic_hash": ""
+  },
+  "android/app/src/androidTest/java/com/getcapacitor/myapp/ExampleInstrumentedTest.java": {
+    "mtime": 1792020117.92425,
+    "seen": 1792087617.279121,
+    "ast_hash": "c777a4127ae7213f7da22c4105bdfeab",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/java/com/monhabell/aventura/MainActivity.java": {
+    "mtime": 1792020117.9262497,
+    "seen": 1792087617.2791233,
+    "ast_hash": "24d66ff0484dc432afcfd3f077310d68",
+    "semantic_hash": ""
+  },
+  "android/app/src/test/java/com/getcapacitor/myapp/ExampleUnitTest.java": {
+    "mtime": 1792020117.9542565,
+    "seen": 1792087617.2791247,
+    "ast_hash": "3f8a2768101e4de10f606ea4516fd339",
+    "semantic_hash": ""
+  },
+  "android/build.gradle": {
+    "mtime": 1792020117.9552536,
+    "seen": 1792087617.279126,
+    "ast_hash": "ca5f0fa0ea4c3997363777d8a2b6467b",
+    "semantic_hash": ""
+  },
+  "android/capacitor.settings.gradle": {
+    "mtime": 1792020117.9567573,
+    "seen": 1792087617.2791274,
+    "ast_hash": "8e2d2120a7f79d6f4af804d994d42629",
+    "semantic_hash": ""
+  },
+  "android/gradlew": {
+    "mtime": 1792020117.959762,
+    "seen": 1792087617.279129,
+    "ast_hash": "f2d3d383787f61a4a99710ee8d780434",
+    "semantic_hash": ""
+  },
+  "android/settings.gradle": {
+    "mtime": 1792020117.9607618,
+    "seen": 1792087617.2791307,
+    "ast_hash": "c609df618dbeec637255380c9f707ccf",
+    "semantic_hash": ""
+  },
+  "android/variables.gradle": {
+    "mtime": 1792020117.9607618,
+    "seen": 1792087617.2791317,
+    "ast_hash": "32293aeff620cc10298866858c22ddc9",
+    "semantic_hash": ""
+  },
+  "bosque.js": {
+    "mtime": 1792082288.1725788,
+    "seen": 1792087617.2791378,
+    "ast_hash": "6e28d510061f9ef3a8cd9d3cd825d7a0",
+    "semantic_hash": ""
+  },
+  "cadena.js": {
+    "mtime": 1792020117.9787636,
+    "seen": 1792087617.279139,
+    "ast_hash": "a31735d2b2cc1956108e0d2b15ace620",
+    "semantic_hash": ""
+  },
+  "menu.js": {
+    "mtime": 1792087586.6885624,
+    "seen": 1792087617.2791526,
+    "ast_hash": "0f160ab3080c326fa3e17b93912b1d15",
+    "semantic_hash": ""
+  },
+  "multijugador.js": {
+    "mtime": 1792087161.1916106,
+    "seen": 1792087617.279157,
+    "ast_hash": "b663aa3bb6380900b67b0adc152b650e",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1792020117.9917643,
+    "seen": 1792087617.2791636,
+    "ast_hash": "f39088d9fd35d87e1319b3aa53afa1fa",
+    "semantic_hash": ""
+  },
+  "red.js": {
+    "mtime": 1792020117.992764,
+    "seen": 1792087617.279169,
+    "ast_hash": "92a75fb136f0edf485ab4c8817d727c8",
+    "semantic_hash": ""
+  },
+  "rendimiento.js": {
+    "mtime": 1792020117.9937644,
+    "seen": 1792087617.2791731,
+    "ast_hash": "6e8c66ef85b4265f4b9ab125bfc1d79f",
+    "semantic_hash": ""
+  },
+  "sala.js": {
+    "mtime": 1792086397.2127821,
+    "seen": 1792087617.2791758,
+    "ast_hash": "4cdd7d60bdc7faaf76dfa496f700e72c",
+    "semantic_hash": ""
+  },
+  "scripts/construir-apk.ps1": {
+    "mtime": 1792020117.9947631,
+    "seen": 1792087617.2791774,
+    "ast_hash": "2a9c35ec5bc59972e9998d9fceb7625a",
+    "semantic_hash": ""
+  },
+  "scripts/copiar-web.mjs": {
+    "mtime": 1792020117.995763,
+    "seen": 1792087617.2791796,
+    "ast_hash": "fe8209186c8fa602b18ad3469411b507",
+    "semantic_hash": ""
+  },
+  "servidor/index.js": {
+    "mtime": 1792020117.995763,
+    "seen": 1792087617.2791831,
+    "ast_hash": "15b32eb98430d68f2b7263c865c3d708",
+    "semantic_hash": ""
+  },
+  "servidor/package.json": {
+    "mtime": 1792020117.9967623,
+    "seen": 1792087617.2791853,
+    "ast_hash": "81177ef5a7fa3fb3144ab44a932dc0eb",
+    "semantic_hash": ""
+  },
+  "servidor/prueba.js": {
+    "mtime": 1792020117.9977622,
+    "seen": 1792087617.2791884,
+    "ast_hash": "9bc1eb57d4d69bea4274d7ed1559726d",
+    "semantic_hash": ""
+  },
+  "tactil.js": {
+    "mtime": 1792020117.9987626,
+    "seen": 1792087617.2791948,
+    "ast_hash": "a5ebbfaa3e36d94a0b70208829fba8de",
+    "semantic_hash": ""
+  },
+  ".claude/skills/disenar-niveles/SKILL.md": {
+    "mtime": 1792082288.2281117,
+    "seen": 1792087617.2792034,
+    "ast_hash": "696b83da746e6e840bf7f9b5de8a2ef6",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-land-hdpi/splash.png": {
+    "mtime": 1792020117.9272504,
+    "seen": 1792087617.2792149,
+    "ast_hash": "f7a80786dd355bd39014e58027aa6e19",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-land-mdpi/splash.png": {
+    "mtime": 1792020117.9272504,
+    "seen": 1792087617.2792156,
+    "ast_hash": "acc976d4a36479233371a53021525c0c",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-land-xhdpi/splash.png": {
+    "mtime": 1792020117.9282503,
+    "seen": 1792087617.2792165,
+    "ast_hash": "b8c72969bc1f78aab71a76035360d4af",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-land-xxhdpi/splash.png": {
+    "mtime": 1792020117.929251,
+    "seen": 1792087617.2792177,
+    "ast_hash": "f87e988387b07d843905f38b084929fb",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-land-xxxhdpi/splash.png": {
+    "mtime": 1792020117.9302523,
+    "seen": 1792087617.2792187,
+    "ast_hash": "055a69553b16b0bf5f72094a2e459fc7",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-port-hdpi/splash.png": {
+    "mtime": 1792020117.9312503,
+    "seen": 1792087617.2792196,
+    "ast_hash": "5eb10d16c81338abe8bbc033d49638a8",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-port-mdpi/splash.png": {
+    "mtime": 1792020117.9322495,
+    "seen": 1792087617.2792206,
+    "ast_hash": "d855a76a5070c8e6fcfd83a27549bdce",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-port-xhdpi/splash.png": {
+    "mtime": 1792020117.9322495,
+    "seen": 1792087617.279222,
+    "ast_hash": "df100b2a36bdb98b711cca58941728de",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-port-xxhdpi/splash.png": {
+    "mtime": 1792020117.93325,
+    "seen": 1792087617.2792227,
+    "ast_hash": "2c1b668364e815256f67b71dcdfa4d6e",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable-port-xxxhdpi/splash.png": {
+    "mtime": 1792020117.9342508,
+    "seen": 1792087617.2792234,
+    "ast_hash": "b5b1b22b59abe686c1df0d74a423d034",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/drawable/splash.png": {
+    "mtime": 1792020117.9362504,
+    "seen": 1792087617.2792246,
+    "ast_hash": "acc976d4a36479233371a53021525c0c",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-hdpi/ic_launcher.png": {
+    "mtime": 1792020117.93925,
+    "seen": 1792087617.2792258,
+    "ast_hash": "b533ec2af194a6b34f538eefd865bf01",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png": {
+    "mtime": 1792020117.94025,
+    "seen": 1792087617.2792265,
+    "ast_hash": "0fabb32e09a0d88c3b5ad463198eb6c1",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-hdpi/ic_launcher_round.png": {
+    "mtime": 1792020117.9412496,
+    "seen": 1792087617.2792277,
+    "ast_hash": "6c4ecee845533a5e34633b2ee9eacae7",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-mdpi/ic_launcher.png": {
+    "mtime": 1792020117.9412496,
+    "seen": 1792087617.2792284,
+    "ast_hash": "7ec5909f18ee1d86ebaf30e8980d318e",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png": {
+    "mtime": 1792020117.9422538,
+    "seen": 1792087617.27923,
+    "ast_hash": "bf740c00b3dc63037ec5b73e99838214",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-mdpi/ic_launcher_round.png": {
+    "mtime": 1792020117.9432554,
+    "seen": 1792087617.2792315,
+    "ast_hash": "866ebfecb764c0dbb79f1b72e39930ae",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xhdpi/ic_launcher.png": {
+    "mtime": 1792020117.9442537,
+    "seen": 1792087617.2792337,
+    "ast_hash": "0eb15b5387ef996d34e7b157fb2625de",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png": {
+    "mtime": 1792020117.9442537,
+    "seen": 1792087617.2792354,
+    "ast_hash": "0faa0b98c1e90eef8b13341b1444b170",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png": {
+    "mtime": 1792020117.9452536,
+    "seen": 1792087617.279237,
+    "ast_hash": "209b07fb2897cfc654c135234e715962",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png": {
+    "mtime": 1792020117.946255,
+    "seen": 1792087617.2792392,
+    "ast_hash": "c38f3456b7ddd131d589c9275f584799",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png": {
+    "mtime": 1792020117.946255,
+    "seen": 1792087617.2792416,
+    "ast_hash": "d368b89a9886bede70c3dfab21da50f3",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png": {
+    "mtime": 1792020117.947255,
+    "seen": 1792087617.2792432,
+    "ast_hash": "d4c6e82970425486e4021ec0700253d6",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": {
+    "mtime": 1792020117.948254,
+    "seen": 1792087617.2792447,
+    "ast_hash": "32401f4b492e5db076378b95014c0cb1",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png": {
+    "mtime": 1792020117.948254,
+    "seen": 1792087617.279246,
+    "ast_hash": "a09c0b791982b668c67e4fa54d994364",
+    "semantic_hash": ""
+  },
+  "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png": {
+    "mtime": 1792020117.9492538,
+    "seen": 1792087617.2792468,
+    "ast_hash": "fad72cfc0a7823faf65fd3c1bf84639f",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Attack_1.png": {
+    "mtime": 1792087397.594328,
+    "seen": 1792087617.2794933,
+    "ast_hash": "26193dc4a2e0d9ff0ec1e5678bcd09f2",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Attack_2.png": {
+    "mtime": 1792087397.598834,
+    "seen": 1792087617.279494,
+    "ast_hash": "4b00303c240625c43c53148cc040cc65",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Attack_3.png": {
+    "mtime": 1792087397.605845,
+    "seen": 1792087617.2794955,
+    "ast_hash": "21c5a465ef8c10239daaefcb7eaf5a8d",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Attack_4.png": {
+    "mtime": 1792087397.6113634,
+    "seen": 1792087617.2794964,
+    "ast_hash": "30afb3f599a829c457a8e128bb32f85c",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Dead.png": {
+    "mtime": 1792087397.6183643,
+    "seen": 1792087617.2794971,
+    "ast_hash": "33001a55f95fdc587807cd81e0e8a5ef",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Hurt.png": {
+    "mtime": 1792087397.6228764,
+    "seen": 1792087617.2794986,
+    "ast_hash": "3348d24469501ef647585711967dcd98",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Idle.png": {
+    "mtime": 1792087397.6293843,
+    "seen": 1792087617.2794995,
+    "ast_hash": "5b34496a1c184707ab84ce04738704f3",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Jump.png": {
+    "mtime": 1792087397.6378915,
+    "seen": 1792087617.2795005,
+    "ast_hash": "c26c94b21794758c4a5516d37de0ab91",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Run.png": {
+    "mtime": 1792087397.645135,
+    "seen": 1792087617.279502,
+    "ast_hash": "bcbc8eaa66dd4b75c797ec5148f6e028",
+    "semantic_hash": ""
+  },
+  "assets/personajes/caballera/Walk.png": {
+    "mtime": 1792087397.655658,
+    "seen": 1792087617.279503,
+    "ast_hash": "6fefec5a5a52d4a4a20d5496811d60a2",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Attack_1.png": {
+    "mtime": 1792087397.7318017,
+    "seen": 1792087617.279515,
+    "ast_hash": "69e4598f5b64205d4951a5c3888f3f17",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Attack_2.png": {
+    "mtime": 1792087397.7367966,
+    "seen": 1792087617.2795165,
+    "ast_hash": "c27ce04a53b9dc7ca3e38d32d8a9f9ec",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Attack_3.png": {
+    "mtime": 1792087397.7413118,
+    "seen": 1792087617.2795174,
+    "ast_hash": "ea3b92088077aeaf5efbd2b13c1340b6",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Attack_4.png": {
+    "mtime": 1792087397.750835,
+    "seen": 1792087617.2795186,
+    "ast_hash": "a4fe5276a161c09196c296ad3300d18f",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Dead.png": {
+    "mtime": 1792087397.7593422,
+    "seen": 1792087617.2795198,
+    "ast_hash": "53cb4c10e9ff67d55c791e280887cdf9",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Hielo.png": {
+    "mtime": 1792087397.7603421,
+    "seen": 1792087617.279521,
+    "ast_hash": "5f90746d85a435099b091ba0b5dcdfb5",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Hurt.png": {
+    "mtime": 1792087397.763851,
+    "seen": 1792087617.279522,
+    "ast_hash": "3cad9bfd29968dc7eade8783fd1c5d33",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Idle.png": {
+    "mtime": 1792087397.7713692,
+    "seen": 1792087617.2795231,
+    "ast_hash": "d6f1e753c799630306f4b120e1898824",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Jump.png": {
+    "mtime": 1792087397.7818792,
+    "seen": 1792087617.279524,
+    "ast_hash": "d96d8c697dc036a7d70e279c9db77126",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Run.png": {
+    "mtime": 1792087397.7913868,
+    "seen": 1792087617.279525,
+    "ast_hash": "1463128280664de8ac817f50df0b602e",
+    "semantic_hash": ""
+  },
+  "assets/personajes/hechicera/Walk.png": {
+    "mtime": 1792087397.7988925,
+    "seen": 1792087617.279526,
+    "ast_hash": "33a693a00feaee126ce849bbef4185c1",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Attack_1.png": {
+    "mtime": 1792087397.888219,
+    "seen": 1792087617.2795377,
+    "ast_hash": "048a0ec75018fa1ddbf03f34ddec0f58",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Attack_2.png": {
+    "mtime": 1792087397.894227,
+    "seen": 1792087617.2795384,
+    "ast_hash": "643102d4f080db6c2bf376460cb99ee4",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Attack_3.png": {
+    "mtime": 1792087397.9022875,
+    "seen": 1792087617.2795393,
+    "ast_hash": "08bc5a6b3538576aab1e1996b768461e",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Attack_4.png": {
+    "mtime": 1792087397.9097953,
+    "seen": 1792087617.2795405,
+    "ast_hash": "1780021d20b413f4b4f0a93ca55ad4b7",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Dead.png": {
+    "mtime": 1792087397.9157999,
+    "seen": 1792087617.2795415,
+    "ast_hash": "c7d61ce3bc80a79d5939c792248516ff",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Hurt.png": {
+    "mtime": 1792087397.9193134,
+    "seen": 1792087617.2795434,
+    "ast_hash": "5f84ca2b9b63bd2b070258f550cf22a3",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Idle.png": {
+    "mtime": 1792087397.9253166,
+    "seen": 1792087617.2795444,
+    "ast_hash": "2f7f481900abd9f200ff6211fe36fb08",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Jump.png": {
+    "mtime": 1792087397.9358256,
+    "seen": 1792087617.279545,
+    "ast_hash": "87849552b313bc716555de328bfe245e",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Run.png": {
+    "mtime": 1792087397.944342,
+    "seen": 1792087617.2795463,
+    "ast_hash": "b2fbb0ef7b2d5941b52e79214b28b986",
+    "semantic_hash": ""
+  },
+  "assets/personajes/mosquetera/Walk.png": {
+    "mtime": 1792087397.9538603,
+    "seen": 1792087617.2795472,
+    "ast_hash": "9c12c07889ecba0282e73b1e7b9701f6",
+    "semantic_hash": ""
+  },
+  "tienda.js": {
+    "mtime": 1792086485.5967412,
+    "seen": 1792087617.2791972,
+    "ast_hash": "bf713d1b9ad96f1d1c3b823a450ac905",
+    "semantic_hash": ""
+  },
+  "vestidor.js": {
+    "mtime": 1792087367.7682848,
+    "seen": 1792087617.2792017,
+    "ast_hash": "49b793497e0d131569254a3c7a9be001",
     "semantic_hash": ""
   }
 }

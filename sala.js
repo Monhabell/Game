@@ -3,6 +3,8 @@
 //   2. Crear sala (te da un código de 4 letras) o unirte con el código de un amigo
 //   3. En la sala: ves quién está, cambias de personaje; el anfitrión elige el nivel y empieza
 // Hasta 8 jugadores, atados en fila por la cadena en el orden en que entraron.
+// En la sala, cada jugador aparece en un escenario con su personaje: cae al unirse, pasea de un
+// lado a otro y salta al cambiar de personaje (las mismas hojas de sprites del juego, animadas con CSS).
 
 import { PERSONAJES } from "./personajes.js"
 import { NIVELES } from "./niveles.js"
@@ -39,6 +41,7 @@ export function iniciarSala(juego, { alEmpezar }) {
             </div>
 
             <div class="sala-paso sala-dos-columnas" data-paso="sala" hidden>
+                <div class="sala-escenario" data-escenario aria-hidden="true"><div class="sala-piso"></div></div>
                 <div class="sala-columna">
                     <p class="sala-codigo">Código de la sala: <b data-codigo></b></p>
                     <p class="menu-nota">Pásale este código a tus amigos (hasta 8)</p>
@@ -152,6 +155,93 @@ export function iniciarSala(juego, { alEmpezar }) {
         $('[data-solo-anfitrion]').hidden = !anfitrion;
         $('[data-accion="empezar"]').hidden = !anfitrion;
         $('[data-esperando]').hidden = anfitrion;
+        actualizarEscenario();
+    }
+
+    // ---------- escenario: los personajes de la sala paseando ----------
+    const escenario = $('[data-escenario]');
+    const actores = new Map(); // id del jugador -> { el, sprite, etiqueta, x, destino, pj, quieto }
+    let animando = 0, ultimo = 0;
+    const VEL = 55; // px/s al pasear
+
+    // pone en el sprite la hoja de una animación ('idle' o 'run') del personaje
+    function hoja(sprite, pj, anim) {
+        const [archivo, frames, fps] = pj.hojas[anim];
+        sprite.style.backgroundImage = `url("${pj.carpeta}/${archivo}.png")`;
+        sprite.style.setProperty('--n', frames);
+        sprite.style.setProperty('--fps', fps);
+        sprite.dataset.anim = anim;
+    }
+
+    function actualizarEscenario() {
+        const ancho = escenario.clientWidth || 400;
+        const vivos = new Set();
+        red.jugadores.forEach(j => {
+            vivos.add(j.id);
+            const pj = PERSONAJES.find(p => p.id === j.pj) || PERSONAJES[0];
+            let a = actores.get(j.id);
+            if (!a) {
+                // recién llegado: cae desde arriba en un lugar al azar
+                const el = document.createElement('div');
+                el.className = 'sala-heroe entrando';
+                el.innerHTML = '<span class="sala-etiqueta"></span><div class="sala-sprite"></div>';
+                escenario.append(el);
+                a = { el, sprite: el.querySelector('.sala-sprite'), etiqueta: el.querySelector('.sala-etiqueta'),
+                    x: 40 + Math.random() * Math.max(1, ancho - 80), destino: null, quieto: 0 };
+                a.el.addEventListener('animationend', () => a.el.classList.remove('entrando', 'saltando'));
+                actores.set(j.id, a);
+                if (actores.size > 1) sonar('aparece');
+            }
+            if (a.pj !== pj.id) {
+                if (a.pj) { a.el.classList.add('saltando'); sonar('salto'); } // cambió de personaje: salta
+                a.pj = pj.id;
+                hoja(a.sprite, pj, a.destino === null ? 'idle' : 'run');
+            }
+            a.el.style.setProperty('--pj', color(pj));
+            a.el.classList.toggle('yo', j.id === red.tuId);
+            a.etiqueta.textContent = `${j.id === red.anfitrion ? '★ ' : ''}${j.nombre}`;
+        });
+        // los que se fueron se desvanecen
+        actores.forEach((a, id) => {
+            if (vivos.has(id)) return;
+            actores.delete(id);
+            a.el.classList.add('saliendo');
+            setTimeout(() => a.el.remove(), 400);
+        });
+        if (!animando) { ultimo = performance.now(); animando = requestAnimationFrame(pasear); }
+    }
+
+    // cada personaje elige a ratos un lugar al que caminar, o se queda quieto un momento
+    function pasear(ahora) {
+        const dt = Math.min(0.05, (ahora - ultimo) / 1000);
+        ultimo = ahora;
+        const ancho = escenario.clientWidth;
+        actores.forEach(a => {
+            const pj = PERSONAJES.find(p => p.id === a.pj) || PERSONAJES[0];
+            if (a.destino === null) {
+                a.quieto -= dt;
+                if (a.quieto <= 0 && ancho) {
+                    a.destino = 40 + Math.random() * Math.max(1, ancho - 80);
+                    hoja(a.sprite, pj, 'run');
+                }
+            } else {
+                const d = a.destino - a.x;
+                a.sprite.classList.toggle('izquierda', d < 0);
+                a.x += Math.sign(d) * Math.min(Math.abs(d), VEL * dt);
+                if (Math.abs(d) < 1) {
+                    a.destino = null;
+                    a.quieto = 1.2 + Math.random() * 3;
+                    hoja(a.sprite, pj, 'idle');
+                }
+            }
+            a.x = Math.max(30, Math.min(Math.max(30, ancho - 30), a.x));
+            a.el.style.transform = `translateX(${a.x}px)`;
+        });
+        animando = !capa.hidden && red.codigo ? requestAnimationFrame(pasear) : 0;
+    }
+
+    function sonar(clave) {
+        try { if (juego.sound && juego.cache.audio.exists(clave)) juego.sound.play(clave, { volume: 0.4 }); } catch (_e) { /* sin sonido */ }
     }
 
     function mostrarPaso(paso) {
@@ -167,6 +257,9 @@ export function iniciarSala(juego, { alEmpezar }) {
     function cerrar() {
         if (capa.contains(document.activeElement)) document.activeElement.blur();
         capa.hidden = true;
+        // al salir de la sala se vacía el escenario (al volver, todos entran de nuevo)
+        actores.forEach(a => a.el.remove());
+        actores.clear();
         teclado(true);
     }
 

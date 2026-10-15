@@ -18,10 +18,13 @@
 //
 // Las señales se dibujan por encima de la oscuridad (como el brillo de la lava).
 
+import { tiene } from "./tienda.js"
+
 const SUELO_Y = 332;
 const CADA_MS = 1300;   // cada cuánto se revisan las trampas cercanas para dar señales
 const DISTANCIA = 520;  // solo dan señales las que están cerca de la cámara
 const PROB_PISTA = 0.25; // probabilidad de que una trampa de engaño dé su pista en cada revisión
+                         // (el doble con el Ojo del Alba de la tienda)
 const PROFUNDIDAD = 41; // por encima de la oscuridad (40)
 
 const reducirMovimiento = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -47,7 +50,7 @@ export function crearSenales(scene) {
         delay: CADA_MS, loop: true, callback: () => {
             const g = scene.mascotaGesi;
             if (!g || g.isDead || scene.nivelTerminado) return;
-            const pista = x => Math.abs(x - g.x) < DISTANCIA && Math.random() < PROB_PISTA;
+            const pista = x => Math.abs(x - g.x) < DISTANCIA && Math.random() < PROB_PISTA * (tiene('ojo') ? 2 : 1);
 
             scene.cayentes.forEach(c => { if (!c.estado && pista(c.x)) granoDePolvo(scene, c.x + 16, c.body.bottom); });
             scene.floor.getChildren().forEach(b => {

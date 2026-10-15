@@ -16,7 +16,7 @@ const estiloTexto = (tam, color = '#ffffff') => ({
 
 // data: { desde, hasta, personaje, vidas, maxVidas, score, zoom }
 export function crearMapa(scene, data) {
-    const { desde, hasta, personaje, vidas, maxVidas, score, zoom } = data;
+    const { desde, hasta, personaje, vidas, maxVidas, score, zoom, abrirTienda } = data;
     scene.cameras.main.setOrigin(0).setZoom(zoom);
     scene.cameras.main.fadeIn(400, 0, 0, 0);
     crearNieblaSeleccion(scene);
@@ -75,12 +75,13 @@ export function crearMapa(scene, data) {
     scene.terminado = false;
 
     const empezar = () => {
-        if (scene.terminado) return;
+        if (scene.terminado || scene.enTienda) return; // con la tienda abierta se espera a que se cierre
         scene.terminado = true;
         scene.cameras.main.fadeOut(350, 0, 0, 0);
         scene.time.delayedCall(360, () => scene.scene.start('juego'));
     };
     const llegar = () => {
+        scene.llego = true;
         caminante.anims.play(`${personaje}-idle`);
         scene.sound.play('punto_control', { volume: 0.6 });
         const aviso = scene.add.text(395, 92, `NIVEL ${hasta + 1}\n${NIVELES[hasta].nombre}`, { ...estiloTexto('14px', '#ffe9a8'), lineSpacing: 8 })
@@ -105,10 +106,29 @@ export function crearMapa(scene, data) {
         callback: () => !scene.terminado && scene.sound.play('golpe_enemigo', { volume: 0.12, rate: 2.2 }),
     });
 
-    const teclas = scene.input.keyboard.addKeys({ enter: 'ENTER', espacio: 'SPACE' });
+    // tienda entre niveles (botón arriba a la derecha o tecla T): el siguiente nivel espera
+    scene.llego = false;
+    scene.enTienda = false;
+    const irATienda = () => {
+        if (!abrirTienda || scene.enTienda || scene.terminado) return;
+        scene.enTienda = true;
+        abrirTienda(() => {
+            scene.enTienda = false;
+            if (scene.llego) empezar();
+        });
+    };
+    scene.irATienda = irATienda; // (también la abre el botón dorado de la bolsa: menu.js)
+    if (abrirTienda) {
+        scene.add.text(775, 14, 'Tienda  (T)', {
+            fontSize: '11px', fontStyle: '600', color: '#ffd27a', backgroundColor: 'rgba(255, 210, 122, 0.14)', padding: { x: 10, y: 6 },
+        }).setOrigin(1, 0).setDepth(12).setInteractive({ useHandCursor: true }).on('pointerdown', irATienda);
+    }
+
+    const teclas = scene.input.keyboard.addKeys({ enter: 'ENTER', espacio: 'SPACE', tienda: 'T' });
     scene.input.on('pointerdown', empezar); // en el celular: tocar la pantalla
     scene.saltarMapa = () => {
         const JD = Phaser.Input.Keyboard.JustDown;
+        if (JD(teclas.tienda)) irATienda();
         if (JD(teclas.enter) || JD(teclas.espacio)) empezar();
     };
 }

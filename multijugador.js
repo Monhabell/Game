@@ -24,6 +24,7 @@
 // y cada ataque se avisa con un "jefeFx".
 
 import { PERSONAJES } from "./personajes.js"
+import { prepararVariante } from "./vestidor.js"
 import { red, alRecibir, enviarEstado, enviarEvento, enLinea, esAnfitrion } from "./red.js"
 
 const ENVIO_MS = 66;          // ~15 estados por segundo
@@ -174,6 +175,9 @@ export function actualizarEnLinea(scene, time, delta) {
         if (r.primera || Math.hypot(x - r.s.x, y - r.s.y) > 300) { r.s.setPosition(x, y); r.primera = false; }
         else r.s.setPosition(r.s.x + (x - r.s.x) * k, r.s.y + (y - r.s.y) * k);
         r.s.flipX = !!e.flip;
+        // la animación trae los colores del otro jugador ("arquera~b4202a.o.o.o-run"): se arma su variante
+        if (e.anim && !scene.anims.exists(e.anim) && e.anim.includes('~')) prepararVariante(scene, e.anim.slice(0, e.anim.lastIndexOf('-')));
+        if (e.anim) r.prefijo = e.anim.slice(0, e.anim.lastIndexOf('-'));
         if (e.anim && r.s.anims.currentAnim?.key !== e.anim && scene.anims.exists(e.anim)) r.s.anims.play(e.anim, true);
         r.s.setTint(e.anclado ? 0x9fd8ff : 0xffffff);
         r.etiqueta.setPosition(r.s.x, r.s.y - 8);
@@ -217,7 +221,7 @@ function poderRemoto(scene, m) {
     const r = scene.remotos.get(m.de);
     const h = r?.pj.habilidades[m.tecla];
     if (!r?.visible || !h || h.tipo !== 'proyectil') return;
-    const anim = scene.anims.get(`${r.pj.id}-${h.anim}`);
+    const anim = scene.anims.get(`${r.prefijo || r.pj.id}-${h.anim}`);
     const espera = anim ? h.soltar / anim.frameRate * 1000 : 200;
     scene.time.delayedCall(espera, () => {
         if (!r.s.active) return;
