@@ -7,6 +7,10 @@
 const M = 'assets/mazmorra';
 const SUELO_Y = 332;
 const BORDE = 13; // el tile de roca tiene 13 px transparentes arriba
+// profundidad del dibujo del piso y de la lava hacia abajo (la cámara muestra un poco bajo el piso:
+// CAMARA_BAJA en game.js). Solo es dibujo: la física del suelo no cambia
+const PROFUNDIDAD_SUELO = 160; // px de roca maciza bajo el borde del piso
+const PROFUNDIDAD_LAVA = 200;  // px del fondo de la lava
 
 export function cargarMazmorra(scene) {
     ['suelo_izq', 'suelo', 'suelo_der', 'relleno', 'plat_izq', 'plat', 'plat_der', 'bloque', 'escalon', 'plataforma',
@@ -44,9 +48,12 @@ export function vestirSuelo(scene, pieza, { izq = false, der = false, flotante =
     const tex = flotante ? 'mz_plat' : 'mz_suelo';
     // posiciones enteras y 1 px de solape para que no se vean rayas entre piezas
     const x0 = Math.floor(b.x), ancho = Math.ceil(b.right) - x0 + 1;
+    // el piso (no las plataformas flotantes) sigue hacia abajo en roca maciza; va antes para quedar detrás del borde
+    const relleno = flotante ? null : scene.add.tileSprite(x0, Math.round(b.y) - BORDE + 56, ancho, PROFUNDIDAD_SUELO, 'mz_relleno').setOrigin(0);
+    if (relleno) relleno.tilePositionX = x0;
     const visual = scene.add.tileSprite(x0, Math.round(b.y) - BORDE, ancho, 64, tex).setOrigin(0);
     visual.tilePositionX = x0; // continuidad entre piezas vecinas
-    const partes = [visual];
+    const partes = relleno ? [relleno, visual] : [visual];
     if (izq) partes.push(scene.add.image(b.x - 11, b.y - BORDE, flotante ? 'mz_plat_izq' : 'mz_suelo_izq').setOrigin(0));
     if (der) partes.push(scene.add.image(b.x + b.width - 53, b.y - BORDE, flotante ? 'mz_plat_der' : 'mz_suelo_der').setOrigin(0));
     pieza.visuales = partes;
@@ -75,7 +82,7 @@ export function vestirTecho(scene, pieza) {
 // lava que fluye en los huecos
 export function crearLava(scene, x0, x1) {
     scene.lavasFluyen = scene.lavasFluyen || [];
-    const fondo = scene.add.tileSprite(x0, SUELO_Y + 20, x1 - x0, 64, 'mz_lava_fondo').setOrigin(0);
+    const fondo = scene.add.tileSprite(x0, SUELO_Y + 20, x1 - x0, PROFUNDIDAD_LAVA, 'mz_lava_fondo').setOrigin(0);
     const sup = scene.add.tileSprite(x0, SUELO_Y - 14, x1 - x0, 64, 'mz_lava_sup').setOrigin(0);
     scene.lavasFluyen.push(sup, fondo);
 }

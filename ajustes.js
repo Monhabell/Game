@@ -32,9 +32,15 @@ export const BOTONES = {
     grandes: { nombre: 'Grandes', escala: 1.25 },
 };
 
+// chat de voz (solo en partidas en línea): pulsar para hablar o micrófono abierto
+export const VOCES = {
+    pulsar: { nombre: 'Pulsar para hablar' },
+    abierto: { nombre: 'Micrófono abierto' },
+};
+
 // version: sube cuando cambia un valor por defecto que debe aplicarse también a quien ya tenía ajustes
 const VERSION = 2;
-const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false, cadena: false, graficos: 'auto', fps: false };
+const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false, cadena: false, graficos: 'auto', fps: false, voz: 'pulsar' };
 
 export const ajustes = leer();
 
@@ -50,6 +56,7 @@ function leer() {
         if (!CAMARAS[a.camara]) a.camara = POR_DEFECTO.camara;
         if (!BOTONES[a.botones]) a.botones = POR_DEFECTO.botones;
         if (!GRAFICOS[a.graficos]) a.graficos = POR_DEFECTO.graficos;
+        if (!VOCES[a.voz]) a.voz = POR_DEFECTO.voz;
         if (!(a.volumen >= 0 && a.volumen <= 100)) a.volumen = POR_DEFECTO.volumen;
         return a;
     } catch (_e) {

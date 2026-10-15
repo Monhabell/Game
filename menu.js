@@ -3,7 +3,7 @@
 // Son capas HTML encima del juego: funcionan igual con mouse, teclado y en el celular.
 // Pausar detiene la escena del nivel (física, enemigos, temporizadores) y los sonidos que sonaban.
 
-import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION } from "./ajustes.js"
+import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION, VOCES } from "./ajustes.js"
 import { enLinea } from "./red.js"
 import { saldo } from "./tienda.js"
 
@@ -29,7 +29,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
     const botonPausa = boton('btn-pausa', 'Pausa (tecla P)',
         '<path d="M8 5v14M16 5v14"/>');
     const botonAjustes = boton('btn-ajustes', 'Configuración',
-        '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>');
+        '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>');
     // tienda: dorada y con el saldo encima, para que se encuentre fácil
     const botonTienda = boton('btn-tienda', 'Tienda (tecla T)',
         '<path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>');
@@ -123,6 +123,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
                     </div>
                 </fieldset>
                 ${document.body.classList.contains('movil') ? grupo('botones', 'Botones táctiles', BOTONES) : ''}
+                ${grupo('voz', 'Chat de voz (en línea)', VOCES, 'Pulsar: mantén 🎤 o Q para hablar · Abierto: 🎤 o Q te silencia')}
                 <fieldset class="menu-grupo">
                     <legend>Para probar</legend>
                     <div class="menu-opciones">

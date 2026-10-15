@@ -1016,6 +1016,16 @@
         .boton-voz.activa { color: var(--texto); border-color: var(--acento); }
         .boton-voz.hablando { color: #fff; background: var(--exito); border-color: var(--exito); transform: scale(1.08); }
         .boton-voz.error { border-color: var(--peligro); color: var(--peligro); }
+        /* micrófono abierto pero silenciado: tachado */
+        .boton-voz.silenciado { color: var(--peligro); border-color: rgba(255, 107, 120, 0.5); }
+        .boton-voz.silenciado::after {
+            content: '';
+            position: absolute;
+            left: 10px; right: 10px; top: 50%;
+            height: 2px;
+            background: var(--peligro);
+            transform: rotate(-45deg);
+        }
 
         /* ---------- vestidor (vestidor.js) ---------- */
         .vestidor-panel { width: min(600px, 100%); }

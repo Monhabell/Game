@@ -12,8 +12,8 @@
   "10": "mazmorra.js",
   "11": "arte.js",
   "12": "actualizarJugador",
-  "13": "golpearBloque",
-  "14": "completarNivel",
+  "13": "crearEnemigo",
+  "14": "voz.js",
   "15": "dañarEnemigo",
   "16": "ajustes.js",
   "17": "package.json",
@@ -36,5 +36,6 @@
   "34": "settings.gradle",
   "35": "variables.gradle",
   "36": "construir-apk.ps1",
-  "37": "escudo.js"
+  "37": "escudo.js",
+  "38": "completarNivel"
 }

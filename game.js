@@ -90,7 +90,7 @@ const VEL_DERIVA = 100;  // px/s que conserva en el aire al soltar la flecha
 // tiempo en que un empujón (escudo roto, golpe, mímico) no se puede anular con las flechas
 const EMPUJON_MS = 250;
 // cámara vertical (niveles con altura): dónde queda el personaje en la pantalla y qué tan rápido lo sigue
-const CAMARA_ALTURA_PJ = 0.62; // fracción de la pantalla desde arriba
+const CAMARA_ALTURA_PJ = 0.40; // fracción de la pantalla desde arriba
 const CAMARA_SUAVIDAD_MS = 140; // más alto = sigue más lento
 // cámara horizontal: el personaje queda a ~40 % del ancho y se ve más escenario hacia donde va
 const CAMARA_POS_PJ = 0.37;        // fracción del ancho donde queda el personaje (yendo a la derecha)
@@ -100,6 +100,8 @@ const CAMARA_SIGUE_MS = 110;       // suavidad del seguimiento horizontal
 const CAMARA_GIRO_MS = 650;        // al cambiar de dirección, la vista se reacomoda despacio (sin saltos)
 const CAMARA_BANDA_Y = 40;         // px: al caer más que esto por debajo del último piso, la cámara baja
 const CAMARA_MARGEN_ARRIBA = 0.15; // en el aire la cámara no sube, salvo que el personaje llegue a este borde
+const CAMARA_BAJA = 0.10;          // fracción del alto visible que la cámara baja: se ve más suelo y menos cielo
+const SUBSUELO = 420;              // px de tierra dibujada bajo el piso (lo que se ve al bajar la cámara)
 // aparición al empezar un nivel: a ~30 % del ancho visible (no pegado al borde ni bajo los controles)
 const INICIO_POS_PJ = 0.3;
 const PAUSA_ASCENSOR = 1500; // ms que el ascensor espera en cada parada
@@ -531,6 +533,11 @@ function create() {
     this.pinchos = [];
     this.emboscadas = [];
 
+    // subsuelo: tierra oscura bajo todo el nivel (antes que el suelo y la lava: queda detrás).
+    // La cámara muestra un poco por debajo del piso (CAMARA_BAJA)
+    this.add.graphics().fillGradientStyle(
+        nivel.cueva ? 0x2a1f1a : 0x221d2a, nivel.cueva ? 0x2a1f1a : 0x221d2a, 0x07060a, 0x07060a, 1,
+    ).fillRect(-200, SUELO_Y + 12, nivel.ancho + 400, SUBSUELO);
     if (nivelActual === 0) construirNivel1(this);
     construirNivel(this, nivel);
     crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
@@ -782,7 +789,9 @@ function moverCamara(scene) {
         cam.scrollX = lista ? cam.scrollX + (destino - cam.scrollX) * (1 - Math.exp(-dt / CAMARA_SIGUE_MS)) : objetivo;
         scene.camaraHorizontalLista = true;
     }
-    const abajo = VISTA.height - altoVista; // el suelo abajo del todo; lo extra se ve arriba (cielo)
+    // el suelo casi abajo del todo (un poco más arriba: se ve el piso con algo de tierra debajo);
+    // lo extra se ve arriba (cielo)
+    const abajo = VISTA.height - altoVista + altoVista * CAMARA_BAJA;
     if (!scene.altoNivel || scene.camaraArena) {
         cam.scrollY = abajo;
     } else if (!g.isDead) {

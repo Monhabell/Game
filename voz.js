@@ -1,6 +1,9 @@
 // Chat de voz: SOLO en las partidas en línea (no jugando solo ni en el mismo teclado).
 //
-// Pulsar para hablar: mantener el botón 🎤 (o la tecla Q). La primera vez se pide el micrófono.
+// Dos modos (⚙ Configuración → Chat de voz):
+//   - Pulsar para hablar: mantener el botón 🎤 (o la tecla Q).
+//   - Micrófono abierto: se habla libremente; tocar 🎤 (o Q) silencia / vuelve a activar el micrófono.
+// La primera vez se pide el micrófono.
 // Cada jugador se conecta directo con los demás (WebRTC); el servidor del juego solo pasa los
 // mensajes para conectarse (eventos 'voz' con 'para': no hubo que cambiar el servidor).
 // Quien tiene la voz activada escucha a los demás que también la activaron.
@@ -9,6 +12,7 @@
 // un servidor TURN: cuando esté instalado en el VPS, se completa TURN abajo y listo.
 
 import { red, alRecibir, enviarEvento } from "./red.js"
+import { ajustes } from "./ajustes.js"
 
 // servidores para encontrarse: STUN público + TURN propio (vacío hasta instalarlo en el VPS)
 // (la clave queda visible en el código: es solo para este TURN, que tiene un límite de uso en el VPS)
@@ -24,7 +28,10 @@ const voz = {
     conexiones: new Map(), // id -> { pc, audio, analizador }
     hablando: new Set(),   // ids de los que hablan ahora (incluido el propio)
     contexto: null,
+    modo: null,         // 'pulsar' | 'abierto' (el que se aplicó por última vez)
+    silenciado: false,  // con micrófono abierto: el jugador se silenció
 };
+const abierto = () => ajustes.voz === 'abierto';
 
 export const vozActiva = () => voz.activa;
 export const estaHablando = id => voz.hablando.has(id);
@@ -41,8 +48,8 @@ async function activar() {
         avisarError('No se pudo usar el micrófono (revisa el permiso)');
         return;
     }
-    voz.microfono.getAudioTracks().forEach(t => { t.enabled = false; }); // pulsar para hablar
     voz.activa = true;
+    aplicarModo(); // pulsar: empieza callado; abierto: ya se escucha
     voz.contexto ||= new (window.AudioContext || window.webkitAudioContext)();
     medir('yo', voz.microfono);
     enviarEvento('voz', { clase: 'hola' }); // "tengo la voz activada": los demás se conectan conmigo
@@ -61,6 +68,24 @@ export function hablar(si) {
     if (!voz.activa) return;
     voz.microfono?.getAudioTracks().forEach(t => { t.enabled = si; });
     boton?.classList.toggle('hablando', si);
+    boton?.classList.toggle('silenciado', abierto() && !si);
+}
+
+// el modo elegido en la configuración (se revisa seguido: se puede cambiar en medio de la partida)
+function aplicarModo() {
+    voz.modo = ajustes.voz;
+    voz.silenciado = false;
+    hablar(abierto());
+}
+
+// tocar 🎤 o Q: pulsar -> empieza a hablar; abierto -> silenciarse / volver a hablar
+function apretar() {
+    if (!voz.activa) { activar().then(actualizarBoton); return; }
+    if (abierto()) { voz.silenciado = !voz.silenciado; hablar(!voz.silenciado); }
+    else hablar(true);
+}
+function soltar() {
+    if (!abierto()) hablar(false);
 }
 
 // ---------- conexiones con cada jugador ----------
@@ -176,8 +201,11 @@ function actualizarBoton() {
     boton.hidden = !enLinea;
     if (!enLinea && voz.activa) apagar();
     boton.classList.toggle('activa', voz.activa);
-    boton.setAttribute('aria-label', voz.activa ? 'Mantén para hablar (Q)' : 'Activar chat de voz');
-    boton.title = voz.activa ? 'Mantén para hablar (tecla Q)' : 'Activar chat de voz';
+    const texto = !voz.activa ? 'Activar chat de voz'
+        : abierto() ? (voz.silenciado ? 'Silenciado: toca para hablar (Q)' : 'Micrófono abierto: toca para silenciarte (Q)')
+        : 'Mantén para hablar (tecla Q)';
+    boton.setAttribute('aria-label', texto);
+    boton.title = texto;
 }
 
 // crea el botón (dentro del juego) y la tecla Q; se muestra solo en las partidas en línea
@@ -194,22 +222,21 @@ export function iniciarVoz(juego) {
     boton.addEventListener('pointerdown', e => {
         e.preventDefault();
         voz.conexiones.forEach(c => c.audio?.play().catch(() => {}));
-        if (!voz.activa) { activar().then(actualizarBoton); return; }
-        hablar(true);
+        apretar();
     });
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => boton.addEventListener(t, () => hablar(false)));
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => boton.addEventListener(t, soltar));
 
     document.addEventListener('keydown', e => {
         if (e.repeat || e.key.toLowerCase() !== 'q' || e.target.closest?.('input, textarea, select')) return;
         if (!enPartidaEnLinea()) return;
-        if (!voz.activa) activar().then(actualizarBoton);
-        else hablar(true);
+        apretar();
     });
-    document.addEventListener('keyup', e => { if (e.key.toLowerCase() === 'q') hablar(false); });
+    document.addEventListener('keyup', e => { if (e.key.toLowerCase() === 'q') soltar(); });
 
     // cada tanto: mostrar/ocultar el botón y bajar el juego mientras alguien habla
     setInterval(() => {
         actualizarBoton();
+        if (voz.activa && voz.modo !== ajustes.voz) aplicarModo();
         if (!juegoRef?.sound) return;
         const otrosHablan = [...voz.hablando].some(id => id !== red.tuId);
         if (otrosHablan && volumenBase === null) {

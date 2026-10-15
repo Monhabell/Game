@@ -192,10 +192,14 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     const opciones = historiaVista()
         ? [['Jugar', alJugar], ['Jugar con amigos', alAmigos], ['Ver la historia', alHistoria]]
         : [['Nueva aventura', alHistoria], ['Jugar con amigos', alAmigos]];
+    // en la app del celular se puede cerrar el juego por completo (en el navegador no se puede cerrar la página)
+    const app = window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.App;
+    if (app) opciones.push(['Salir del juego', () => app.exitApp()]);
     let sel = 0, elegido = false;
-    const BOTON = { w: 220, h: 34 };
+    // con 4 opciones los botones van un poco más juntos (para que quepa la ayuda de abajo)
+    const BOTON = opciones.length > 3 ? { w: 220, h: 30, paso: 38, y0: 210 } : { w: 220, h: 34, paso: 44, y0: 222 };
     const items = opciones.map(([nombre, accion], i) => {
-        const y = 222 + i * 44;
+        const y = BOTON.y0 + i * BOTON.paso;
         const marco = scene.add.graphics().setDepth(10);
         const t = scene.add.text(X + 20, y, nombre, moderno(13, '#c9d0e6', 500)).setOrigin(0, 0.5).setDepth(11);
         const flecha = scene.add.text(X + BOTON.w - 20, y, '→', moderno(14, '#ffffff', 500)).setOrigin(1, 0.5).setDepth(11);
