@@ -11,7 +11,8 @@
 import { red, alRecibir, enviarEvento } from "./red.js"
 
 // servidores para encontrarse: STUN público + TURN propio (vacío hasta instalarlo en el VPS)
-const TURN = { urls: '', username: '', credential: '' };
+// (la clave queda visible en el código: es solo para este TURN, que tiene un límite de uso en el VPS)
+const TURN = { urls: ['turn:93.188.167.2:3478?transport=udp', 'turn:93.188.167.2:3478?transport=tcp'], username: 'trollnight', credential: 'monhabell123456789' };
 const SERVIDORES_ICE = [{ urls: 'stun:stun.l.google.com:19302' }, ...(TURN.urls ? [TURN] : [])];
 const UMBRAL_HABLA = 0.04;   // volumen (0-1) a partir del cual se considera que alguien habla
 const VOLUMEN_JUEGO_HABLANDO = 0.55; // el juego baja a esta proporción mientras alguien habla
