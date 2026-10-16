@@ -1,8 +1,8 @@
 import { createAnimations } from "./animations.js"
 import { monedas } from "./monedas.js"
 import { NIVELES, SUELO_Y } from "./niveles.js"
-import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes } from "./personajes.js"
-import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos } from "./enemigos.js"
+import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes, resDe } from "./personajes.js"
+import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos, enemigosDelNivel } from "./enemigos.js"
 import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
 import { cargarCastillos, crearCastilloMeta } from "./castillos.js"
 import {
@@ -16,8 +16,12 @@ import { iniciarVoz } from "./voz.js"
 import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala } from "./sala.js"
-import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps } from "./rendimiento.js"
-import { red, enLinea, salirSala } from "./red.js"
+import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
+import { red, enLinea, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
+import {
+    iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
+    actualizarArena, arenaMuerte, golpearRival, idNivelArena,
+} from "./arena.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
     avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder,
@@ -30,8 +34,11 @@ import { crearRama } from "./bosque.js"
 import { animDe, prepararVariante, iniciarVestidor } from "./vestidor.js"
 import {
     iniciarTienda, sumarMonedas, saldo, tiene, llevaEscudo, usarConsumible, registrarNivel, crearEstela, actualizarEstela, usarHeroeActual,
-    personajeConMejoras,
+    personajeConMejoras, nivelMaximo, gastarMonedas,
 } from "./tienda.js"
+import {
+    iniciarPoderes, cargarPoderes, crearPoderes, usarPoder, actualizarPoderes, equipados, premioDeNivel, estadoPoder,
+} from "./poderes.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
@@ -54,6 +61,32 @@ const apiJefe = {
     addToScore: (...a) => addToScore(...a),
     soltarEscudo: (...a) => soltarEscudo(...a),
 };
+
+// poderes especiales (poderes.js): lo que necesitan del juego
+iniciarPoderes({
+    dañar: (scene, e, daño, congela, empuje) => (e.rivalId != null ? golpearRival(scene, e, daño, congela, empuje) : dañarEnemigo(scene, e, daño, congela)),
+    golpearJefe: (scene, zona, daño) => golpearJefeEnZona(scene, zona, daño, apiJefe),
+    congelar: (scene, e, ms) => congelarEnemigo(scene, e, ms),
+    habilidadBase: (scene, h) => ejecutarHabilidad(scene, h),
+    recuperarEscudo: scene => recuperarEscudo(scene, texto => mostrarMensaje(scene, texto, 900)),
+    curarVida: scene => {
+        if (vidas >= VIDAS_INICIALES) return false;
+        vidas++;
+        actualizarCorazones(scene);
+        mostrarMensaje(scene, '¡+1 CORAZÓN!', 900);
+        return true;
+    },
+    // el héroe hace su gesto de ataque al lanzar un poder
+    animarPoder: scene => {
+        const nombre = scene.pj.hojas.atk1 ? 'atk1' : scene.pj.habilidades.espacio.anim;
+        const anim = scene.anims.get(`${scene.pj.anim}-${nombre}`);
+        if (!anim) return;
+        scene.atacando = true;
+        scene.mascotaGesi.anims.play(anim.key, true);
+        scene.time.delayedCall(Math.min(420, anim.frames.length / anim.frameRate * 1000), () => { scene.atacando = false; });
+    },
+    mensaje: (scene, texto) => mostrarMensaje(scene, texto, 900),
+});
 
 // funciones que usan las trampas sorpresa (sorpresas.js)
 const apiSorpresas = {
@@ -190,7 +223,7 @@ const config = {
             update(time) { this.actualizarIntro(time); },
         },
         { key: 'seleccion', create: crearSeleccion, update: actualizarSeleccion },
-        { key: 'juego', create, update },
+        { key: 'juego', preload: precargarNivel, create, update },
         // mapa del mundo entre un nivel y el siguiente
         {
             key: 'mapa',
@@ -259,37 +292,69 @@ iniciarMenus(juego, {
     abrirTienda: abrirTiendaEnJuego, tiendaFuera: abrirTiendaFuera,
     // a la pantalla de título (en línea, dejando la sala)
     irAlInicio: () => {
+        terminarArena();
         if (red.codigo) salirSala();
         juego.scene.stop('juego');
         juego.scene.start('titulo');
     },
     // dejar el nivel y abrir la sala de espera (sobre "Elige tu héroe")
     jugarConAmigos: () => {
+        terminarArena();
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
         abrirSala();
     },
     aplicar: aplicarAjustes,
     salirAlMenu: () => {
+        terminarArena();
         if (red.codigo) salirSala(); // salir del nivel en línea también es dejar la sala
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
     },
 });
 
+// ---------- Arena del Troll (arena.js): batallas entre jugadores ----------
+iniciarArena({
+    golpearme: (scene, daño, origenX) => killgesi(scene, 'pvp', daño, origenX),
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+    ponerVidas: (scene, n) => { vidas = n; actualizarCorazones(scene); },
+    premio: n => sumarMonedas(n),
+    pagar: n => gastarMonedas(n),
+    reiniciar: scene => scene.scene.restart(),
+    salir: () => {
+        terminarArena();
+        if (red.codigo) salirSala();
+        juego.scene.stop('juego');
+        juego.scene.start('seleccion');
+    },
+    revancha: () => empezarPartida(0), // (el modo y la arena los guarda la sala)
+    volverASala: () => volverASala(),
+});
+usarJuego(juego);
+// el anfitrión volvió a la sala de espera: todos vuelven a ella
+alRecibir('volver', () => {
+    terminarArena();
+    juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
+    juego.scene.start('seleccion');
+    abrirSala();
+});
+
 // ---------- multijugador en línea (sala.js, red.js, multijugador.js) ----------
 const abrirSala = iniciarSala(juego, {
     // el anfitrión empezó: todos entran al mismo nivel con el personaje que eligieron en la sala
-    alEmpezar: ({ nivel, pj }) => {
+    // modo 'duelo' o 'equipos': batalla en la Arena del Troll (arena.js)
+    alEmpezar: ({ nivel, pj, modo, arena, jugadores, apuesta }) => {
         personajeId = pj;
         reiniciarPartida();
+        if (esModoArena(modo)) empezarArena({ modo, arena, jugadores, apuesta });
+        else terminarArena();
         nivelActual = Phaser.Math.Clamp(nivel, 0, NIVELES.length - 1);
         juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
         juego.scene.start('juego');
     },
 });
 iniciarMultijugador(juego, {
-    nivelActual: () => nivelActual,
+    nivelActual: () => (arenaActiva() ? idNivelArena() : nivelActual),
     // otro jugador cayó: caen todos (vidas compartidas)
     morir: (scene, nombre) => {
         if (scene.mascotaGesi.isDead || scene.nivelTerminado) return;
@@ -407,7 +472,7 @@ function preload() {
     // son gráficos propios dibujados por código: ver arte.js
     // personajes jugables (arquera, espadachín y mago)
     cargarPersonajes(this);
-    cargarEnemigos(this);
+    // (los enemigos se cargan al entrar a cada nivel: ver precargarNivel)
     cargarCastillos(this);
     cargarMazmorra(this);
 
@@ -452,14 +517,24 @@ function preload() {
 
 }
 
+// al entrar a un nivel: carga solo los enemigos que usa y suelta los demás (memoria en celulares)
+function precargarNivel() {
+    cargarEnemigos(this, arenaActiva() ? [] : enemigosDelNivel(NIVELES[nivelActual])); // (en la arena no hay enemigos)
+    cargarPoderes(this, equipados(personajeId).filter(Boolean)); // solo los efectos de los poderes equipados
+    if (this.load.list.size) mostrarCarga(this, ZOOM);
+}
+
 function create() {
     // las trampas se reparten al azar en cada intento (el nivel se siente nuevo cada vez,
     // pero con reglas para que sea justo: ver azar.js); en el nivel 1 la parte hecha a mano no se toca
     // en línea todos usan la misma semilla (la de la sala + el intento): mismas trampas para todos
     // atados con cadena (mismo teclado o en línea): el mismo mapa con sus tramos de equipo (equipo.js)
+    // Arena del Troll (arena.js): batalla entre jugadores en un escenario propio, sin enemigos ni jefe
+    const arena = arenaActiva();
+    this.arena = arena;
     const enEquipo = enLinea() || ajustes.cadena;
-    const nivel = aleatorizarNivel(enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
-    console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
+    const nivel = arena ? nivelArena() : aleatorizarNivel(enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
+    if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
     // reloj del nivel: las gotas, las bolas de fuego y las plataformas se guían por él (en línea,
@@ -503,8 +578,8 @@ function create() {
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = (nivel.velEnemigos ?? 50) * factorEnemigos(); // la dificultad los acelera o frena
     // vidas según la dificultad elegida (si se bajó en medio de la partida, se recortan)
-    VIDAS_INICIALES = vidasTotales();
-    vidas = Math.min(vidas, VIDAS_INICIALES);
+    VIDAS_INICIALES = arena ? 3 : vidasTotales();
+    vidas = arena ? 3 : Math.min(vidas, VIDAS_INICIALES); // (en la arena: los corazones de la ronda, ver prepararArena)
     this.bolsa = 0; // monedas juntadas que todavía no se guardaron (ver tienda.js)
     // enemigos que caminan en este nivel (se van turnando)
     this.mezcla = nivel.mezcla || ['zombie1', 'zombie2', 'zombie3'];
@@ -513,8 +588,8 @@ function create() {
     crearFondo(this, nivel);
 
     // estalactitas, hongos, antorchas y la puerta de entrada (detrás de todo lo jugable)
-    const rangosSuelo = [...(nivel.suelo || []), ...(nivelActual === 0 ? [[0, 1106]] : [])];
-    decorarNivel(this, nivel, nivelActual, x => rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
+    const rangosSuelo = [...(nivel.suelo || []), ...(nivelActual === 0 && !arena ? [[0, 1106]] : [])];
+    decorarNivel(this, nivel, arena ? 0 : nivelActual, x => rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
 
     this.floor = this.physics.add.staticGroup();
     this.enemies = this.physics.add.group();
@@ -538,7 +613,7 @@ function create() {
     this.add.graphics().fillGradientStyle(
         nivel.cueva ? 0x2a1f1a : 0x221d2a, nivel.cueva ? 0x2a1f1a : 0x221d2a, 0x07060a, 0x07060a, 1,
     ).fillRect(-200, SUELO_Y + 12, nivel.ancho + 400, SUBSUELO);
-    if (nivelActual === 0) construirNivel1(this);
+    if (nivelActual === 0 && !arena) construirNivel1(this);
     construirNivel(this, nivel);
     crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
 
@@ -554,7 +629,7 @@ function create() {
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
     // nadie lo rescató a tiempo (cadena.js): ahora sí cuenta la caída
     this.morirPorCaida = () => killgesi(this, 'caida');
-    iniciarCorazonesAlAzar(this, () => vidas < VIDAS_INICIALES, nivel.ancho);
+    iniciarCorazonesAlAzar(this, () => !arena && vidas < VIDAS_INICIALES, nivel.ancho);
     iniciarEscudosAlAzar(this, soltarEscudo, nivel.ancho);
 
     // jefe al final del nivel
@@ -576,7 +651,8 @@ function create() {
     this.mostrarBarraSalud = () => crearBarraSalud(this);
     this.soltarCorazonArena = (x, y) => soltarCorazon(this, x, y);
     this.faltaSalud = () => this.salud < SALUD_MAXIMA || vidas < VIDAS_INICIALES;
-    prepararJefe(this, nivel, nivelActual);
+    this.jefe = null;
+    if (!arena) prepararJefe(this, nivel, nivelActual);
 
     // con una sola vida se escucha un latido
     this.time.addEvent({
@@ -588,15 +664,16 @@ function create() {
     // aparece en el último punto de control; si no hay, donde diga el nivel (p. ej. arriba del cráter)
     const [inicioX, inicioY] = checkpointX == null && nivel.inicio ? nivel.inicio
         : [checkpointX ?? lugarDeInicio(this, VISTA.width * ZOOM / zoomCamara()), 100];
+    const r = resDe(this.pj); // héroes HD: hojas al doble, se dibujan a la mitad
     this.mascotaGesi = this.physics.add.sprite(inicioX, inicioY, `${this.pj.anim}-idle`)
-        .setScale(1)
+        .setScale(1 / r)
         .setCollideWorldBounds(true)// asegura que no salga de los limites del juego
         .setGravityY(480); // aplicar garvedad vertical
 
     // Recortar la imagen desde la parte superior
-    this.mascotaGesi.setCrop(0, 57, this.mascotaGesi.width, this.mascotaGesi.height - 50);
+    this.mascotaGesi.setCrop(0, 57 * r, this.mascotaGesi.width, this.mascotaGesi.height - 50 * r);
 
-    this.mascotaGesi.body.setSize(20, 69).setOffset(55, 57); // recirde de secmenbto de colicion
+    this.mascotaGesi.body.setSize(20 * r, 69 * r).setOffset(55 * r, 57 * r); // (en píxeles de la hoja: se escalan con el sprite)
     // el personaje se dibuja delante de la niebla (capas 30-33) pero detrás de la oscuridad (40)
     this.mascotaGesi.setDepth(34);
 
@@ -685,7 +762,7 @@ function create() {
     verColisiones(this);
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
-    crearAmbiente(this, nivel, nivelActual, nivelActual === 0 ? [[1350, 2310]] : []);
+    crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivelActual === 0 && !arena ? [[1350, 2310]] : []);
 
     // HUD
     const estiloHud = { fontSize: '16px', fill: '#fff', stroke: '#000', strokeThickness: 3 };
@@ -713,18 +790,27 @@ function create() {
         .setScrollFactor(0).setDepth(50);
     actualizarMonedasHud(this);
     crearEstela(this); // apariencia comprada en la tienda (solo visual)
+    crearPoderes(this); // poderes especiales equipados (V y B) y su HUD
+    this.estadoPoder = ranura => estadoPoder(this, ranura); // (para los botones táctiles)
     this.nivelText = this.add.text(VISTA.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
-    mostrarMensaje(this, `NIVEL ${nivelActual + 1}\n${nivel.nombre}`, 2000);
+    if (arena) {
+        // en la arena: barra de salud como contra el jefe (los golpes de los rivales la bajan)
+        this.peleaJefe = true;
+        this.salud = SALUD_MAXIMA;
+        crearBarraSalud(this);
+        this.scoreText.setVisible(false);
+        this.nivelText.setText('ARENA');
+    } else mostrarMensaje(this, `NIVEL ${nivelActual + 1}\n${nivel.nombre}`, 2000);
 
     // música de fondo
-    this.musica = this.sound.add(nivel.cueva ? 'musica_cueva' : 'musica', { loop: true, volume: 0.25 });
+    this.musica = this.sound.add(arena ? 'musica_batalla' : nivel.cueva ? 'musica_cueva' : 'musica', { loop: true, volume: 0.25 });
     this.musica.play();
     this.events.once('shutdown', () => this.musica.destroy());
 
     this.keys = this.input.keyboard.createCursorKeys();
-    this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C' });
+    this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C', v: 'V', b: 'B' });
 
     // multijugador en línea: los demás jugadores y la cadena entre todos (multijugador.js)
     this.idsCerrados = true; // los enemigos que aparezcan de aquí en adelante no se sincronizan
@@ -734,6 +820,7 @@ function create() {
     if (ajustes.fps) crearContadorFps(this);
     this.proxRecorte = 0;
     prepararNivelEnLinea(this);
+    if (arena) prepararArena(this, (rival, daño, congela) => golpearRival(this, rival, daño, congela));
     this.alDañarJefe = avisarJefe;
     // el troll en línea: lo maneja el anfitrión (jefes.js)
     this.redJefe = enLinea() ? {
@@ -742,7 +829,7 @@ function create() {
         cercano: sprite => fantasmaMasCercano(this, sprite),
         comoJugador: (f, fn) => comoJugador(this, f, fn),
     } : null;
-    if (enLinea()) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
+    if (enLinea() && !arena) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
 ${nivel.nombre}
 ${red.jugadores.length} jugadores en cadena`, 2400);
 }
@@ -890,7 +977,7 @@ function crearSeleccion() {
     e.piso = this.add.image(HEROE.x, HEROE.pie, 'resplandor').setScale(1.9, 0.35).setAlpha(0.5).setBlendMode('ADD').setDepth(3);
     e.sombra = this.add.ellipse(HEROE.x, HEROE.pie, 110, 16, 0x000000, 0.45).setDepth(3);
     e.sprite = this.add.sprite(HEROE.x, HEROE.pie + 4, `${animSel(this, PERSONAJES[this.indiceSel])}-idle`).setOrigin(0.5, 1)
-        .setScale(HEROE.escala).setDepth(4).setInteractive({ useHandCursor: true });
+        .setScale(HEROE.escala / resDe(PERSONAJES[this.indiceSel])).setDepth(4).setInteractive({ useHandCursor: true });
     e.sprite.on('pointerdown', () => empezarJuego(this, true));
     // después de un ataque vuelve a quedarse quieto
     e.sprite.on('animationcomplete', anim => {
@@ -900,7 +987,8 @@ function crearSeleccion() {
     this.time.addEvent({
         delay: 3200, loop: true, callback: () => {
             const pj = PERSONAJES[this.indiceSel];
-            if (this.anims.exists(`${animSel(this, pj)}-atk1`)) e.sprite.anims.play(`${animSel(this, pj)}-atk1`, true);
+            const lucirse = pj.hojas.atk1 ? 'atk1' : pj.hojas.slash ? 'slash' : null; // (los ángeles: tajo)
+            if (lucirse) e.sprite.anims.play(`${animSel(this, pj)}-${lucirse}`, true);
         },
     });
     // flechas para cambiar de héroe
@@ -966,7 +1054,7 @@ function crearSeleccion() {
     this.tarjetas = PERSONAJES.map((pj, i) => {
         const x = x0 + i * MINI.paso;
         const fondo = this.add.graphics().setDepth(5);
-        const sprite = this.add.sprite(x, MINI.y + MINI.h / 2 + 2, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.62).setDepth(6);
+        const sprite = this.add.sprite(x, MINI.y + MINI.h / 2 + 2, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.62 / resDe(pj)).setDepth(6);
         const zona = this.add.zone(x, MINI.y, MINI.w, MINI.h).setDepth(7).setInteractive({ useHandCursor: true });
         zona.on('pointerdown', () => {
             if (this.indiceSel === i) empezarJuego(this, true);
@@ -1084,13 +1172,15 @@ function marcarSeleccion(scene, inicio = false) {
     });
     // héroe grande: entra con un salto y se queda quieto
     e.sprite.anims.play(`${animSel(scene, pj)}-${inicio ? 'idle' : 'jump'}`, true);
+    e.sprite.setScale(HEROE.escala / resDe(pj));
     e.luz.setTint(pj.color);
     e.piso.setTint(pj.color);
     e.marca.setText(pj.nombre.toUpperCase());
     if (!inicio && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
         scene.tweens.killTweensOf([e.sprite, e.marca]);
-        e.sprite.setAlpha(0.3).setScale(HEROE.escala * 0.92);
-        scene.tweens.add({ targets: e.sprite, alpha: 1, scale: HEROE.escala, duration: 260, ease: 'Back.out' });
+        const escala = HEROE.escala / resDe(pj);
+        e.sprite.setAlpha(0.3).setScale(escala * 0.92);
+        scene.tweens.add({ targets: e.sprite, alpha: 1, scale: escala, duration: 260, ease: 'Back.out' });
         e.marca.setAlpha(0);
         scene.tweens.add({ targets: e.marca, alpha: 0.05, duration: 400 });
     }
@@ -1244,6 +1334,7 @@ function actualizarBarraSalud(scene) {
 }
 
 function recibirDaño(scene, daño) {
+    mostrarDolor(scene);
     const g = scene.mascotaGesi;
     scene.salud = Math.max(0, scene.salud - Math.round(daño * (scene.dañoJefe || 1)));
     actualizarBarraSalud(scene);
@@ -1598,6 +1689,7 @@ function activarCheckpoint(scene, cp, remoto = false) {
 // tipo: clave de ENEMIGOS; sin tipo se usa el siguiente de la mezcla del nivel
 function crearEnemigo(scene, x, y, tipo) {
     tipo = tipo || scene.mezcla[scene.contEnemigos++ % scene.mezcla.length];
+    if (!scene.textures.exists(`${tipo}-walk`)) tipo = scene.mezcla[0]; // (enemigo no cargado en este nivel)
     const def = ENEMIGOS[tipo];
     const inicial = def.tipo === 'planta' ? 'disfraz' : 'walk';
     const enemy = scene.enemies.create(x, y, `${tipo}-${inicial}`).anims.play(`${tipo}-${inicial}`, true)
@@ -1689,6 +1781,7 @@ function soltarDelCielo(scene, enemy, primeraVez) {
 // el enemigo pierde vida; devuelve true si lo golpeó
 // congela: ms que el enemigo queda congelado (los poderes de hielo de Lira)
 function dañarEnemigo(scene, enemy, cantidad = 1, congela = 0) {
+    if (enemy.rivalId != null) { golpearRival(scene, enemy, cantidad, congela); return true; } // (arena: otro jugador)
     if (enemy.isDead || scene.time.now < (enemy.invulHasta || 0)) return false;
     if (enemy.replica) {
         // la vida de los enemigos la lleva el anfitrión: aquí solo se ve el golpe
@@ -1729,6 +1822,7 @@ function volverACaminar(enemy) {
 
 // hielo: el enemigo queda quieto, azulado y sin atacar; al terminar vuelve a caminar
 function congelarEnemigo(scene, enemy, ms) {
+    if (enemy.rivalId != null) { golpearRival(scene, enemy, 0, ms); return; } // (arena: otro jugador)
     if (!enemy.active || enemy.isDead || !enemy.def) return;
     const hasta = scene.time.now + ms;
     enemy.congeladoHasta = Math.max(enemy.congeladoHasta || 0, hasta);
@@ -2175,7 +2269,12 @@ function usarHabilidad(scene, tecla) {
     const g = scene.mascotaGesi;
     // la parada de Leo empieza en cuanto aprieta la tecla (no cuando sale el golpe)
     if (h.parada) scene.paradaHasta = scene.time.now + h.parada;
-    const clave = `${scene.pj.anim}-${h.anim}`;
+    // qué animación: la del combo (va alternando), o la de correr / en el aire si el héroe la tiene
+    const pisa = g.body.blocked.down || g.body.touching.down;
+    let nombreAnim = h.combo ? h.combo[(scene.combo = ((scene.combo ?? -1) + 1) % h.combo.length)] : h.anim;
+    if (!pisa && h.animAire) nombreAnim = h.animAire;
+    else if (pisa && Math.abs(g.body.velocity.x) > 40 && h.animCorriendo) nombreAnim = h.animCorriendo;
+    const clave = `${scene.pj.anim}-${nombreAnim}`;
     const anim = scene.anims.get(clave);
     scene.atacando = true;
     g.anims.play(clave, true);
@@ -2208,8 +2307,8 @@ function ejecutarHabilidad(scene, h) {
         const x0 = h.ambosLados ? b.left - h.alcance : dir > 0 ? b.right : b.left - h.alcance;
         const ancho = h.ambosLados ? b.width + h.alcance * 2 : h.alcance;
         const zona = new Phaser.Geom.Rectangle(x0, b.top - 10, ancho, b.height + 10);
-        scene.enemies.getChildren().slice().forEach(e => {
-            if (e.isDead || !e.body) return;
+        [...scene.enemies.getChildren(), ...(scene.rivales?.getChildren() || [])].forEach(e => {
+            if (e.isDead || !e.body || !e.body.enable) return;
             const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
             if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) dañarEnemigo(scene, e, daño, h.congela);
         });
@@ -2511,7 +2610,10 @@ function completarNivel(mascotaGesi) {
     encenderFaro(this);
     addToScore(1000, mascotaGesi, this);
     guardarBolsa(this);
+    // premio: un poder especial (seguro la primera vez que se termina este nivel)
+    const premio = premioDeNivel(nivelActual + 1 > nivelMaximo());
     registrarNivel(nivelActual + 1);
+    if (premio) this.time.delayedCall(1700, () => mostrarMensaje(this, `¡NUEVO PODER!\n${premio.nombre}\n(equípalo en la Tienda › Poderes)`, 2200));
 
     const ultimo = nivelActual === NIVELES.length - 1;
     mostrarMensaje(this, ultimo
@@ -2660,6 +2762,7 @@ function update(time, delta) {
     actualizarMecanismos(this);
     actualizarEnLinea(this, time, delta);
     recortarVista(this, time); // solo se dibuja lo que está cerca de la cámara
+    cuidarRendimiento(this, time); // celular lento: modo fluido automático
     actualizarContadorFps(this, time);
 }
 
@@ -2746,6 +2849,8 @@ function actualizarJugador(time, delta) {
     if (JD(t.espacio)) usarHabilidad(this, 'espacio');
     if (JD(t.x)) usarHabilidad(this, 'x');
     if (JD(t.c)) usarHabilidad(this, 'c');
+    if (JD(t.v)) usarPoder(this, 0);
+    if (JD(t.b)) usarPoder(this, 1);
 
     if (enSuelo) this.saltosAire = 0;
     if (this.keys.up.isDown && enSuelo) {
@@ -2762,20 +2867,26 @@ function actualizarJugador(time, delta) {
         g.anims.play(`${this.pj.anim}-jump`, false);
     }
 
+    // cayendo: animación de caída (los héroes que la tienen)
+    if (!enSuelo && this.pj.hojas.fall && g.body.velocity.y > 120 && !this.atacando && !g.isDead &&
+        !g.anims.currentAnim?.key.endsWith('-fall')) animar(this, 'fall');
+
     const deathThreshold = 90;
 
     if (g.y >= 390 - deathThreshold) { // linea para matar si cae por fuera de el area de jeugo
         killgesi(this, 'caida');
     }
 
-    if (nivelActual === 0) trampasNivel1(this);
+    if (nivelActual === 0 && !this.arena) trampasNivel1(this);
     if (tiene('iman')) atraerMonedas(this);
     actualizarEstela(this);
+    actualizarPoderes(this, time, delta);
+    actualizarArena(this);
     actualizarTrampas(this);
     actualizarSorpresas(this, apiSorpresas);
     // en línea las trampas también se activan cuando pasa otro jugador (sin hacerte daño a ti)
     fantasmas(this).forEach(f => comoJugador(this, f, () => {
-        if (nivelActual === 0) trampasNivel1(this);
+        if (nivelActual === 0 && !this.arena) trampasNivel1(this);
         actualizarTrampas(this);
         actualizarSorpresas(this, apiSorpresas);
     }));
@@ -2825,6 +2936,15 @@ function caerMuerto(game, causa) {
 }
 
 // origenX: de dónde vino el golpe (enemigos, disparos, troll); las trampas no lo pasan
+// golpe recibido: los héroes con animación de dolor la muestran un instante
+function mostrarDolor(game) {
+    const g = game.mascotaGesi, hoja = game.pj.hojas.hurt;
+    if (!hoja || g.isDead) return;
+    game.atacando = true; // (que el movimiento no la tape)
+    g.anims.play(`${game.pj.anim}-hurt`, true);
+    game.time.delayedCall(hoja[1] / hoja[2] * 1000, () => { game.atacando = false; });
+}
+
 // Runa de reserva (tienda.js): la primera vez que se rompe el escudo en un nivel, se recarga
 function usarRunaDeReserva(game) {
     if (!llevaEscudo() || runaNivel === nivelActual) return;
@@ -2851,6 +2971,7 @@ function killgesi(game, causa, daño = 20, origenX) {
         if (game.tieneEscudo) {
             romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
             usarRunaDeReserva(game);
+            mostrarDolor(game);
             factor *= 0.5; // el escudo absorbe la mitad y se rompe
         }
         if (d === 'parada') factor *= 0.25; // la parada de Leo frena casi todo el garrotazo
@@ -2871,17 +2992,19 @@ function killgesi(game, causa, daño = 20, origenX) {
         if (game.tieneEscudo) {
             romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
             usarRunaDeReserva(game);
+            mostrarDolor(game);
             return;
         }
     }
     mascotaGesi.isDead = true;
-    if (!game.muerteRemota) avisarMuerte(); // en línea: caen todos
+    if (!game.muerteRemota && !game.arena) avisarMuerte(); // en línea: caen todos
     game.atacando = false;
     game.dashHasta = 0;
     game.volteretaHasta = 0;
     game.paradaHasta = 0;
     mascotaGesi.anims.play(`${game.pj.anim}-dead`);
     caerMuerto(game, causa);
+    if (game.arena) { arenaMuerte(game); return; } // en la arena: pierde un corazón de la ronda (arena.js)
     game.musica.stop();
     game.musicaBatalla?.stop();
     sound.add('gameover', { volume: 1 }).play();

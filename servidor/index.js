@@ -12,11 +12,16 @@
 //     crear    { nombre, pj }            crea una sala y te une como anfitrión
 //     unirse   { codigo, nombre, pj }    entra a una sala que todavía no empezó
 //     elegir   { pj }                    cambia de personaje en la sala de espera
-//     empezar  { nivel }                 (solo anfitrión) arranca la partida para todos
+//     empezar  { nivel }                 (solo anfitrión) arranca la partida para todos (también la revancha)
+//     modo     { modo, arena }           (solo anfitrión) 'aventura' | 'duelo' (1 contra 1) | 'equipos' (rojo contra azul)
+//     equipo   { equipo }                0 (rojo) o 1 (azul), en el modo por equipos
+//     volver   {}                        (solo anfitrión) todos vuelven a la sala de espera
+//     saldo    { monedas }               cuántas monedas tiene (para la apuesta de la arena)
 //     estado / evento { ... }            se reenvía a los demás con { de: tuId }
 //   servidor -> cliente
-//     sala     { codigo, tuId, anfitrion, jugadores }   (cada vez que cambia la lista)
-//     empezar  { nivel, semilla, jugadores }
+//     sala     { codigo, tuId, anfitrion, jugadores, modo, arena }   (cada vez que cambia la lista)
+//     empezar  { nivel, semilla, jugadores, modo, arena }
+//     volver   {}
 //     estado / evento { de, ... }
 //     error    { motivo }
 
@@ -29,7 +34,11 @@ const MAX_JUGADORES = 8;
 const MAX_MENSAJE = 16 * 1024;       // bytes por mensaje
 const MAX_MENSAJES_SEG = 60;         // por jugador (el juego manda ~20 por segundo)
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O (se confunden con 1 y 0)
-const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera']);
+const MODOS = new Set(['aventura', 'duelo', 'equipos']);
+const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo']);
+const MAX_ARENA = 4; // jugadores en una batalla de la arena
+const APUESTAS = new Set([0, 10, 25, 50, 100]);
+const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera', 'paladina', 'asesina', 'elfa']);
 
 /** @type {Map<string, {codigo: string, jugadores: Map<number, any>, anfitrion: number, empezada: boolean, siguienteId: number}>} */
 const salas = new Map();
@@ -73,7 +82,7 @@ function atender(ws, m) {
     switch (m.t) {
         case 'crear': {
             if (ws.sala) return;
-            const sala = { codigo: nuevoCodigo(), jugadores: new Map(), anfitrion: 1, empezada: false, siguienteId: 1 };
+            const sala = { codigo: nuevoCodigo(), jugadores: new Map(), anfitrion: 1, empezada: false, siguienteId: 1, modo: 'aventura', arena: 'bosque', apuesta: 0 };
             salas.set(sala.codigo, sala);
             entrar(ws, sala, m);
             console.log(`sala ${sala.codigo} creada`);
@@ -85,6 +94,7 @@ function atender(ws, m) {
             if (!sala) return enviar(ws, { t: 'error', motivo: 'No existe esa sala' });
             if (sala.empezada) return enviar(ws, { t: 'error', motivo: 'La partida ya empezó' });
             if (sala.jugadores.size >= MAX_JUGADORES) return enviar(ws, { t: 'error', motivo: 'La sala está llena (8 jugadores)' });
+            if (sala.modo !== 'aventura' && sala.jugadores.size >= MAX_ARENA) return enviar(ws, { t: 'error', motivo: 'La sala de la arena está llena (4 jugadores)' });
             entrar(ws, sala, m);
             return;
         }
@@ -96,12 +106,54 @@ function atender(ws, m) {
             avisarLista(sala);
             return;
         }
+        case 'modo': {
+            const sala = ws.sala;
+            if (!sala || sala.anfitrion !== ws.id || sala.empezada || !MODOS.has(m.modo)) return;
+            sala.modo = m.modo;
+            if (ARENAS.has(m.arena)) sala.arena = m.arena;
+            if (APUESTAS.has(Number(m.apuesta))) sala.apuesta = Number(m.apuesta);
+            if (sala.modo === 'equipos') repartirEquipos(sala);
+            avisarLista(sala);
+            return;
+        }
+        case 'equipo': {
+            const sala = ws.sala;
+            if (!sala || sala.empezada || (m.equipo !== 0 && m.equipo !== 1)) return;
+            sala.jugadores.get(ws.id).equipo = m.equipo;
+            avisarLista(sala);
+            return;
+        }
+        case 'saldo': {
+            const sala = ws.sala;
+            if (!sala) return;
+            sala.jugadores.get(ws.id).monedas = Math.max(0, Math.min(1e7, Math.floor(Number(m.monedas) || 0)));
+            avisarLista(sala);
+            return;
+        }
+        case 'volver': {
+            const sala = ws.sala;
+            if (!sala || sala.anfitrion !== ws.id) return;
+            sala.empezada = false;
+            difundir(sala, { t: 'volver' });
+            avisarLista(sala);
+            return;
+        }
         case 'empezar': {
             const sala = ws.sala;
             if (!sala || sala.anfitrion !== ws.id) return;
+            // la arena necesita rivales: 1 contra 1 justo 2 jugadores; por equipos, los dos equipos con alguien
+            const n = sala.jugadores.size;
+            if (sala.modo === 'duelo' && n !== 2) return enviar(ws, { t: 'error', motivo: 'El duelo 1 contra 1 es de 2 jugadores' });
+            if (sala.modo === 'equipos') {
+                const equipos = new Set([...sala.jugadores.values()].map(j => j.equipo));
+                if (n < 2 || n > MAX_ARENA || equipos.size < 2) return enviar(ws, { t: 'error', motivo: 'Hace falta al menos un jugador en cada equipo (máximo 4)' });
+            }
+            const apuesta = sala.modo === 'aventura' ? 0 : sala.apuesta;
+            const pobre = [...sala.jugadores.values()].find(j => (j.monedas || 0) < apuesta);
+            if (pobre) return enviar(ws, { t: 'error', motivo: `${pobre.nombre} no tiene ${apuesta} monedas para la apuesta` });
             sala.empezada = true;
             const semilla = Math.floor(Math.random() * 2 ** 31);
-            difundir(sala, { t: 'empezar', nivel: Number(m.nivel) || 0, semilla, jugadores: lista(sala) });
+            difundir(sala, { t: 'empezar', nivel: Number(m.nivel) || 0, semilla, jugadores: lista(sala), modo: sala.modo, arena: sala.arena, apuesta });
             return;
         }
         case 'estado':
@@ -128,7 +180,9 @@ function entrar(ws, sala, m) {
         id: ws.id,
         nombre: limpiarNombre(m.nombre) || `Jugador ${ws.id}`,
         pj: PERSONAJES.has(m.pj) ? m.pj : 'arquera',
+        equipo: 0,
     });
+    if (sala.modo === 'equipos') repartirEquipos(sala);
     avisarLista(sala);
 }
 
@@ -144,6 +198,7 @@ function salir(ws) {
     }
     // si se fue el anfitrión, el siguiente en la lista toma su lugar
     if (sala.anfitrion === ws.id) sala.anfitrion = sala.jugadores.keys().next().value;
+    if (sala.modo === 'equipos') repartirEquipos(sala);
     difundir(sala, { t: 'evento', tipo: 'salio', de: ws.id });
     avisarLista(sala);
 }
@@ -151,11 +206,19 @@ function salir(ws) {
 function avisarLista(sala) {
     const jugadores = lista(sala);
     for (const j of sala.jugadores.values()) {
-        enviar(j.ws, { t: 'sala', codigo: sala.codigo, tuId: j.id, anfitrion: sala.anfitrion, empezada: sala.empezada, jugadores });
+        enviar(j.ws, { t: 'sala', codigo: sala.codigo, tuId: j.id, anfitrion: sala.anfitrion, empezada: sala.empezada, jugadores, modo: sala.modo, arena: sala.arena, apuesta: sala.apuesta });
     }
 }
 
-const lista = sala => [...sala.jugadores.values()].map(({ id, nombre, pj }) => ({ id, nombre, pj }));
+// por equipos: si un equipo quedó vacío, el último en llegar del otro equipo se pasa
+function repartirEquipos(sala) {
+    const js = [...sala.jugadores.values()];
+    const rojos = js.filter(j => j.equipo === 0), azules = js.filter(j => j.equipo === 1);
+    if (js.length >= 2 && !azules.length) rojos[rojos.length - 1].equipo = 1;
+    else if (js.length >= 2 && !rojos.length) azules[azules.length - 1].equipo = 0;
+}
+
+const lista = sala => [...sala.jugadores.values()].map(({ id, nombre, pj, equipo, monedas }) => ({ id, nombre, pj, equipo, monedas: monedas || 0 }));
 
 function difundir(sala, mensaje) {
     const texto = JSON.stringify(mensaje);

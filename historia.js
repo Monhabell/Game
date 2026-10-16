@@ -7,7 +7,7 @@
 // Todas las pantallas miden 790x380 "por dentro" (la cámara hace zoom, igual que el juego).
 
 import { crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
-import { PERSONAJES } from "./personajes.js"
+import { PERSONAJES, resDe } from "./personajes.js"
 import { animDe, prepararVariante } from "./vestidor.js"
 
 const ANCHO = 790;
@@ -119,6 +119,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         const pj = PERSONAJES[cual];
         const a = prepararVariante(scene, animDe(pj)); // con los colores del vestidor
         [luz, piso].forEach(o => o.setTint(pj.color));
+        heroe.setScale(HEROE.escala / resDe(pj)); // (héroes HD: hojas al doble)
         nombreHeroe.setText(`${pj.nombre} · ${pj.titulo}`).setColor(hex(pj.color));
         if (quieto) { heroe.anims.play(`${a}-idle`, true); return; }
         heroe.anims.play(`${a}-run`, true);
@@ -130,7 +131,8 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         });
         scene.tweens.add({ targets: nombreHeroe, alpha: 1, delay: 250, duration: 400 });
         scene.time.delayedCall(1300, () => {
-            if (heroe.active && scene.anims.exists(`${a}-atk1`)) heroe.anims.play(`${a}-atk1`, true);
+            const lucirse = pj.hojas.atk1 ? 'atk1' : pj.hojas.slash ? 'slash' : null; // (los ángeles: tajo)
+            if (heroe.active && lucirse) heroe.anims.play(`${a}-${lucirse}`, true);
         });
         scene.time.delayedCall(4300, () => {
             if (!heroe.active) return;
@@ -336,8 +338,8 @@ const PAGINAS = [
     {
         texto: 'Tres héroes se atreven a cruzar la noche: GESI, LEO y ZENO.\n\nRecuerda: en Albora... NADA ES LO QUE PARECE.',
         dibujo(scene) {
-            return PERSONAJES.map((pj, i) => {
-                const s = scene.add.sprite(ANCHO / 2 + (i - 1) * 110, 172, `${pj.id}-idle`).setOrigin(0.5, 1).setScale(1.1);
+            return PERSONAJES.slice(0, 3).map((pj, i) => {
+                const s = scene.add.sprite(ANCHO / 2 + (i - 1) * 110, 172, `${pj.id}-idle`).setOrigin(0.5, 1).setScale(1.1 / resDe(pj));
                 s.anims.play(`${pj.id}-idle`);
                 const n = scene.add.text(s.x, 182, pj.nombre, texto('10px', hex(pj.color), { strokeThickness: 4 })).setOrigin(0.5, 0);
                 return [s, n];
@@ -442,7 +444,7 @@ export function crearFinal(scene, { zoom, personaje, score, muertes, alTerminar 
 
     const cristal = scene.add.sprite(ANCHO / 2, 120, 'mz_cristal').setScale(2.6).anims.play('mz_cristal').setDepth(3).setAlpha(0);
     scene.tweens.add({ targets: cristal, alpha: 1, y: 100, duration: 1500, ease: 'Sine.out' });
-    const heroe = scene.add.sprite(ANCHO / 2, ALTO - 20, `${pj.id}-idle`).setOrigin(0.5, 1).setScale(1).setDepth(3);
+    const heroe = scene.add.sprite(ANCHO / 2, ALTO - 20, `${pj.id}-idle`).setOrigin(0.5, 1).setScale(1 / resDe(pj)).setDepth(3);
     heroe.anims.play(`${pj.id}-idle`);
 
     scene.add.text(ANCHO / 2, 34, '¡EL SOL VUELVE A ALBORA!', texto('16px', '#ffe066')).setOrigin(0.5).setDepth(4);

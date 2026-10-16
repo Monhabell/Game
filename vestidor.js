@@ -7,6 +7,10 @@
 // que dice los colores ("arquera~b4202a.o.o.o"): ese nombre viaja en línea y cada pantalla arma la
 // variante de los demás (prepararVariante). Las originales ("arquera-idle"...) nunca se modifican.
 //
+// Héroes HD (Valeria, Kira, Elara): son ilustraciones con miles de tonos, así que sus partes no son
+// colores exactos sino RANGOS (tono en grados, saturación y luz): cada píxel dentro del rango toma el
+// color elegido conservando su luz (las partes grises, como la armadura, se colorean).
+//
 // Guardado: localStorage con su propia clave y versión.
 
 import { PERSONAJES } from "./personajes.js"
@@ -28,6 +32,16 @@ export const PARTES = {
         ['Pelo', ['#f8a870', '#ce704d', '#843d36', '#44232f']], ['Ojos', ['#00c219', '#79dc2b', '#005137', '#cbf257']]],
     mosquetera: [['Abrigo', ['#491f30']], ['Chaleco', ['#005137', '#001a1a']],
         ['Pelo', ['#d21a26', '#87102a', '#421020']], ['Ojos', ['#ffa400', '#ffd62a', '#ff6a00']]],
+    // HD: [nombre, [color de muestra], { h: [desde, hasta] (grados), s: [mín, máx], l: [mín, máx] }]
+    paladina: [['Pelo y dorados', ['#f2c230'], { h: [35, 60], s: [0.45, 1], l: [0.25, 0.9] }],
+        ['Armadura', ['#a8adb8'], { h: [0, 360], s: [0, 0.15], l: [0.3, 0.97] }],
+        ['Detalles', ['#c8303a'], { h: [330, 20], s: [0.35, 1], l: [0.1, 0.8] }]],
+    asesina: [['Pelo', ['#c8401e'], { h: [350, 32], s: [0.5, 1], l: [0.1, 0.62] }],
+        ['Armadura', ['#f0b828'], { h: [38, 60], s: [0.4, 1], l: [0.2, 0.92] }],
+        ['Hombreras', ['#9aa0aa'], { h: [0, 360], s: [0, 0.15], l: [0.3, 0.97] }]],
+    elfa: [['Pelo', ['#2c4a78'], { h: [195, 240], s: [0.2, 1], l: [0.08, 0.8] }],
+        ['Cuero y arco', ['#7a4a26'], { h: [15, 45], s: [0.25, 1], l: [0.08, 0.5] }],
+        ['Gema', ['#d8406a'], { h: [330, 20], s: [0.4, 1], l: [0.2, 0.8] }]],
 };
 
 // colores para elegir (todos gratis)
@@ -106,10 +120,13 @@ const clave = ([r, g, b]) => (r << 16) | (g << 8) | b;
 // respecto del principal (así siguen las sombras y los brillos del dibujo)
 function mapaDeColores(id, colores) {
     const mapa = new Map();
-    PARTES[id].forEach(([, tonos], i) => {
+    mapa.rangos = [];
+    if (!PARTES[id]) return mapa; // héroe sin partes anotadas: no se recolorea
+    PARTES[id].forEach(([, tonos, rango], i) => {
         if (!colores[i]) return;
         const [ht, st, lt] = aHsl(aRgb(colores[i]));
         const [, sp, lp] = aHsl(aRgb(tonos[0]));
+        if (rango) { mapa.rangos.push({ rango, ht, st, lt, lp, sp }); return; } // (héroes HD)
         tonos.forEach(t => {
             const [, s, l] = aHsl(aRgb(t));
             const nl = Math.min(0.94, Math.max(0.03, lt * (lp ? l / lp : 1)));
@@ -127,13 +144,31 @@ function recolorear(imagen, mapa) {
     const ctx = lienzo.getContext('2d');
     ctx.drawImage(imagen, 0, 0);
     const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height), p = datos.data;
+    const rangos = mapa.rangos || [], hechos = new Map(); // (héroes HD: cada tono se calcula una vez)
     for (let i = 0; i < p.length; i += 4) {
         if (p[i + 3] === 0) continue;
-        const nuevo = mapa.get((p[i] << 16) | (p[i + 1] << 8) | p[i + 2]);
+        const k = (p[i] << 16) | (p[i + 1] << 8) | p[i + 2];
+        let nuevo = mapa.get(k);
+        if (!nuevo && rangos.length) {
+            if (!hechos.has(k)) hechos.set(k, enRango(rangos, [p[i], p[i + 1], p[i + 2]]));
+            nuevo = hechos.get(k);
+        }
         if (nuevo) { p[i] = nuevo[0]; p[i + 1] = nuevo[1]; p[i + 2] = nuevo[2]; }
     }
     ctx.putImageData(datos, 0, 0);
     return lienzo;
+}
+
+// héroes HD: si el tono cae en el rango de una parte, se pinta del color elegido (con su misma luz)
+function enRango(rangos, rgb) {
+    const [h, s, l] = aHsl(rgb), g = h * 360;
+    for (const { rango: { h: [h0, h1], s: [s0, s1], l: [l0, l1] }, ht, st, lt, lp, sp } of rangos) {
+        const tono = h0 <= h1 ? g >= h0 && g <= h1 : g >= h0 || g <= h1;
+        if (!tono || s < s0 || s > s1 || l < l0 || l > l1) continue;
+        const ns = s1 <= 0.2 ? st * 0.7 : Math.min(1, st * (sp ? Math.max(0.3, s / sp) : 1)); // lo gris se colorea suave
+        return deHsl([ht, ns, Math.min(0.94, Math.max(0.03, lt * (lp ? l / lp : 1)))]);
+    }
+    return null;
 }
 
 const PREFIJO = /^([a-z]+)(~(?:[0-9a-f]{6}|o)(?:\.(?:[0-9a-f]{6}|o)){0,7})?$/;
@@ -176,8 +211,9 @@ export function prepararVariante(juego, prefijo) {
         if (!original || original.key === '__MISSING' || juego.textures.exists(key)) return;
         const lienzo = recolorear(original.getSourceImage(), mapa);
         const t = juego.textures.addCanvas(key, lienzo);
-        Phaser.Textures.Parsers.SpriteSheet(t, 0, 0, 0, lienzo.width, lienzo.height, { frameWidth: 128, frameHeight: 128 });
-        t.setFilter(Phaser.Textures.FilterMode.NEAREST); // pixel art nítido
+        const lado = 128 * (pj.res || 1); // (héroes HD: cuadros de 256x256)
+        Phaser.Textures.Parsers.SpriteSheet(t, 0, 0, 0, lienzo.width, lienzo.height, { frameWidth: lado, frameHeight: lado });
+        if (!(pj.res > 1)) t.setFilter(Phaser.Textures.FilterMode.NEAREST); // pixel art nítido (los HD, suaves)
         juego.anims.create({ key, frames: juego.anims.generateFrameNumbers(key, { start: 0, end: frames - 1 }), frameRate: fps, repeat: repetir });
     });
     return prefijo;
@@ -211,7 +247,7 @@ export function iniciarVestidor(juego) {
         const elegidos = coloresDe(pj.id);
         const color = '#' + pj.color.toString(16).padStart(6, '0');
         capa.querySelector('#titulo-vestidor').innerHTML = `Personalizar · <span style="color:${color}">${pj.nombre}</span>`;
-        partes.innerHTML = PARTES[pj.id].map(([nombre, tonos], i) => `
+        partes.innerHTML = !PARTES[pj.id] ? '<p class="menu-nota">Este héroe todavía no se puede personalizar.</p>' : PARTES[pj.id].map(([nombre, tonos], i) => `
             <div class="vestidor-parte">
                 <span>${nombre}</span>
                 <div class="vestidor-colores" role="group" aria-label="Color de ${nombre}">
@@ -232,7 +268,9 @@ export function iniciarVestidor(juego) {
         cuadro = (cuadro + 1) % frames;
         ctx.clearRect(0, 0, 128, 128);
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(hoja, cuadro * 128, 0, 128, 128, 0, 0, 128, 128);
+        const lado = 128 * (pj.res || 1); // (héroes HD: se dibuja reducido, suave)
+        ctx.imageSmoothingEnabled = lado > 128;
+        ctx.drawImage(hoja, cuadro * lado, 0, lado, lado, 0, 0, 128, 128);
     }
 
     capa.addEventListener('click', e => {

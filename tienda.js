@@ -18,7 +18,10 @@
 //   - Mejoras de héroe: una por personaje y SOLO para él. Potencian su estilo sin quitarle su
 //     debilidad (Rubí sigue sin defensa, Aria sin ataque de lejos...). Cambian valores de una de
 //     sus habilidades (personajes.js): el juego usa los datos mejorados, sin lógica nueva.
-//   - Los 6 héroes siguen libres desde el principio (son la base del juego, no un premio).
+//     Algunos héroes tienen dos mejoras (se suman).
+//   - Poderes especiales (poderes.js): 50 poderes en su propia pestaña; se compran o se ganan al
+//     terminar niveles, y cada héroe equipa dos (teclas V y B).
+//   - Los héroes siguen libres desde el principio (son la base del juego, no un premio).
 // Precios: hay ~700 monedas en la campaña y un jugador normal junta ~480. Lo permanente (300) y las
 // estelas en venta (180) suman lo de una campaña completa: lo primero se compra tras el nivel 1-2,
 // todo junto recién al final o rejugando. Para ajustar, cambia 'precio' en CATALOGO.
@@ -26,6 +29,10 @@
 // Guardado: localStorage con su propia clave y versión (no toca el guardado de la partida).
 
 import { PERSONAJES } from "./personajes.js"
+import {
+    PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, colorDe,
+    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX,
+} from "./poderes.js"
 
 const CLAVE = 'monhabell-aventura-tienda';
 const VERSION = 2; // 2: la estela se equipa por héroe (antes una sola para todos)
@@ -73,6 +80,30 @@ export const CATALOGO = [
     {
         id: 'mejora_mosquetera', tipo: 'heroe', heroe: 'mosquetera', habilidad: 'x', cambios: { vida: 650 },
         icono: '≋', nombre: 'Viento cortante', precio: 80, descripcion: 'El corte de viento llega bastante más lejos.',
+    },
+    {
+        id: 'mejora_paladina', tipo: 'heroe', heroe: 'paladina', habilidad: 'c', cambios: { duracion: 3000, enfriamiento: 5000 },
+        icono: '⛨', nombre: 'Fe inquebrantable', precio: 80, descripcion: 'La Defensa dura 3 s (antes 1,8 s) y vuelve antes.',
+    },
+    {
+        id: 'mejora_paladina2', tipo: 'heroe', heroe: 'paladina', habilidad: 'espacio', cambios: { daño: 2 },
+        icono: '✠', nombre: 'Hoja bendita', precio: 120, descripcion: 'El espadazo hace doble daño.',
+    },
+    {
+        id: 'mejora_asesina', tipo: 'heroe', heroe: 'asesina', habilidad: 'x', cambios: { perfora: true, vida: 650 },
+        icono: '✂', nombre: 'Cuchillas gemelas', precio: 80, descripcion: 'La cuchilla atraviesa a todos y llega más lejos.',
+    },
+    {
+        id: 'mejora_asesina2', tipo: 'heroe', heroe: 'asesina', habilidad: 'c', cambios: { enfriamiento: 1000, vel: 680 },
+        icono: '➶', nombre: 'Sombra veloz', precio: 120, descripcion: 'La arremetida es más rápida y vuelve cada 1 s.',
+    },
+    {
+        id: 'mejora_elfa', tipo: 'heroe', heroe: 'elfa', habilidad: 'espacio', cambios: { enfriamiento: 400 },
+        icono: '➹', nombre: 'Mano rápida', precio: 80, descripcion: 'Dispara flechas cada 0,4 s (antes 0,65 s).',
+    },
+    {
+        id: 'mejora_elfa2', tipo: 'heroe', heroe: 'elfa', habilidad: 'x', cambios: { congela: 1500 },
+        icono: '❄', nombre: 'Flecha de escarcha', precio: 120, descripcion: 'La flecha élfica además congela 1,5 s.',
     },
     // ---------- apariencias (solo visuales) ----------
     { id: 'estela_luna', tipo: 'cosmetico', icono: '✦', nombre: 'Estela lunar', precio: 40, color: 0xb9c3ff, descripcion: 'Una estela de luz lavanda al correr.' },
@@ -136,14 +167,46 @@ const heroe = () => PERSONAJES.find(pj => pj.id === heroeActual()) || PERSONAJES
 export const estelaEquipada = (heroeId = heroe().id) => porId(estado.equipados.estelas[heroeId]) || null;
 export const llevaEscudo = () => estado.equipados.escudo && cantidad('escudo') > 0;
 
-// mejora de héroe comprada para este personaje (o null)
-export const mejoraDe = pjId => CATALOGO.find(o => o.tipo === 'heroe' && o.heroe === pjId && tiene(o.id)) || null;
+// mejoras de héroe compradas para este personaje
+export const mejorasDe = pjId => CATALOGO.filter(o => o.tipo === 'heroe' && o.heroe === pjId && tiene(o.id));
 
-// copia del personaje con su mejora aplicada (el original de personajes.js no se toca)
+// copia del personaje con sus mejoras aplicadas (el original de personajes.js no se toca)
 export function personajeConMejoras(pj) {
-    const m = mejoraDe(pj.id);
-    if (!m) return pj;
-    return { ...pj, habilidades: { ...pj.habilidades, [m.habilidad]: { ...pj.habilidades[m.habilidad], ...m.cambios, mejorada: true } } };
+    return mejorasDe(pj.id).reduce((p, m) => ({
+        ...p, habilidades: { ...p.habilidades, [m.habilidad]: { ...p.habilidades[m.habilidad], ...m.cambios, mejorada: true } },
+    }), pj);
+}
+
+// niveles completados (el más alto): para saber si un nivel se termina por primera vez
+export const nivelMaximo = () => estado.nivelMaximo;
+
+// ---------- poderes especiales (los datos y el uso están en poderes.js) ----------
+export const precioPoder = p => RAREZAS[p.rareza].precio;
+export function comprarPoder(id) {
+    const p = PODERES.find(q => q.id === id);
+    if (!p) return { ok: false, mensaje: 'Ese poder no existe' };
+    if (tienePoder(id)) return { ok: false, mensaje: 'Ya es tuyo' };
+    if (estado.monedas < precioPoder(p)) return { ok: false, mensaje: `Te faltan ${precioPoder(p) - estado.monedas} monedas` };
+    estado.monedas -= precioPoder(p);
+    guardar();
+    darPoder(id);
+    // si el héroe actual tiene una ranura libre, se lo equipa
+    const libre = equipados(heroe().id).indexOf(null);
+    if (libre >= 0) equiparPoder(heroe().id, id, libre);
+    return { ok: true, mensaje: `¡${p.nombre} es tuyo!` };
+}
+
+// subir un poder de nivel (1 → 2 → 3) con monedas
+export function mejorarPoder(id) {
+    const p = PODERES.find(q => q.id === id);
+    if (!p || !tienePoder(id)) return { ok: false, mensaje: 'Primero tienes que tener ese poder' };
+    const costo = costoSubir(p);
+    if (costo === null) return { ok: false, mensaje: 'Ya está al nivel máximo' };
+    if (estado.monedas < costo) return { ok: false, mensaje: `Te faltan ${costo - estado.monedas} monedas` };
+    estado.monedas -= costo;
+    guardar();
+    subirPoder(id);
+    return { ok: true, mensaje: `¡${p.nombre} subió a nivel ${nivelPoder(id)}!` };
 }
 
 // ---------- cambios (todos validan aquí, no solo en los botones) ----------
@@ -151,6 +214,14 @@ export function sumarMonedas(n) {
     if (!(n > 0)) return;
     estado.monedas += Math.floor(n);
     guardar();
+}
+
+// apuesta de la arena (arena.js): se paga al empezar la batalla (nunca deja el saldo negativo)
+export function gastarMonedas(n) {
+    const gasto = Math.min(estado.monedas, Math.max(0, Math.floor(n)));
+    estado.monedas -= gasto;
+    guardar();
+    return gasto;
 }
 
 // niveles completados (para los premios de los jefes)
@@ -239,6 +310,10 @@ export function iniciarTienda() {
                 <h2 id="titulo-tienda">Tienda de la Noche</h2>
                 <span class="tienda-saldo" aria-live="polite"><span aria-hidden="true">◉</span> <b data-saldo>0</b> monedas</span>
             </div>
+            <div class="tienda-pestanas" role="tablist">
+                <button type="button" class="tienda-pestana" role="tab" data-pestana="tienda">Tienda</button>
+                <button type="button" class="tienda-pestana" role="tab" data-pestana="poderes">Poderes <b data-cuantos></b></button>
+            </div>
             <div class="tienda-lista" data-lista></div>
             <p class="tienda-aviso" data-aviso role="status" aria-live="polite"></p>
             <button type="button" class="menu-boton" data-accion="cerrar">← Volver</button>
@@ -247,7 +322,7 @@ export function iniciarTienda() {
     contenedor.appendChild(capa);
     const lista = capa.querySelector('[data-lista]');
     const aviso = capa.querySelector('[data-aviso]');
-    let alCerrar = null, temporizador = null;
+    let alCerrar = null, temporizador = null, pestana = 'tienda', filtro = 'todos';
 
     function avisar(texto, ok) {
         aviso.textContent = texto;
@@ -276,8 +351,60 @@ export function iniciarTienda() {
         return `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar="${o.id}" ${s === 'caro' ? 'disabled' : ''}>${s === 'caro' ? `Faltan ${faltan}` : `Comprar · ◉ ${o.precio}`}</button>`;
     }
 
+    // pestaña de poderes: los 2 equipados del héroe actual arriba y los 50 abajo (filtrables por rareza)
+    function pintarPoderes() {
+        const h = heroe(), colorHeroe = '#' + h.color.toString(16).padStart(6, '0');
+        const eq = equipados(h.id);
+        const ranura = (id, i) => {
+            const p = PODERES.find(q => q.id === id);
+            return `<div class="poder-ranura"><kbd>${i ? 'B' : 'V'}</kbd>${p
+                ? `<img src="${urlIcono(p)}" alt="" width="34" height="34"><span>${p.nombre}</span>`
+                : '<span class="vacia">Vacía</span>'}</div>`;
+        };
+        const filtros = ['todos', 'mios', ...Object.keys(RAREZAS)].map(f => `<button type="button" class="poder-filtro ${filtro === f ? 'activo' : ''}"
+            data-filtro="${f}" aria-pressed="${filtro === f}">${f === 'todos' ? 'Todos' : f === 'mios' ? 'Míos' : RAREZAS[f].nombre}</button>`).join('');
+        const visibles = PODERES.filter(p => filtro === 'todos' || (filtro === 'mios' ? tienePoder(p.id) : p.rareza === filtro));
+        lista.innerHTML = `
+            <div class="poder-equipo"><b>Equipados en <span style="color:${colorHeroe}">${h.nombre}</span></b>${eq.map(ranura).join('')}</div>
+            <p class="menu-nota">Ganas un poder al terminar cada nivel por primera vez (y a veces al rejugarlo). En el nivel se usan con V y B. Súbelos hasta ★★★ con monedas.</p>
+            <div class="poder-filtros" role="group" aria-label="Filtrar poderes">${filtros}</div>
+            ${visibles.map(p => {
+                const mio = tienePoder(p.id), r = RAREZAS[p.rareza], precio = precioPoder(p);
+                const nv = nivelPoder(p.id), costo = mio ? costoSubir(p) : null;
+                const subir = costo === null ? ''
+                    : `<button type="button" class="menu-boton tienda-btn poder-subir" data-subir-poder="${p.id}" ${estado.monedas < costo ? 'disabled' : ''}
+                        title="Nivel ${nv + 1}: ${queGana(nv + 1)}">${estado.monedas < costo ? `⬆ Nv ${nv + 1} · faltan ${costo - estado.monedas}` : `⬆ Nv ${nv + 1} · ◉ ${costo}`}</button>`;
+                const botones = mio
+                    ? [0, 1].map(i => `<button type="button" class="menu-boton tienda-btn ${eq[i] === p.id ? 'tienda-equipado' : ''}" data-poder="${p.id}"
+                        data-ranura="${i}" aria-pressed="${eq[i] === p.id}">${eq[i] === p.id ? `✓ En ${i ? 'B' : 'V'}` : `Poner en ${i ? 'B' : 'V'}`}</button>`).join('') + subir
+                    : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ◉ ${precio}`}</button>`;
+                // ventajas con los valores de su nivel actual (y qué gana al subir)
+                const chips = ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');
+                const siguiente = costo === null ? (mio ? '<small class="poder-max">★ Nivel máximo</small>' : '')
+                    : `<small>Nivel ${nv + 1}: ${queGana(nv + 1)}</small>`;
+                const nivelChip = mio ? `<em class="poder-nivel" aria-label="Nivel ${nv} de ${NIVEL_MAX}">${'★'.repeat(nv)}${'☆'.repeat(NIVEL_MAX - nv)}</em>` : '';
+                return `
+                <div class="tienda-item poder-item ${mio ? 'comprado' : ''} ${eq.includes(p.id) ? 'equipado' : ''}" style="--tienda-color:${colorDe(p)}">
+                    <img class="poder-icono" src="${urlIcono(p)}" alt="" width="44" height="44" loading="lazy" style="border-color:${r.color}">
+                    <div class="tienda-info">
+                        <b>${p.nombre} <em class="tienda-heroe" style="--pj:${r.color}">${r.nombre}</em> ${nivelChip}</b>
+                        <span>${p.descripcion}</span>
+                        <span class="poder-ventajas">${chips}</span>
+                        ${siguiente}
+                    </div>
+                    <div class="tienda-acciones">${botones}</div>
+                </div>`;
+            }).join('')}`;
+    }
+
     function pintar() {
         capa.querySelector('[data-saldo]').textContent = estado.monedas;
+        capa.querySelector('[data-cuantos]').textContent = `${cuantosPoderes()}/${PODERES.length}`;
+        capa.querySelectorAll('[data-pestana]').forEach(b => {
+            b.classList.toggle('activa', b.dataset.pestana === pestana);
+            b.setAttribute('aria-selected', b.dataset.pestana === pestana);
+        });
+        if (pestana === 'poderes') { pintarPoderes(); return; }
         const h = heroe(), colorHeroe = '#' + h.color.toString(16).padStart(6, '0');
         lista.innerHTML = Object.entries(TEXTO_TIPO).map(([tipo, titulo]) => `
             <h3 class="tienda-seccion">${titulo}${tipo === 'cosmetico'
@@ -307,6 +434,28 @@ export function iniciarTienda() {
         const b = e.target.closest('button');
         if (!b || b.disabled) return;
         if (b.dataset.accion === 'cerrar') { cerrar(); return; }
+        if (b.dataset.pestana) { pestana = b.dataset.pestana; pintar(); lista.scrollTop = 0; return; }
+        if (b.dataset.filtro) { filtro = b.dataset.filtro; pintar(); capa.querySelector(`[data-filtro="${filtro}"]`)?.focus(); return; }
+        if (b.dataset.poder) {
+            equiparPoder(heroe().id, b.dataset.poder, Number(b.dataset.ranura));
+            pintar();
+            capa.querySelector(`[data-poder="${b.dataset.poder}"][data-ranura="${b.dataset.ranura}"]`)?.focus();
+            return;
+        }
+        if (b.dataset.subirPoder) {
+            const r = mejorarPoder(b.dataset.subirPoder);
+            avisar(r.mensaje, r.ok);
+            pintar();
+            (capa.querySelector(`[data-subir-poder="${b.dataset.subirPoder}"]`) || capa.querySelector(`[data-poder="${b.dataset.subirPoder}"]`))?.focus();
+            return;
+        }
+        if (b.dataset.comprarPoder) {
+            const r = comprarPoder(b.dataset.comprarPoder);
+            avisar(r.mensaje, r.ok);
+            pintar();
+            capa.querySelector(`[data-poder="${b.dataset.comprarPoder}"]`)?.focus();
+            return;
+        }
         if (b.dataset.comprar) {
             const r = comprar(b.dataset.comprar); // la validación real está en comprar()
             avisar(r.mensaje, r.ok);
@@ -332,9 +481,11 @@ export function iniciarTienda() {
         f?.();
     }
 
-    return function abrir(cuandoCierre) {
+    // abrir(alCerrar, 'poderes'): abre directo en la pestaña de poderes
+    return function abrir(cuandoCierre, enPestana) {
         if (!capa.hidden) return;
         alCerrar = cuandoCierre;
+        if (enPestana) pestana = enPestana;
         aviso.className = 'tienda-aviso';
         pintar();
         capa.hidden = false;

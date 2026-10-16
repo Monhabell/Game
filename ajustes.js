@@ -57,6 +57,7 @@ function leer() {
         if (!BOTONES[a.botones]) a.botones = POR_DEFECTO.botones;
         if (!GRAFICOS[a.graficos]) a.graficos = POR_DEFECTO.graficos;
         if (!VOCES[a.voz]) a.voz = POR_DEFECTO.voz;
+        if (![1, 1.25, 1.5].includes(a.autoRes)) delete a.autoRes;
         if (!(a.volumen >= 0 && a.volumen <= 100)) a.volumen = POR_DEFECTO.volumen;
         return a;
     } catch (_e) {
@@ -75,7 +76,10 @@ export const factorEnemigos = () => DIFICULTADES[ajustes.dificultad].velEnemigos
 const esCelular = () => !!globalThis.matchMedia?.('(pointer: coarse)').matches;
 // Auto: nítido en el PC (2); en el celular 1,5 si la pantalla es de alta densidad (con 1 se veía borroso
 // al estirarse) y 1 en los de baja densidad. Si un celular va lento: ⚙ → Gráficos → Rápidos
+// autoRes: si en este celular el juego iba lento, el modo fluido (rendimiento.js) guarda una resolución
+// menor para la próxima vez que se abra (solo con Gráficos en Auto)
 export const RESOLUCION = GRAFICOS[ajustes.graficos].resolucion
-    ?? (esCelular() ? ((globalThis.devicePixelRatio || 1) >= 2 ? 1.5 : 1) : 2);
+    ?? (esCelular() ? (ajustes.autoRes ?? ((globalThis.devicePixelRatio || 1) >= 2 ? 1.5 : 1)) : 2);
+export const esMovil = esCelular;
 
 export const zoomCamara = () => CAMARAS[ajustes.camara].zoom * RESOLUCION / 2;

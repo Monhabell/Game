@@ -60,15 +60,18 @@ const AVISOS = {
 };
 const ATURDIDO_MS = 1100; // ventana para atacarlo tras chocar contra el muro (la coraza no lo protege)
 
+// solo se cargan los trolls que usan los encuentros (cada uno ocupa ~73 MB en la tarjeta de video)
+const TROLLS = [...new Set(JEFES.map(j => j.troll))];
+
 export function cargarJefes(scene) {
-    [1, 2, 3].forEach(k => Object.values(ANIMS).forEach(([archivo]) => {
+    TROLLS.forEach(k => Object.values(ANIMS).forEach(([archivo]) => {
         scene.load.spritesheet(`troll${k}_${archivo}`, `assets/jefes/troll${k}_${archivo}.png`, { frameWidth: 600, frameHeight: 440 });
     }));
 }
 
 export function crearAnimacionesJefes(scene) {
-    if (scene.anims.exists('troll1-idle')) return;
-    [1, 2, 3].forEach(k => Object.entries(ANIMS).forEach(([clave, [archivo, frames, frameRate, repeat]]) => {
+    if (scene.anims.exists(`troll${TROLLS[0]}-idle`)) return;
+    TROLLS.forEach(k => Object.entries(ANIMS).forEach(([clave, [archivo, frames, frameRate, repeat]]) => {
         scene.anims.create({
             key: `troll${k}-${clave}`,
             frames: scene.anims.generateFrameNumbers(`troll${k}_${archivo}`, {

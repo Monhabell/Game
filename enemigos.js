@@ -67,24 +67,44 @@ export const ENEMIGOS = {
     alien_predator_mask: alien('predator_mask', { vida: 2, vel: 1.6, corre: true }),
 };
 
-export function cargarEnemigos(scene) {
+// enemigos que pueden aparecer en un nivel: los de su mezcla, más los que usan las sorpresas
+// (esqueleto, zombie3) y los que reparte el azar (planta, espíritu)
+export function enemigosDelNivel(nivel) {
+    return [...new Set([...(nivel.mezcla || ['zombie1', 'zombie2', 'zombie3']), 'zombie3', 'esqueleto', 'planta', 'espiritu'])];
+}
+
+// MEMORIA: cada zombi o alien HD ocupa ~17 MB en la tarjeta de video y entre todos pasan de 180 MB
+// (demasiado para un celular de 4 GB). Por eso se cargan al entrar a cada nivel solo los que
+// usa (tipos) y se sueltan los que ya no se usan. Lo que ya está cargado no se vuelve a cargar.
+export function cargarEnemigos(scene, tipos) {
     Object.entries(ENEMIGOS).forEach(([id, def]) => {
+        const usar = tipos.includes(id);
         Object.entries(def.hojas).forEach(([clave, [archivo]]) => {
-            scene.load.spritesheet(`${id}-${clave}`, `${def.carpeta}/${archivo}.png`, { frameWidth: def.ancho, frameHeight: def.alto ?? 128 });
+            const key = `${id}-${clave}`;
+            if (usar && !scene.textures.exists(key)) {
+                scene.load.spritesheet(key, `${def.carpeta}/${archivo}.png`, { frameWidth: def.ancho, frameHeight: def.alto ?? 128 });
+            } else if (!usar && scene.textures.exists(key)) {
+                scene.anims.remove(key);
+                scene.textures.remove(key);
+            }
         });
     });
     // bola de fuego del espíritu
-    scene.load.spritesheet('bola_espiritu', 'assets/enemigos/espiritu/Charge.png', { frameWidth: 64, frameHeight: 64 });
+    if (!scene.textures.exists('bola_espiritu')) {
+        scene.load.spritesheet('bola_espiritu', 'assets/enemigos/espiritu/Charge.png', { frameWidth: 64, frameHeight: 64 });
+    }
 }
 
+// (solo los enemigos cargados; los que se cargan después reciben sus animaciones al llegar)
 export function crearAnimacionesEnemigos(scene) {
-    if (scene.anims.exists('bola_espiritu-giro')) return;
     Object.entries(ENEMIGOS).forEach(([id, def]) => {
         Object.entries(def.hojas).forEach(([clave, [, frames, frameRate, repeat]]) => {
             const key = `${id}-${clave}`;
+            if (!scene.textures.exists(key) || scene.anims.exists(key)) return;
             scene.anims.create({ key, frames: scene.anims.generateFrameNumbers(key, { start: 0, end: frames - 1 }), frameRate, repeat });
         });
     });
+    if (scene.anims.exists('bola_espiritu-giro') || !scene.textures.exists('bola_espiritu')) return;
     scene.anims.create({
         key: 'bola_espiritu-giro',
         frames: scene.anims.generateFrameNumbers('bola_espiritu', { start: 0, end: 3 }),

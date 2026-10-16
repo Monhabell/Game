@@ -314,11 +314,11 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
 
     // niebla general suave sobre todo
     scene.nieblaAlta = scene.add.tileSprite(0, 0, ANCHO, ALTO, 'niebla')
-        .setOrigin(0).setScrollFactor(0).setDepth(30).setAlpha(0.22).setTint(p.niebla);
+        .setOrigin(0).setScrollFactor(0).setDepth(30).setAlpha(0.10).setTint(p.niebla);
 
     // niebla a ras del suelo (se puede ver a través para no esconder del todo los peligros)
-    scene.nieblaBaja = scene.add.tileSprite(0, ALTO - 140, ANCHO, 140, 'niebla_baja')
-        .setOrigin(0).setScrollFactor(0).setDepth(31).setAlpha(0.6).setTint(p.nieblaSuelo);
+    scene.nieblaBaja = scene.add.tileSprite(0, ALTO - 110, ANCHO, 140, 'niebla_baja')
+        .setOrigin(0).setScrollFactor(0).setDepth(31).setAlpha(0.2).setTint(p.nieblaSuelo);
 
     // partículas propias de la región (luciérnagas, brasas, ceniza, polvo o lluvia)
     scene.particulas = scene.add.particles(0, 0, 'particula', configParticulas(region.particulas, p, reducir))
@@ -391,22 +391,32 @@ function configParticulas(tipo, p, reducir) {
 
 // ---------- Niebla de la región ----------
 // v: 0 = despejada, 1 = normal, 2 = densa. La densa solo llega con un evento guionizado.
+// niebla a veces: la mayor parte del tiempo no hay. Cada ESPERA_NIEBLA ms hay PROB_NIEBLA de que llegue;
+// dura DURA_NIEBLA ms y se va. (Para que nunca haya: PROB_NIEBLA = 0; para más seguido, súbelo)
+const PROB_NIEBLA = 0.35;
+const ESPERA_NIEBLA = [35000, 70000];
+const DURA_NIEBLA = [10000, 18000];
+
 const NIEBLA_BASE = { suave: 0.7, humo: 1.2, variable: 1 };
 
 function cicloNiebla(scene, region, reducir) {
-    const base = NIEBLA_BASE[region.niebla] ?? 1;
-    scene.estadoNiebla = { v: base, base };
-    if (region.niebla !== 'variable' || reducir) return;
-    // va y viene despacio entre despejada y normal, sin avisos ni sonidos
-    const cambiar = () => {
+    // casi siempre despejado (v = 0); la niebla llega a veces, dura un rato y se va
+    const base = NIEBLA_BASE[region.niebla] ?? 1; // intensidad cuando aparece (más espesa en cueva y volcán)
+    scene.estadoNiebla = { v: 0, base: 0 };
+    if (reducir) return; // con "reducir movimiento": siempre despejado
+    const programar = () => scene.time.delayedCall(Phaser.Math.Between(...ESPERA_NIEBLA), intentar);
+    const intentar = () => {
         if (!scene.sys.isActive()) return;
-        if (!scene.eventoActivo) {
-            const destino = scene.estadoNiebla.v > 0.7 ? 0.35 : 1;
-            scene.tweens.add({ targets: scene.estadoNiebla, v: destino, duration: Phaser.Math.Between(5000, 7000), ease: 'Sine.inOut' });
+        if (!scene.eventoActivo && !scene.peleaJefe && Math.random() < PROB_NIEBLA) {
+            const dura = Phaser.Math.Between(...DURA_NIEBLA);
+            scene.tweens.add({ targets: scene.estadoNiebla, v: base, duration: 4000, ease: 'Sine.inOut' });
+            scene.time.delayedCall(4000 + dura, () => {
+                if (!scene.eventoActivo) scene.tweens.add({ targets: scene.estadoNiebla, v: 0, duration: 5000, ease: 'Sine.inOut' });
+            });
         }
-        scene.time.delayedCall(Phaser.Math.Between(15000, 25000), cambiar);
+        programar();
     };
-    scene.time.delayedCall(Phaser.Math.Between(10000, 16000), cambiar);
+    programar();
 }
 
 // ---------- Momentos fuertes guionizados ----------
@@ -439,14 +449,15 @@ function revisarEventos(scene, time, x) {
 const subir = (v, normal, densa) => v <= 1 ? normal * v : normal + (densa - normal) * Math.min(1, v - 1);
 
 function aplicarNiebla(scene) {
-    const v = scene.estadoNiebla ? scene.estadoNiebla.v : 1;
+    // modo fluido (rendimiento.js): sin niebla (las capas ya están ocultas)
+    const v = scene.modoFluido ? 0 : scene.estadoNiebla ? scene.estadoNiebla.v : 1;
     scene.capasNiebla.forEach(({ capa, base }) => capa.setAlpha(Math.min(0.9, base * v)));
     scene.nieblaAlta.setAlpha(subir(v, 0.25, 0.5));
     scene.nieblaBaja.setAlpha(subir(v, 0.55, 0.85));
     scene.nieblaDensa.setAlpha(subir(v, 0.2, 0.45)); // densa, pero se siguen viendo plataformas y enemigos
     // con niebla densa todo se ve un poco más oscuro; despejada, un poco más claro
     const luz = scene.estadoLuz;
-    scene.oscuridad.setAlpha(Phaser.Math.Clamp(luz.alpha + (v - 1) * 0.06, 0, OSCURIDAD_MAXIMA));
+    scene.oscuridad.setAlpha(Phaser.Math.Clamp(luz.alpha + Math.max(0, v - 1) * 0.06, 0, OSCURIDAD_MAXIMA));
 }
 
 export function actualizarAmbiente(scene, time, objetivo) {
@@ -481,7 +492,7 @@ export function crearNieblaSeleccion(scene) {
     scene.capasNiebla = [];
     scene.add.image(0, 0, 'cielo_afuera').setOrigin(0).setDisplaySize(ANCHO, ALTO).setDepth(-2);
     scene.add.image(0, 0, 'estrellas_1').setOrigin(0).setDepth(-2);
-    scene.add.image(700, 28, 'brillo').setScale(2).setTint(0x9fb4ff).setAlpha(0.22).setBlendMode('ADD').setDepth(-2);
+    scene.add.image(700, 28, 'brillo').setScale(2).setTint(0x9fb4ff).setAlpha(0.5).setBlendMode('ADD').setDepth(-2);
     scene.add.image(700, 28, 'luna').setScale(0.5).setDepth(-2);
     scene.nieblaAlta = scene.add.tileSprite(0, 150, ANCHO, 200, 'niebla_banda').setOrigin(0).setAlpha(0.35).setTint(0x8fa3bf);
     scene.nieblaBaja = scene.add.tileSprite(0, ALTO - 140, ANCHO, 140, 'niebla_baja').setOrigin(0).setAlpha(0.6).setTint(0x8fbf8a);

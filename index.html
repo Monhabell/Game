@@ -394,7 +394,7 @@
             bottom: 12px;
             display: grid;
             grid-template-columns: repeat(2, 64px);
-            grid-template-rows: repeat(2, 64px);
+            grid-template-rows: 52px repeat(2, 64px);
             gap: 10px;
         }
 
@@ -1128,6 +1128,44 @@
             vertical-align: 1px;
         }
         .tienda-acciones { display: flex; flex-direction: column; gap: 6px; }
+        /* pestañas Tienda / Poderes */
+        .tienda-pestanas { display: flex; gap: 6px; }
+        .tienda-pestana {
+            flex: 1; min-height: 36px; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600;
+            color: var(--texto-2); background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer;
+        }
+        .tienda-pestana.activa { color: #fff; background: var(--acento-fuerte); border-color: transparent; }
+        .tienda-pestana b { font-weight: 500; opacity: 0.8; margin-left: 4px; }
+        /* poderes especiales (poderes.js) */
+        .poder-icono { width: 44px; height: 44px; border-radius: 10px; border: 2px solid; object-fit: cover; }
+        .poder-item small { font-size: 11px; opacity: 0.75; }
+        .poder-item .poder-max { color: #ffc94a; opacity: 1; }
+        .poder-ventajas { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0 1px; }
+        .poder-ventaja {
+            font-style: normal; font-size: 11px; line-height: 1; padding: 4px 7px; border-radius: 999px; white-space: nowrap;
+            color: var(--texto); background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .poder-ventaja span { color: var(--tienda-color, var(--acento)); }
+        .poder-nivel { font-style: normal; font-size: 12px; letter-spacing: 1px; color: #ffc94a; }
+        .poder-subir:not(:disabled) { color: #1a1205; background: #ffc94a; border-color: transparent; }
+        @media (max-height: 500px) { .poder-ventaja { font-size: 9px; padding: 3px 5px; } }
+        .poder-equipo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
+        .poder-equipo > b { font-size: 13px; font-weight: 600; margin-right: auto; }
+        .poder-ranura { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-2); }
+        .poder-ranura img { border-radius: 8px; }
+        .poder-ranura kbd { font: inherit; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: #fff; }
+        .poder-ranura .vacia { opacity: 0.5; font-style: italic; }
+        .poder-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+        .poder-filtro {
+            min-height: 30px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; cursor: pointer;
+            color: var(--texto-2); background: transparent; border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .poder-filtro.activo { color: #fff; background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); }
+        /* botones táctiles de los poderes especiales (V y B): con el ícono del poder */
+        .t-esp { width: 48px; height: 48px; justify-self: center; align-self: end; background-size: cover; background-position: center; }
+        .t-esp b { font-size: 11px; position: absolute; right: -2px; bottom: -4px; text-shadow: 0 1px 3px #000; }
+        .t-esp.vacio { visibility: hidden; }
+        .t-esp.cargando { filter: grayscale(0.7) brightness(0.7); }
         .tienda-btn { min-height: 38px; padding: 0 14px; font-size: 13px; white-space: nowrap; }
         .tienda-comprar:not(:disabled) { color: #fff; background: var(--acento-fuerte); border-color: transparent; }
         .tienda-comprar:not(:disabled):hover { background: var(--acento); }
@@ -1215,7 +1253,7 @@
                     <div class="arrow-key" id="key-c">C</div>
                 </div>
             </div>
-            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje<br>P o Esc: pausa · G: agrandar · F: pantalla completa · M: silenciar<br>⚙ (sobre el juego): dificultad, cámara y volumen<br>Elige entre Gesi la Arquera, Leo el Espadachín y Zeno el Mago<br>Cuidado: no todo es lo que parece...</p>
+            <p class="hint">Flechas: moverse y saltar · ESPACIO, X y C: los 3 poderes de tu personaje · V y B: tus poderes especiales<br>P o Esc: pausa · G: agrandar · F: pantalla completa · M: silenciar<br>⚙ (sobre el juego): dificultad, cámara y volumen<br>Elige entre 9 héroes y gana hasta 50 poderes especiales<br>Cuidado: no todo es lo que parece...</p>
         </div>
         
         <p class="footer">Juega con las flechas del teclado | © 2026 · Desarrollado por Monhabell</p>

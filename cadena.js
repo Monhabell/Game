@@ -17,13 +17,14 @@
 //
 // api: { morir(causa) } (killgesi del juego)
 
-import { PERSONAJES } from "./personajes.js"
+import { PERSONAJES, resDe } from "./personajes.js"
 import { enLinea, enviarEvento, alRecibir } from "./red.js"
 
 const SUELO_Y = 332;
 const LARGO = 170;          // px de cadena
 const ARRASTRE = 120;       // px/s con que el que cuelga arrastra al que está en el suelo
-const CORRECCION = 10;      // 1/s: qué tan rápido se recupera el largo si la cadena se estira
+const CORRECCION = 0.35;    // fracción del estirón que se corrige en cada cuadro (moviendo la posición, sin empujar)
+const HOLGURA_RED = 24;     // px extra de cadena con un jugador de otra pantalla (su posición llega con retraso)
 const ESTIRON_MAX = 50;     // px que la cadena se puede estirar antes de corregir de golpe
 const VEL_CARRERA = 220;
 const VEL_DERIVA = 100;
@@ -50,8 +51,10 @@ export function crearCadena(scene, { x, y, api }) {
         .setCollideWorldBounds(true)
         .setGravityY(480)
         .setDepth(34);
-    c.setCrop(0, 57, c.width, c.height - 50);
-    c.body.setSize(20, 69).setOffset(55, 57);
+    const r = resDe(pj); // héroes HD: hojas al doble, se dibujan a la mitad
+    c.setScale(1 / r);
+    c.setCrop(0, 57 * r, c.width, c.height - 50 * r);
+    c.body.setSize(20 * r, 69 * r).setOffset(55 * r, 57 * r);
     c.pj = pj;
     c.anims.play(`${pj.id}-idle`);
     scene.compa = c;
@@ -234,7 +237,9 @@ function anclarJugador1(scene, a) {
 function tensar(a, c) {
     const dx = c.cx - a.cx, dy = c.cy - a.cy;
     const dist = Math.hypot(dx, dy);
-    if (dist <= LARGO || dist === 0) return;
+    // con alguien de otra pantalla, un poco de holgura: así el retraso de la red no da tirones
+    const largo = a.local && c.local ? LARGO : LARGO + HOLGURA_RED;
+    if (dist <= largo || dist === 0) return;
     // con un jugador de otra pantalla, una distancia enorme es un dato atrasado (acaba de reaparecer
     // o entrar a la arena): no se tira hasta que llegue su posición nueva
     if (dist > LARGO * 4 && !(a.local && c.local)) return;
@@ -250,23 +255,19 @@ function tensar(a, c) {
     else if (c.suelo && !a.suelo) { wa = 1; wc = 0; arrastrar(c, -dx); }
 
     const va = a.v, vc = c.v;
-    // velocidad con la que se separan: esa se anula (la cadena no se estira)
+    // velocidad con la que se separan: esa se anula (la cadena no se estira). Nada más: si además se
+    // empuja hacia el otro, la cadena hace de resorte (sale disparado, se pasa y rebota)
     const separan = (vc.x - va.x) * nx + (vc.y - va.y) * ny;
-    // y un poco más para recuperar el largo si ya se estiró
-    const extra = Math.min(400, (dist - LARGO) * CORRECCION);
-    const total = Math.max(0, separan) + extra;
-    if (a.local) { va.x += nx * total * wa; va.y += ny * total * wa; }
-    if (c.local) { vc.x -= nx * total * wc; vc.y -= ny * total * wc; }
-
-    // estirón demasiado grande (choques, ascensores, retraso de la red): se corrige la posición de golpe
-    const sobra = dist - LARGO - ESTIRON_MAX;
-    if (sobra > 0) {
-        const quien = a.local && c.local ? (wc >= wa ? c : a) : a.local && wa > 0 ? a : c.local && wc > 0 ? c : null;
-        if (!quien) return;
-        const signo = quien === c ? -1 : 1;
-        quien.s.x += nx * sobra * signo;
-        quien.s.y += ny * sobra * signo;
+    if (separan > 0) {
+        if (a.local) { va.x += nx * separan * wa; va.y += ny * separan * wa; }
+        if (c.local) { vc.x -= nx * separan * wc; vc.y -= ny * separan * wc; }
     }
+
+    // lo que ya se estiró se corrige acomodando la posición (de a poco; de golpe si es mucho)
+    const estiron = dist - largo;
+    const corregir = estiron > ESTIRON_MAX ? estiron - ESTIRON_MAX + ESTIRON_MAX * CORRECCION : estiron * CORRECCION;
+    if (a.local && wa > 0) { a.s.x += nx * corregir * wa; a.s.y += ny * corregir * wa; }
+    if (c.local && wc > 0) { c.s.x -= nx * corregir * wc; c.s.y -= ny * corregir * wc; }
 }
 
 // el del suelo es arrastrado hacia el que cuelga (si camina en contra, el que cuelga sube)

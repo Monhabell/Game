@@ -3,6 +3,7 @@
 // Se puede saltar con ENTER o ESPACIO.
 
 import { NIVELES } from "./niveles.js"
+import { resDe } from "./personajes.js"
 import { CASTILLO_META } from "./castillos.js"
 import { crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
 
@@ -68,8 +69,10 @@ export function crearMapa(scene, data) {
     // el personaje camina por el camino hasta el siguiente nivel
     const tIni = desde / total, tFin = hasta / total;
     const pIni = camino.getPoint(tIni);
-    const caminante = scene.add.sprite(pIni.x, pIni.y + 6, `${personaje}-run`).setOrigin(0.5, 1).setScale(0.55).setDepth(8);
-    caminante.anims.play(`${personaje}-run`);
+    // camina (los héroes que tienen animación de caminar) o corre
+    const paso = scene.anims.exists(`${personaje}-walk`) ? 'walk' : 'run';
+    const caminante = scene.add.sprite(pIni.x, pIni.y + 6, `${personaje}-${paso}`).setOrigin(0.5, 1).setScale(0.55 / resDe(personaje)).setDepth(8);
+    caminante.anims.play(`${personaje}-${paso}`);
     const sombra = scene.add.ellipse(pIni.x, pIni.y + 6, 26, 6, 0x000000, 0.45).setDepth(7);
     const estado = { t: tIni };
     scene.terminado = false;

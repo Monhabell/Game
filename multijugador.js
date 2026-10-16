@@ -23,10 +23,12 @@
 // El troll (jefes.js) sigue el mismo esquema: lo maneja el anfitrión, viaja junto con los enemigos
 // y cada ataque se avisa con un "jefeFx".
 
-import { PERSONAJES } from "./personajes.js"
+import { PERSONAJES, resDe } from "./personajes.js"
 import { prepararVariante } from "./vestidor.js"
 import { estaHablando } from "./voz.js"
 import { red, alRecibir, enviarEstado, enviarEvento, enLinea, esAnfitrion } from "./red.js"
+import { poderRemoto as poderEspecialRemoto } from "./poderes.js"
+import { esRival, colorDe as colorEnArena } from "./arena.js"
 
 const ENVIO_MS = 66;          // ~15 estados por segundo
 const OLVIDO_MS = 3000;       // sin noticias de un jugador: se oculta (se fue a otro nivel o se cortó)
@@ -71,6 +73,12 @@ export function iniciarMultijugador(juegoPhaser, g) {
             case 'jefe': ganchos.dañarJefe(scene, m.cantidad); break;
             case 'meta': ganchos.completar(scene); break;
             case 'poder': poderRemoto(scene, m); break;
+            case 'poderEsp': {
+                // poder especial de otro jugador: solo se ve (el daño lo cuenta su pantalla)
+                const r = scene.remotos.get(m.de);
+                if (r?.visible) poderEspecialRemoto(scene, cuerpoRemoto(r), m);
+                break;
+            }
             case 'enemigos':
                 if (esAnfitrion()) break;
                 if (m.reloj != null) ganchos.ajustarReloj(scene, m.reloj); // gotas, bolas y plataformas a la vez
@@ -104,7 +112,7 @@ export function semillaEnLinea(nivel) {
 export function prepararNivelEnLinea(scene) {
     scene.remotos = enLinea() ? new Map() : null;
     scene.ultimoEnvio = 0;
-    if (!scene.remotos) { scene.cadenaRed = null; return; }
+    if (!scene.remotos || scene.arena) { scene.cadenaRed = null; return; } // (en la arena no hay cadena)
     // la cadena une a todos en el orden de la sala (yo soy el jugador 1 de mi pantalla)
     scene.cadenaRed = () => red.jugadores.map(j => {
         if (j.id === red.tuId) return { local: true, s: scene.mascotaGesi };
@@ -121,11 +129,26 @@ function remoto(scene, id) {
     if (!j) return null;
     const pj = PERSONAJES.find(p => p.id === j.pj) || PERSONAJES[0];
     const s = scene.add.sprite(0, -1000, `${pj.id}-idle`).setDepth(33.5).setVisible(false);
-    s.setCrop(0, 57, s.width, s.height - 50);
+    const res = resDe(pj); // héroes HD: hojas al doble, se dibujan a la mitad
+    s.setScale(1 / res).setCrop(0, 57 * res, s.width, s.height - 50 * res);
     const color = '#' + pj.color.toString(16).padStart(6, '0');
     const etiqueta = scene.add.text(0, 0, j.nombre, {
         fontFamily: '"Press Start 2P", monospace', fontSize: '7px', color, stroke: '#000', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(35).setVisible(false);
+    if (scene.arena) {
+        // arena: el nombre con el color del equipo; los rivales tienen cuerpo para recibir golpes
+        const colorEq = colorEnArena(id);
+        if (colorEq) etiqueta.setColor(colorEq);
+        if (esRival(id)) {
+            scene.physics.add.existing(s);
+            scene.rivales.add(s);
+            s.body.setAllowGravity(false);
+            s.body.moves = false; // sigue a su dibujo
+            s.body.setSize(20 * res, 69 * res).setOffset(55 * res, 57 * res);
+            s.body.enable = false;
+            s.rivalId = id;
+        }
+    }
     r = { id, pj, s, etiqueta, nombre: j.nombre, habla: false, estado: null, recibido: 0, visible: false, primera: true };
     scene.remotos.set(id, r);
     return r;
@@ -168,6 +191,7 @@ export function actualizarEnLinea(scene, time, delta) {
         const e = r.estado;
         r.visible = !!e && ahora - r.recibido < OLVIDO_MS && !e.muerto;
         r.s.setVisible(r.visible);
+        if (r.s.body) r.s.body.enable = r.visible;
         r.etiqueta.setVisible(r.visible);
         if (!r.visible) return;
         // se adelanta un poco con su velocidad para compensar el retraso de la red
@@ -180,7 +204,7 @@ export function actualizarEnLinea(scene, time, delta) {
         if (e.anim && !scene.anims.exists(e.anim) && e.anim.includes('~')) prepararVariante(scene, e.anim.slice(0, e.anim.lastIndexOf('-')));
         if (e.anim) r.prefijo = e.anim.slice(0, e.anim.lastIndexOf('-'));
         if (e.anim && r.s.anims.currentAnim?.key !== e.anim && scene.anims.exists(e.anim)) r.s.anims.play(e.anim, true);
-        r.s.setTint(e.anclado ? 0x9fd8ff : 0xffffff);
+        if (!scene.arena) r.s.setTint(e.anclado ? 0x9fd8ff : 0xffffff);
         r.etiqueta.setPosition(r.s.x, r.s.y - 8);
         // chat de voz: 🔊 sobre el nombre de quien está hablando
         const habla = estaHablando(r.id);
@@ -218,6 +242,19 @@ export function avisarPoder(scene, tecla) {
     if (!enLinea()) return;
     const g = scene.mascotaGesi;
     enviarEvento('poder', { tecla, nivel: nivel(), dir: g.flipX ? -1 : 1 });
+}
+
+// un "cuerpo" con la posición actual del jugador remoto (para que sus poderes salgan de él)
+function cuerpoRemoto(r) {
+    return {
+        get active() { return r.s.active; },
+        get x() { return r.s.x; },
+        get y() { return r.s.y; },
+        get body() {
+            const cx = r.s.x + (r.estado.cx - r.estado.x), cy = r.s.y + (r.estado.cy - r.estado.y);
+            return { center: { x: cx, y: cy }, bottom: cy + 34, top: cy - 34, left: cx - 10, right: cx + 10, width: 20, height: 68 };
+        },
+    };
 }
 
 // el poder de otro jugador: se ve el proyectil (el daño a los enemigos llega por 'enemigo')

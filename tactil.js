@@ -7,7 +7,7 @@
 // - Poderes: un anillo se llena mientras el poder se recarga (o mientras juntas maná/flechas);
 //   el botón destella cuando vuelve a estar listo.
 
-const TECLA = { izq: 37, arriba: 38, der: 39, abajo: 40, espacio: 32, x: 88, c: 67 };
+const TECLA = { izq: 37, arriba: 38, der: 39, abajo: 40, espacio: 32, x: 88, c: 67, v: 86, b: 66 };
 const ZONA_MUERTA = 0.28; // fracción del radio del joystick que no mueve al personaje
 
 export const esTactil = () =>
@@ -36,6 +36,8 @@ export function iniciarTactil(juego) {
             <div class="t-joy"><div class="t-bolita"></div></div>
         </div>
         <div class="t-acciones">
+            <button type="button" class="t-btn t-esp vacio" data-tecla="v" data-ranura="0" aria-label="Poder V"><b>V</b></button>
+            <button type="button" class="t-btn t-esp vacio" data-tecla="b" data-ranura="1" aria-label="Poder B"><b>B</b></button>
             <button type="button" class="t-btn t-hab" data-tecla="c"><b>C</b><small></small></button>
             <button type="button" class="t-btn t-hab" data-tecla="x"><b>X</b><small></small></button>
             <button type="button" class="t-btn t-hab" data-tecla="espacio"><b>●</b><small></small></button>
@@ -127,8 +129,24 @@ export function iniciarTactil(juego) {
                 p.listo = listo;
             });
         }
+        // poderes especiales (V y B): ícono del poder, gris mientras se recarga
+        if (capa.classList.contains('visible') && nivel?.estadoPoder) {
+            especiales.forEach(p => {
+                const e = nivel.estadoPoder(p.ranura);
+                const icono = e?.icono || '';
+                if (icono !== p.icono) {
+                    p.icono = icono;
+                    p.b.style.backgroundImage = icono ? `url("${icono}")` : '';
+                    p.b.classList.toggle('vacio', !icono);
+                    p.b.setAttribute('aria-label', e ? `Poder ${e.nombre}` : 'Sin poder');
+                }
+                const cargando = !!e && e.carga < 1;
+                if (cargando !== p.cargando) { p.b.classList.toggle('cargando', cargando); p.cargando = cargando; }
+            });
+        }
         requestAnimationFrame(dibujarCarga);
     }
+    const especiales = [...capa.querySelectorAll('.t-esp')].map(b => ({ b, ranura: Number(b.dataset.ranura) }));
     requestAnimationFrame(dibujarCarga);
 
     // ---------- los controles solo se ven durante un nivel ----------

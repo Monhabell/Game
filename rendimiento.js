@@ -7,6 +7,9 @@
 // 2. Los objetos fijos en pantalla (HUD, cielo, niebla, oscuridad) se guardan en una lista que se
 //    rehace de vez en cuando, en vez de recorrer todo el nivel en cada fotograma (ver compensarZoom).
 // 3. Contador de cuadros por segundo (opcional, en la configuración).
+// 4. Modo fluido automático en el celular (ver cuidarRendimiento, al final).
+
+import { ajustes, guardarAjustes, RESOLUCION, esMovil } from "./ajustes.js"
 
 const RECORTE_MS = 120;   // cada cuánto se revisa qué está en la vista
 const MARGEN = 180;       // px fuera de la vista que se siguen dibujando (lo que entra no "aparece" de golpe)
@@ -68,4 +71,35 @@ export function actualizarContadorFps(scene, time) {
     scene.proxFps = time + 500;
     const fps = Math.round(scene.game.loop.actualFps);
     scene.textoFps.setText(`${fps} FPS`).setColor(fps >= 50 ? '#7dffc8' : fps >= 30 ? '#ffe066' : '#ff8a8a');
+}
+
+// 4. Modo fluido automático (solo en el celular): si el juego va a menos de FPS_BAJO durante
+//    SEGUNDOS_BAJO seguidos, se apagan la niebla y la mitad de las partículas (al momento, y en los
+//    niveles siguientes). Con Gráficos en Auto, además se recuerda una resolución un poco menor
+//    para la próxima vez que se abra el juego (1,5 -> 1,25 -> 1).
+const FPS_BAJO = 42;
+const SEGUNDOS_BAJO = 3;
+let fluidoEnLaSesion = false;
+
+export function cuidarRendimiento(scene, time) {
+    if (!esMovil()) return;
+    // (la escena se reutiliza al reiniciar el nivel: se revisa en sus objetos nuevos, no en la escena)
+    if (fluidoEnLaSesion && scene.nieblaAlta && !scene.nieblaAlta.fluido) activarFluido(scene);
+    if (time < (scene.proxMedida || 0)) return;
+    scene.proxMedida = time + 500;
+    if (fluidoEnLaSesion || scene.game.loop.actualFps >= FPS_BAJO) { scene.medidasBajas = 0; return; }
+    scene.medidasBajas = (scene.medidasBajas || 0) + 1;
+    if (scene.medidasBajas < SEGUNDOS_BAJO * 2) return;
+    activarFluido(scene);
+    fluidoEnLaSesion = true;
+    // la próxima vez, una resolución menor (solo si el jugador dejó los gráficos en Auto)
+    if (ajustes.graficos === 'auto' && RESOLUCION > 1) guardarAjustes({ autoRes: RESOLUCION > 1.25 ? 1.25 : 1 });
+}
+
+function activarFluido(scene) {
+    scene.modoFluido = true; // ambiente.js: sin niebla
+    if (scene.nieblaAlta) scene.nieblaAlta.fluido = true;
+    [scene.nieblaAlta, scene.nieblaBaja, scene.nieblaDensa, ...(scene.capasNiebla || []).map(c => c.capa)]
+        .forEach(c => c?.setVisible(false));
+    if (scene.particulas) scene.particulas.frequency = Math.max(scene.particulas.frequency * 2, 60);
 }

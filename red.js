@@ -19,7 +19,10 @@ export const red = {
     codigo: null,
     tuId: null,
     anfitrion: null,
-    jugadores: [],    // [{ id, nombre, pj }] en orden de llegada (= orden de la cadena)
+    jugadores: [],    // [{ id, nombre, pj, equipo }] en orden de llegada (= orden de la cadena)
+    modo: 'aventura', // 'aventura' (cadena) | 'duelo' (arena 1 contra 1) | 'equipos' (arena rojo contra azul)
+    arena: 'bosque',
+    apuesta: 0,       // monedas que paga cada jugador en la arena
     enPartida: false, // true desde que el anfitrión empieza hasta salir de la sala
     semilla: 0,
     intento: 0,       // sube con cada muerte del equipo: las trampas se reparten igual para todos
@@ -70,10 +73,16 @@ function atender(m) {
         red.tuId = m.tuId;
         red.anfitrion = m.anfitrion;
         red.jugadores = m.jugadores;
+        red.modo = m.modo || 'aventura';
+        red.arena = m.arena || 'bosque';
+        red.apuesta = m.apuesta || 0;
+    } else if (m.t === 'volver') {
+        red.enPartida = false;
     } else if (m.t === 'empezar') {
         red.enPartida = true;
         red.semilla = m.semilla >>> 0;
         red.intento = 0;
+        red.modo = m.modo || red.modo;
         red.jugadores = m.jugadores;
     }
     avisar(m.t, m);
@@ -101,6 +110,12 @@ export async function unirseSala(codigo, nombre, pj) {
 
 export const elegirPersonaje = pj => enviar({ t: 'elegir', pj });
 export const empezarPartida = nivel => enviar({ t: 'empezar', nivel });
+// (solo el anfitrión) modo de la sala y arena; volver: todos vuelven a la sala de espera
+export const elegirModo = (modo, arena, apuesta) => enviar({ t: 'modo', modo, arena, apuesta });
+// monedas que tiene cada uno (para saber si alcanza para la apuesta de la arena)
+export const informarSaldo = monedas => enviar({ t: 'saldo', monedas });
+export const elegirEquipo = equipo => enviar({ t: 'equipo', equipo });
+export const volverASala = () => enviar({ t: 'volver' });
 export const enviarEstado = estado => enviar({ t: 'estado', ...estado });
 export const enviarEvento = (tipo, datos = {}) => enviar({ t: 'evento', tipo, ...datos });
 
