@@ -100,6 +100,33 @@ export function tramoDobleCamino() {
     return t;
 }
 
+// bifurcación (carreras): DOS caminos sobre el mismo tramo, para decidir si arriesgar la ventaja.
+//   Arriba, LARGO y SEGURO: se sube en zigzag (como la torre: escalones de 96 px, huecos de 60 px),
+//   se cruzan islas altas (huecos de ≤ 160 px casi a la misma altura) y un puente móvil que hay
+//   que esperar; al final se baja de un salto. Sin trampas: ahí solo hay monedas y un cristal.
+//   Abajo, CORTO: suelo llano de punta a punta... con trampas ocultas que pone la pista (pistas.js)
+//   en la zona 'atajos' (azar.js no reparte nada ahí). Las islas altas están a 384 px del suelo:
+//   no son techo bajo para el que va por abajo.
+// Los carteles del comienzo dicen la verdad (por una vez).
+export function tramoBifurcacion() {
+    const largo = 2600, cima = -52;
+    return {
+        ancho: largo, alto: 470,
+        suelo: [[0, largo]],
+        plataformas: [
+            [150, 236, 120], [330, 140, 120], [150, 44, 120], [330, cima, 140], // subida
+            [600, cima, 180], [930, cima - 28, 150], [1240, cima, 160],           // islas
+            [1800, cima, 180], [2120, cima + 12, 200],
+        ],
+        moviles: [[1470, cima - 24, 'x', 220, 65]], // puente móvil: hay que esperarlo (cuesta tiempo)
+        monedas: [...fila(625, cima - 35, 5), ...fila(950, cima - 63, 4), ...fila(1260, cima - 35, 4), ...fila(1825, cima - 35, 5), ...fila(2150, cima - 23, 5)],
+        cristales: [[1290, cima - 110]],
+        antorchas: [[110, 180], [500, 180]],
+        carteles: [[90, 150, '↑ LARGO Y SEGURO'], [520, 200, 'ATAJO →']],
+        atajos: [[480, 2420]],
+    };
+}
+
 // abismo rúnico: un foso de lava imposible de saltar; golpear la piedra rúnica desde abajo
 // hace aparecer tres losas (antes se ven como contornos fantasma: la pista)
 export function tramoAbismoRunico() {
@@ -176,7 +203,7 @@ export function tramoArgollas() {
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
     'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas'];
 const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints'];
-const RANGOS = ['suelo', 'lava', 'falsos'];
+const RANGOS = ['suelo', 'lava', 'falsos', 'atajos'];
 
 const moverEnemigo = (e, d) => Array.isArray(e) ? [e[0] + d, ...e.slice(1)] : e + d;
 

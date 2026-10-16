@@ -17,7 +17,12 @@ import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala } from "./sala.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
-import { red, enLinea, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
+import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
+import {
+    iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
+    llegarMetaCarrera,
+} from "./carrera.js"
+import { armarPista, pistaDe } from "./pistas.js"
 import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
     actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
@@ -28,7 +33,7 @@ import {
     soyReplica, soyAnfitrion, hacerReplica, avisarGolpeEnemigo, avisarZona, avisarBala,
     fantasmas, comoJugador, fantasmaMasCercano, avisarJefeFx
 } from "./multijugador.js"
-import { ajustes, BOTONES, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
+import { ajustes, BOTONES, CAMARAS, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
 import { crearRama } from "./bosque.js"
 import { animDe, prepararVariante, iniciarVestidor } from "./vestidor.js"
@@ -293,6 +298,7 @@ iniciarMenus(juego, {
     // a la pantalla de título (en línea, dejando la sala)
     irAlInicio: () => {
         terminarArena();
+        terminarCarrera();
         if (red.codigo) salirSala();
         juego.scene.stop('juego');
         juego.scene.start('titulo');
@@ -300,6 +306,7 @@ iniciarMenus(juego, {
     // dejar el nivel y abrir la sala de espera (sobre "Elige tu héroe")
     jugarConAmigos: () => {
         terminarArena();
+        terminarCarrera();
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
         abrirSala();
@@ -307,6 +314,7 @@ iniciarMenus(juego, {
     aplicar: aplicarAjustes,
     salirAlMenu: () => {
         terminarArena();
+        terminarCarrera();
         if (red.codigo) salirSala(); // salir del nivel en línea también es dejar la sala
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
@@ -328,6 +336,7 @@ iniciarArena({
     reiniciar: scene => scene.scene.restart(),
     salir: () => {
         terminarArena();
+        terminarCarrera();
         if (red.codigo) salirSala();
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
@@ -336,9 +345,25 @@ iniciarArena({
     volverASala: () => volverASala(),
 });
 usarJuego(juego);
+
+// ---------- Carrera (carrera.js): el primero en llegar a la meta se lleva el pozo ----------
+iniciarCarrera(juego, {
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+    premio: n => sumarMonedas(n),
+    pagar: n => gastarMonedas(n),
+    salir: () => {
+        terminarCarrera();
+        if (red.codigo) salirSala();
+        juego.scene.stop('juego');
+        juego.scene.start('seleccion');
+    },
+    revancha: pista => empezarPartida(pista),
+    volverASala: () => volverASala(),
+});
 // el anfitrión volvió a la sala de espera: todos vuelven a ella
 alRecibir('volver', () => {
     terminarArena();
+    terminarCarrera();
     juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
     juego.scene.start('seleccion');
     abrirSala();
@@ -351,9 +376,14 @@ const abrirSala = iniciarSala(juego, {
     alEmpezar: ({ nivel, pj, modo, arena, jugadores, apuesta }) => {
         personajeId = pj;
         reiniciarPartida();
+        nivelActual = Phaser.Math.Clamp(nivel, 0, NIVELES.length - 1);
         if (esModoArena(modo)) empezarArena({ modo, arena, jugadores, apuesta });
         else terminarArena();
-        nivelActual = Phaser.Math.Clamp(nivel, 0, NIVELES.length - 1);
+        // carrera: el número es la pista (pistas.js); el paisaje y los enemigos son los de su región
+        if (esModoCarrera(modo)) {
+            empezarCarrera({ pista: nivel, jugadores });
+            nivelActual = pistaDe(nivel).region;
+        } else terminarCarrera();
         juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
         juego.scene.start('juego');
     },
@@ -538,8 +568,11 @@ function create() {
     // Arena del Troll (arena.js): batalla entre jugadores en un escenario propio, sin enemigos ni jefe
     const arena = arenaActiva();
     this.arena = arena;
-    const enEquipo = enLinea() || ajustes.cadena;
-    const nivel = arena ? nivelArena() : aleatorizarNivel(enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
+    // (en la carrera cada uno corre el nivel normal, como solo)
+    const enEquipo = mundoCompartido() || (ajustes.cadena && !enLinea());
+    // carrera: la pista con sus dos caminos (pistas.js), la misma para todos con la semilla de la sala
+    const pista = !arena && enCarrera() && carreraActiva() ? carreraActiva().pista : null;
+    const nivel = arena ? nivelArena() : pista != null ? armarPista(pista, semillaEnLinea(nivelActual)) : aleatorizarNivel(enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
@@ -553,6 +586,9 @@ function create() {
     this.idsCerrados = false;
     this.muerteRemota = false;
     this.metaRemota = false;
+    // (la escena se reutiliza: lo de una carrera o batalla anterior no sigue en la próxima partida)
+    this.cinematica = false;
+    this.carrera = null;
     this.dibujoCadena = null;
     this.nivelTerminado = false;
     // con la mejora de héroe comprada en la tienda (si la tiene)
@@ -658,7 +694,7 @@ function create() {
     this.soltarCorazonArena = (x, y) => soltarCorazon(this, x, y);
     this.faltaSalud = () => this.salud < SALUD_MAXIMA || vidas < VIDAS_INICIALES;
     this.jefe = null;
-    if (!arena) prepararJefe(this, nivel, nivelActual);
+    if (!arena && pista == null) prepararJefe(this, nivel, nivelActual); // (las pistas no tienen jefe)
 
     // con una sola vida se escucha un latido
     this.time.addEvent({
@@ -669,7 +705,8 @@ function create() {
 
     // aparece en el último punto de control; si no hay, donde diga el nivel (p. ej. arriba del cráter)
     const [inicioX, inicioY] = checkpointX == null && nivel.inicio ? nivel.inicio
-        : [checkpointX ?? lugarDeInicio(this, VISTA.width * ZOOM / zoomCamara()), 100];
+        : [checkpointX ?? lugarDeInicio(this, enCarrera() ? VISTA.width * 2 / CAMARAS.normal.zoom : VISTA.width * ZOOM / zoomCamara()), 100];
+    // (en la carrera todos salen del mismo lugar, sin importar la cámara que eligió cada uno)
     const r = resDe(this.pj); // héroes HD: hojas al doble, se dibujan a la mitad
     this.mascotaGesi = this.physics.add.sprite(inicioX, inicioY, `${this.pj.anim}-idle`)
         .setScale(1 / r)
@@ -808,7 +845,12 @@ function create() {
         crearBarraSalud(this);
         this.scoreText.setVisible(false);
         this.nivelText.setText('ARENA');
-    } else mostrarMensaje(this, `NIVEL ${nivelActual + 1}\n${nivel.nombre}`, 2000);
+    } else if (pista != null) {
+        // carrera: el cronómetro, las posiciones y el premio los muestra carrera.js (HUD propio)
+        this.scoreText.setVisible(false);
+        this.nivelText.setVisible(false);
+    }
+    else mostrarMensaje(this, `NIVEL ${nivelActual + 1}\n${nivel.nombre}`, 2000);
 
     // música de fondo
     this.musica = this.sound.add(arena ? 'musica_batalla' : nivel.cueva ? 'musica_cueva' : 'musica', { loop: true, volume: 0.25 });
@@ -827,15 +869,16 @@ function create() {
     this.proxRecorte = 0;
     prepararNivelEnLinea(this);
     if (arena) prepararArena(this, (rival, daño, congela) => golpearRival(this, rival, daño, congela));
+    if (enCarrera() && carreraActiva()) prepararCarrera(this, nivel, inicioX);
     this.alDañarJefe = avisarJefe;
     // el troll en línea: lo maneja el anfitrión (jefes.js)
-    this.redJefe = enLinea() ? {
+    this.redJefe = mundoCompartido() ? {
         replica: soyReplica,
         avisar: avisarJefeFx,
         cercano: sprite => fantasmaMasCercano(this, sprite),
         comoJugador: (f, fn) => comoJugador(this, f, fn),
     } : null;
-    if (enLinea() && !arena) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
+    if (mundoCompartido() && !arena) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
 ${nivel.nombre}
 ${red.jugadores.length} jugadores en cadena`, 2400);
 }
@@ -2614,6 +2657,8 @@ function completarNivel(mascotaGesi) {
     this.musicaBatalla?.stop();
     this.sound.play('victoria');
     encenderFaro(this);
+    // carrera: llegar es avisar (gana el primero); no hay premios del nivel ni se pasa al siguiente
+    if (this.carrera) { llegarMetaCarrera(this); return; }
     addToScore(1000, mascotaGesi, this);
     guardarBolsa(this);
     // premio: un poder especial (seguro la primera vez que se termina este nivel)
@@ -2779,6 +2824,7 @@ function actualizarJugador(time, delta) {
     actualizarMundo(this);
     actualizarAmbiente(this, time, this.mascotaGesi);
     moverLava(this, time);
+    actualizarCarrera(this); // (la barra de avance sigue aunque estés muerto o en la cuenta regresiva)
 
     if (this.mascotaGesi.isDead) return;
 

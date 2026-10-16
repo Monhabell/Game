@@ -19,7 +19,7 @@
 const SUELO_Y = 332;
 
 // generador con semilla (mulberry32): la misma semilla da siempre el mismo reparto
-function crearAzar(semilla) {
+export function crearAzar(semilla) {
     let a = semilla >>> 0;
     return () => {
         a = (a + 0x6D2B79F5) | 0;
@@ -128,6 +128,8 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     // placas y puertas de equipo: sin trampas cerca (ahí el equipo se coordina, no se esquiva)
     const mecanismos = [...(nivel.placas || []), ...(nivel.puertas || [])].map(([x]) => [x - 200, x + 200]);
     const falsos = (nivel.falsos || []).map(([a, b]) => [a - 60, b + 60]);
+    // atajos de las pistas de carrera: traen sus propias trampas (pistas.js), aquí no se reparte nada
+    const atajos = (nivel.atajos || []).map(([a, b]) => [a - 150, b + 150]);
     const dentro = (x, rangos) => rangos.some(([a, b]) => x >= a && x <= b);
 
     // tramos de descanso: uno cada ~DESCANSO_CADA px, en una posición distinta en cada intento
@@ -145,7 +147,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
         for (let x = a + BORDE_HUECO; x <= b - BORDE_HUECO; x += 50) {
             if (x < ZONA_INICIO || x > inicioArena - ANTESALA_JEFE) continue;
             if (checkpoints.some(cp => x > cp - ANTES_CHECKPOINT && x < cp + DESPUES_CHECKPOINT)) continue;
-            if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos) || dentro(x, mecanismos)) continue;
+            if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos) || dentro(x, mecanismos) || dentro(x, atajos)) continue;
             if (dentro(x, ascensores) || dentro(x, muros) || dentro(x, tuneles)) continue;
             candidatos.push(x);
         }

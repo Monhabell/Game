@@ -20,7 +20,7 @@ export const red = {
     tuId: null,
     anfitrion: null,
     jugadores: [],    // [{ id, nombre, pj, equipo }] en orden de llegada (= orden de la cadena)
-    modo: 'aventura', // 'aventura' (cadena) | 'duelo' (arena 1 contra 1) | 'equipos' (arena rojo contra azul)
+    modo: 'aventura', // 'aventura' (cadena) | 'duelo' (arena 1 contra 1) | 'equipos' (arena rojo contra azul) | 'carrera'
     arena: 'bosque',
     apuesta: 0,       // monedas que paga cada jugador en la arena
     enPartida: false, // true desde que el anfitrión empieza hasta salir de la sala
@@ -115,6 +115,9 @@ export const elegirModo = (modo, arena, apuesta) => enviar({ t: 'modo', modo, ar
 // monedas que tiene cada uno (para saber si alcanza para la apuesta de la arena)
 export const informarSaldo = monedas => enviar({ t: 'saldo', monedas });
 export const elegirEquipo = equipo => enviar({ t: 'equipo', equipo });
+// carrera: lo que apuesta cada uno (cambiarla te deja "no listo") y la confirmación de que está listo
+export const apostar = apuesta => enviar({ t: 'apostar', apuesta });
+export const marcarListo = listo => enviar({ t: 'listo', listo });
 export const volverASala = () => enviar({ t: 'volver' });
 export const enviarEstado = estado => enviar({ t: 'estado', ...estado });
 export const enviarEvento = (tipo, datos = {}) => enviar({ t: 'evento', tipo, ...datos });
@@ -126,3 +129,7 @@ export function salirSala() {
 
 export const esAnfitrion = () => red.tuId != null && red.tuId === red.anfitrion;
 export const enLinea = () => red.enPartida && red.conectado;
+// carrera (carrera.js): cada uno corre en su propio mundo; de los demás solo se ve dónde van
+export const enCarrera = () => enLinea() && red.modo === 'carrera';
+// en línea con el mundo compartido (enemigos, trampas, muertes, puntos de control y meta de todos)
+export const mundoCompartido = () => enLinea() && red.modo !== 'carrera';

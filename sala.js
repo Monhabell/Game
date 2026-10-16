@@ -7,6 +7,9 @@
 // lado a otro y salta al cambiar de personaje (las mismas hojas de sprites del juego, animadas con CSS).
 // Modos (los elige el anfitrión): Aventura (todos atados con la cadena) o la Arena del Troll
 // (arena.js): 1 contra 1 o por equipos (rojo contra azul, cada uno elige su equipo; hasta 4).
+// También la Carrera (carrera.js): todos corren la misma pista y el primero en llegar gana (hasta 8).
+// En la carrera cada uno elige SU apuesta y confirma con "Listo"; en la lista y sobre cada personaje
+// se ve cuánto apuesta cada uno. El anfitrión arranca cuando todos están listos.
 // Cada uno se ve con los colores que eligió en el vestidor: al entrar (y cada vez que cambia la sala)
 // cada jugador anuncia sus colores con un evento que el servidor reenvía a los demás (sin cambiar el servidor).
 
@@ -14,12 +17,14 @@ import { PERSONAJES } from "./personajes.js"
 import { NIVELES } from "./niveles.js"
 import {
     red, alRecibir, crearSala, unirseSala, elegirPersonaje, empezarPartida, salirSala, esAnfitrion, enviarEvento, elegirModo, elegirEquipo,
-    informarSaldo,
+    informarSaldo, apostar, marcarListo,
 } from "./red.js"
+import { PISTAS } from "./pistas.js"
 import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena, copasArena, ligaDe } from "./arena.js"
 import { saldo } from "./tienda.js"
 
-const MODOS = { aventura: 'Aventura (en cadena)', duelo: 'Arena · 1 contra 1', equipos: 'Arena · por equipos' };
+const MODOS = { aventura: 'Aventura (en cadena)', duelo: 'Arena · 1 contra 1', equipos: 'Arena · por equipos', carrera: '🏁 Carrera' };
+const esArena = modo => modo === 'duelo' || modo === 'equipos';
 import { animDe, prefijoValido, urlHoja } from "./vestidor.js"
 
 const CLAVE_NOMBRE = 'monhabell-aventura-nombre';
@@ -77,14 +82,24 @@ export function iniciarSala(juego, { alEmpezar }) {
                             <button type="button" class="menu-opcion" data-equipo="1" style="--pj:${COLORES_EQUIPO[1]}">● Azul</button>
                         </div>
                     </fieldset>
+                    <fieldset class="menu-grupo" data-solo-carrera hidden>
+                        <legend>Tu apuesta</legend>
+                        <div class="menu-opciones">${APUESTAS.map(a =>
+                            `<button type="button" class="menu-opcion" data-apuesta="${a}">${a ? `◉ ${a}` : 'Nada'}</button>`).join('')}</div>
+                        <p class="menu-nota">Si ganas, cada rival te paga lo que apostaste (o lo que apostó él, si es menos)</p>
+                        <button type="button" class="menu-boton" data-listo>✔ Estoy listo</button>
+                    </fieldset>
                     <label class="sala-campo" data-solo-anfitrion data-solo-arena hidden>Arena
                         <select id="sala-arena"></select>
                     </label>
-                    <label class="sala-campo" data-solo-anfitrion data-solo-arena hidden>Apuesta (cada jugador)
+                    <label class="sala-campo" data-solo-anfitrion data-con-apuesta hidden>Apuesta (cada jugador)
                         <select id="sala-apuesta">${APUESTAS.map(a => `<option value="${a}">${a ? `◉ ${a} monedas` : 'Sin apuesta'}</option>`).join('')}</select>
                     </label>
                     <label class="sala-campo" data-solo-anfitrion data-solo-aventura>Nivel
                         <select id="sala-nivel">${NIVELES.map((n, i) => `<option value="${i}">${i + 1} · ${n.nombre}</option>`).join('')}</select>
+                    </label>
+                    <label class="sala-campo" data-solo-anfitrion data-solo-carrera hidden>Pista
+                        <select id="sala-pista">${PISTAS.map((p, i) => `<option value="${i}">${p.nombre}</option>`).join('')}</select>
                     </label>
                     <p class="menu-nota" data-esperando>Esperando a que el anfitrión empiece…</p>
                 </div>
@@ -153,6 +168,13 @@ export function iniciarSala(juego, { alEmpezar }) {
             const n = red.jugadores.length, equipos = new Set(red.jugadores.map(j => j.equipo));
             if (red.modo === 'duelo' && n !== 2) { avisar('El 1 contra 1 es de 2 jugadores', true); return; }
             if (red.modo === 'equipos' && (n < 2 || equipos.size < 2)) { avisar('Hace falta alguien en cada equipo', true); return; }
+            if (red.modo === 'carrera') {
+                if (n < 2) { avisar('La carrera necesita al menos 2 jugadores', true); return; }
+                const falta = red.jugadores.filter(j => j.id !== red.anfitrion && !j.listo);
+                if (falta.length) { avisar(`Falta que confirmen: ${falta.map(j => j.nombre).join(', ')}`, true); return; }
+                empezarPartida(Number($('#sala-pista').value) || 0); // (en la carrera, el número es la pista)
+                return;
+            }
             const pobre = red.modo !== 'aventura' && red.jugadores.find(j => (j.monedas || 0) < red.apuesta);
             if (pobre) { avisar(`${pobre.nombre} no tiene ${red.apuesta} monedas para la apuesta`, true); return; }
             empezarPartida(Number($('#sala-nivel').value));
@@ -160,6 +182,18 @@ export function iniciarSala(juego, { alEmpezar }) {
             if (red.codigo) salirSala();
             cerrar();
         }
+    });
+    // carrera: mi apuesta (no más de lo que tengo) y "listo"
+    capa.addEventListener('click', e => {
+        const b = e.target.closest('[data-apuesta], [data-listo]');
+        if (!b || !red.codigo || red.modo !== 'carrera') return;
+        const yo = red.jugadores.find(j => j.id === red.tuId);
+        if (b.dataset.apuesta != null) {
+            const a = Number(b.dataset.apuesta);
+            if (a > saldo()) { avisar(`No tienes ◉ ${a} monedas`, true); return; }
+            avisar('');
+            if (yo?.apuesta !== a) apostar(a);
+        } else marcarListo(!yo?.listo);
     });
     // modo y arena (anfitrión) y equipo (cada jugador)
     capa.addEventListener('click', e => {
@@ -206,12 +240,16 @@ export function iniciarSala(juego, { alEmpezar }) {
         $('[data-codigo]').textContent = red.codigo;
         const yo = red.jugadores.find(j => j.id === red.tuId);
         if (yo) { pjElegido = yo.pj; marcarPersonaje(); }
-        const porEquipos = red.modo === 'equipos', enArena = red.modo !== 'aventura';
+        const porEquipos = red.modo === 'equipos', enArena = esArena(red.modo), carrera = red.modo === 'carrera';
+        const conApuesta = enArena || carrera;
         $('[data-lista]').innerHTML = red.jugadores.map(j => {
             const pj = PERSONAJES.find(p => p.id === j.pj) || PERSONAJES[0];
             const marcas = `${j.id === red.anfitrion ? ' ★' : ''}${j.id === red.tuId ? ' (tú)' : ''}`;
             const eq = porEquipos ? `<span class="sala-equipo" style="color:${COLORES_EQUIPO[j.equipo === 1 ? 1 : 0]}">●</span> ` : '';
-            const mon = enArena ? ` <small class="sala-monedas">◉ ${j.monedas || 0}</small>` : '';
+            // en la carrera: lo que apuesta cada uno y si ya está listo; en la arena, sus monedas
+            const listo = j.id === red.anfitrion ? '' : j.listo ? ' <small class="sala-listo">✔ listo</small>' : ' <small class="sala-pensando">eligiendo…</small>';
+            const mon = carrera ? ` <small class="sala-monedas">apuesta ◉ ${j.apuesta || 0}</small>${listo}`
+                : conApuesta ? ` <small class="sala-monedas">◉ ${j.monedas || 0}</small>` : '';
             return `<li>${eq}<span class="sala-pj" style="--pj:${color(pj)}">${pj.nombre}</span> ${escapar(j.nombre)}${marcas}${mon}</li>`;
         }).join('');
         const anfitrion = esAnfitrion();
@@ -221,7 +259,9 @@ export function iniciarSala(juego, { alEmpezar }) {
             b.setAttribute('aria-pressed', String(b.dataset.modo === red.modo));
         });
         const arenaSel = ARENAS.find(a => a.id === red.arena);
-        $('[data-modo-texto]').textContent = enArena
+        $('[data-modo-texto]').textContent = carrera
+            ? `Carrera: todos corren la misma pista y ven el avance de los demás. Hay dos caminos: uno largo y seguro, y un atajo con trampas ocultas. Gana el primero en llegar · hasta 8 jugadores · apostado en total ◉ ${red.jugadores.reduce((t, j) => t + (j.apuesta || 0), 0)}`
+            : enArena
             ? `${MODOS[red.modo]} · ${arenaSel?.nombre || ''} (${arenaSel?.peligro || ''}) · al mejor de 3 · ${red.apuesta ? `apuesta ◉ ${red.apuesta} cada uno, el ganador se lleva el pozo` : 'sin apuesta'} · 🏆 Tu liga: ${ligaDe(copasArena())} (${copasArena()} copas)`
             : 'Aventura: todos atados con la cadena';
         const yo2 = red.jugadores.find(j => j.id === red.tuId);
@@ -238,7 +278,20 @@ export function iniciarSala(juego, { alEmpezar }) {
         $('#sala-apuesta').value = String(red.apuesta || 0);
         capa.querySelectorAll('[data-solo-anfitrion]').forEach(el => { el.hidden = !anfitrion; });
         capa.querySelectorAll('[data-solo-arena]').forEach(el => { el.hidden = !anfitrion || !enArena; });
-        capa.querySelectorAll('[data-solo-aventura]').forEach(el => { el.hidden = !anfitrion || enArena; });
+        capa.querySelectorAll('[data-con-apuesta]').forEach(el => { el.hidden = !anfitrion || !enArena; });
+        capa.querySelectorAll('[data-solo-aventura]').forEach(el => { el.hidden = !anfitrion || red.modo !== 'aventura'; });
+        capa.querySelectorAll('[data-solo-carrera]').forEach(el => { el.hidden = !carrera || (el.matches('[data-solo-anfitrion]') && !anfitrion); });
+        // mi apuesta y mi "listo" (el anfitrión no confirma: él arranca)
+        capa.querySelectorAll('[data-apuesta]').forEach(b => {
+            const si = Number(b.dataset.apuesta) === (yo2?.apuesta || 0);
+            b.classList.toggle('elegido', si);
+            b.setAttribute('aria-pressed', String(si));
+            b.disabled = Number(b.dataset.apuesta) > saldo();
+        });
+        const botonListo = $('[data-listo]');
+        botonListo.hidden = anfitrion;
+        botonListo.classList.toggle('sala-empezar', !yo2?.listo);
+        botonListo.textContent = yo2?.listo ? '✔ Listo (toca para cambiar)' : '✔ Estoy listo';
         $('[data-accion="empezar"]').hidden = !anfitrion;
         $('[data-esperando]').hidden = anfitrion;
         actualizarEscenario();
@@ -290,7 +343,7 @@ export function iniciarSala(juego, { alEmpezar }) {
             }
             a.el.style.setProperty('--pj', color(pj));
             a.el.classList.toggle('yo', j.id === red.tuId);
-            a.etiqueta.textContent = `${j.id === red.anfitrion ? '★ ' : ''}${j.nombre}`;
+            a.etiqueta.textContent = `${j.id === red.anfitrion ? '★ ' : ''}${j.nombre}${red.modo === 'carrera' ? ` · ◉${j.apuesta || 0}${j.listo ? ' ✔' : ''}` : ''}`;
         });
         // los que se fueron se desvanecen
         actores.forEach((a, id) => {

@@ -22,11 +22,13 @@
 //                      reloj(scene), ajustarReloj(scene, reloj) }
 // El troll (jefes.js) sigue el mismo esquema: lo maneja el anfitrión, viaja junto con los enemigos
 // y cada ataque se avisa con un "jefeFx".
+// En la CARRERA (carrera.js) no se comparte nada de eso: cada uno corre en su mundo (sus enemigos, sus
+// trampas, sus muertes) y los demás se ven como fantasmas que no tocan nada; solo viaja la posición.
 
 import { PERSONAJES, resDe } from "./personajes.js"
 import { prepararVariante } from "./vestidor.js"
 import { estaHablando } from "./voz.js"
-import { red, alRecibir, enviarEstado, enviarEvento, enLinea, esAnfitrion } from "./red.js"
+import { red, alRecibir, enviarEstado, enviarEvento, enLinea, enCarrera, mundoCompartido, esAnfitrion } from "./red.js"
 import { poderRemoto as poderEspecialRemoto } from "./poderes.js"
 import { esRival, colorDe as colorEnArena } from "./arena.js"
 
@@ -58,6 +60,8 @@ export function iniciarMultijugador(juegoPhaser, g) {
         if (!scene) return;
         if (m.tipo === 'salio') { quitarRemoto(scene, m.de); return; }
         if (!scene.remotos || (m.nivel != null && m.nivel !== ganchos.nivelActual())) return;
+        // carrera: de los demás solo se ven sus poderes (lo demás pasa en el mundo de cada uno)
+        if (enCarrera() && m.tipo !== 'poder' && m.tipo !== 'poderEsp') return;
         switch (m.tipo) {
             case 'muerte': ganchos.morir(scene, nombreDe(m.de)); break;
             case 'checkpoint': {
@@ -105,6 +109,7 @@ const nombreDe = id => red.jugadores.find(j => j.id === id)?.nombre || 'Alguien'
 // semilla de trampas para este intento (todos iguales); undefined fuera de línea
 export function semillaEnLinea(nivel) {
     if (!enLinea()) return undefined;
+    // (en la carrera las muertes no se comparten: el reparto es el mismo para todos en cada intento)
     return (red.semilla + nivel * 7919 + red.intento * 104729) >>> 0;
 }
 
@@ -112,7 +117,7 @@ export function semillaEnLinea(nivel) {
 export function prepararNivelEnLinea(scene) {
     scene.remotos = enLinea() ? new Map() : null;
     scene.ultimoEnvio = 0;
-    if (!scene.remotos || scene.arena) { scene.cadenaRed = null; return; } // (en la arena no hay cadena)
+    if (!scene.remotos || scene.arena || enCarrera()) { scene.cadenaRed = null; return; } // (en la arena y la carrera no hay cadena)
     // la cadena une a todos en el orden de la sala (yo soy el jugador 1 de mi pantalla)
     scene.cadenaRed = () => red.jugadores.map(j => {
         if (j.id === red.tuId) return { local: true, s: scene.mascotaGesi };
@@ -149,6 +154,7 @@ function remoto(scene, id) {
             s.rivalId = id;
         }
     }
+    if (enCarrera()) s.setAlpha(0.55); // carrera: los rivales son fantasmas
     r = { id, pj, s, etiqueta, nombre: j.nombre, habla: false, estado: null, recibido: 0, visible: false, primera: true };
     scene.remotos.set(id, r);
     return r;
@@ -183,8 +189,8 @@ export function actualizarEnLinea(scene, time, delta) {
         return;
     }
     enviarMiEstado(scene, time);
-    if (esAnfitrion()) { enviarEnemigos(scene, time); soltarReplicas(scene); }
-    else moverReplicas(scene, delta);
+    if (soyAnfitrion()) { enviarEnemigos(scene, time); soltarReplicas(scene); }
+    else if (soyReplica()) moverReplicas(scene, delta);
 
     const ahora = performance.now(), k = Math.min(1, delta / 1000 * SUAVIDAD);
     scene.remotos.forEach(r => {
@@ -230,14 +236,14 @@ function enviarMiEstado(scene, time) {
 const nivel = () => ganchos.nivelActual();
 
 export function avisarMuerte() {
-    if (!enLinea()) return;
+    if (!mundoCompartido()) return;
     red.intento++;
     enviarEvento('muerte', { intento: red.intento, nivel: nivel() });
 }
-export const avisarCheckpoint = x => enLinea() && enviarEvento('checkpoint', { x, nivel: nivel() });
-export const avisarEnemigo = id => enLinea() && enviarEvento('enemigo', { id, nivel: nivel() });
-export const avisarJefe = cantidad => enLinea() && enviarEvento('jefe', { cantidad, nivel: nivel() });
-export const avisarMeta = () => enLinea() && enviarEvento('meta', { nivel: nivel() });
+export const avisarCheckpoint = x => mundoCompartido() && enviarEvento('checkpoint', { x, nivel: nivel() });
+export const avisarEnemigo = id => mundoCompartido() && enviarEvento('enemigo', { id, nivel: nivel() });
+export const avisarJefe = cantidad => mundoCompartido() && enviarEvento('jefe', { cantidad, nivel: nivel() });
+export const avisarMeta = () => mundoCompartido() && enviarEvento('meta', { nivel: nivel() });
 export function avisarPoder(scene, tecla) {
     if (!enLinea()) return;
     const g = scene.mascotaGesi;
@@ -276,8 +282,9 @@ function poderRemoto(scene, m) {
 }
 
 // ---------- quién manda en los enemigos ----------
-export const soyReplica = () => enLinea() && !esAnfitrion();
-export const soyAnfitrion = () => enLinea() && esAnfitrion();
+// (en la carrera cada pantalla mueve sus propios enemigos)
+export const soyReplica = () => mundoCompartido() && !esAnfitrion();
+export const soyAnfitrion = () => mundoCompartido() && esAnfitrion();
 
 const enemigoPorId = (scene, id) => scene.enemies.getChildren().find(e => e.redId === id);
 
@@ -360,13 +367,13 @@ function soltarReplicas(scene) {
     });
 }
 
-export const avisarGolpeEnemigo = (id, cantidad, congela = 0) => enLinea() && enviarEvento('golpe', { id, cantidad, congela, para: red.anfitrion, nivel: nivel() });
+export const avisarGolpeEnemigo = (id, cantidad, congela = 0) => soyReplica() && enviarEvento('golpe', { id, cantidad, congela, para: red.anfitrion, nivel: nivel() });
 export const avisarZona = (zona, ox) => soyAnfitrion() && enviarEvento('zona', {
     x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), ox: Math.round(ox), nivel: nivel(),
 });
 export const avisarBala = datos => soyAnfitrion() && enviarEvento('bala', { ...datos, nivel: nivel() });
 // ataques del troll (y 'empieza', que puede mandarlo cualquiera)
-export const avisarJefeFx = (fx, datos = {}) => enLinea() && enviarEvento('jefeFx', { fx, ...datos, nivel: nivel() });
+export const avisarJefeFx = (fx, datos = {}) => mundoCompartido() && enviarEvento('jefeFx', { fx, ...datos, nivel: nivel() });
 
 // ---------- fantasmas: los demás jugadores, para trampas y enemigos ----------
 // Un fantasma tiene lo que el código de trampas y enemigos lee del jugador (posición, cuerpo,
@@ -383,7 +390,7 @@ const sinEfecto = obj => new Proxy(obj, {
 const ANCHO_CUERPO = 20, ALTO_CUERPO = 69;
 
 export function fantasmas(scene) {
-    if (!scene.remotos) return [];
+    if (!scene.remotos || enCarrera()) return []; // (en la carrera los demás no tocan nada)
     const cuadro = scene.game.loop.frame;
     if (scene.fantasmasCuadro === cuadro) return scene.listaFantasmas;
     scene.fantasmasCuadro = cuadro;
