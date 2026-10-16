@@ -79,18 +79,6 @@
       "norm_label": "actualizarcorazones()"
     },
     {
-      "label": "actualizarRecurso()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L2228",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_actualizarrecurso",
-      "community": 0,
-      "community_name": "create",
-      "norm_label": "actualizarrecurso()"
-    },
-    {
       "label": "apartarEnemigo()",
       "file_type": "code",
       "source_file": "game.js",
@@ -295,18 +283,6 @@
       "norm_label": "recibirdano()"
     },
     {
-      "label": "recogerCarcaj()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L2213",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_recogercarcaj",
-      "community": 0,
-      "community_name": "create",
-      "norm_label": "recogercarcaj()"
-    },
-    {
       "label": "recogerPremio()",
       "file_type": "code",
       "source_file": "game.js",
@@ -377,6 +353,30 @@
       "community": 0,
       "community_name": "create",
       "norm_label": "vivo()"
+    },
+    {
+      "label": "prepararJefe()",
+      "file_type": "code",
+      "source_file": "jefes.js",
+      "source_location": "L86",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "jefes_prepararjefe",
+      "community": 0,
+      "community_name": "create",
+      "norm_label": "prepararjefe()"
+    },
+    {
+      "label": "crearMecanismos()",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
+      "source_location": "L50",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mecanismos_crearmecanismos",
+      "community": 0,
+      "community_name": "create",
+      "norm_label": "crearmecanismos()"
     },
     {
       "label": "crearContadorFps()",
@@ -931,6 +931,30 @@
       "norm_label": "decorarnivel()"
     },
     {
+      "label": "encenderEstatua()",
+      "file_type": "code",
+      "source_file": "mazmorra.js",
+      "source_location": "L279",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mazmorra_encenderestatua",
+      "community": 10,
+      "community_name": "mazmorra.js",
+      "norm_label": "encenderestatua()"
+    },
+    {
+      "label": "moverLava()",
+      "file_type": "code",
+      "source_file": "mazmorra.js",
+      "source_location": "L90",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mazmorra_moverlava",
+      "community": 10,
+      "community_name": "mazmorra.js",
+      "norm_label": "moverlava()"
+    },
+    {
       "label": "oscuro()",
       "file_type": "code",
       "source_file": "mazmorra.js",
@@ -1159,6 +1183,30 @@
       "norm_label": "actualizarmundo()"
     },
     {
+      "label": "actualizarRecurso()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L2228",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_actualizarrecurso",
+      "community": 12,
+      "community_name": "actualizarJugador",
+      "norm_label": "actualizarrecurso()"
+    },
+    {
+      "label": "animar()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L2235",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_animar",
+      "community": 12,
+      "community_name": "actualizarJugador",
+      "norm_label": "animar()"
+    },
+    {
       "label": "armarAscensorTramposo()",
       "file_type": "code",
       "source_file": "game.js",
@@ -1243,6 +1291,18 @@
       "norm_label": "pagarcosto()"
     },
     {
+      "label": "recogerCarcaj()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L2213",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_recogercarcaj",
+      "community": 12,
+      "community_name": "actualizarJugador",
+      "norm_label": "recogercarcaj()"
+    },
+    {
       "label": "usarHabilidad()",
       "file_type": "code",
       "source_file": "game.js",
@@ -1255,18 +1315,6 @@
       "norm_label": "usarhabilidad()"
     },
     {
-      "label": "golpearJefeEnZona()",
-      "file_type": "code",
-      "source_file": "jefes.js",
-      "source_location": "L767",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "jefes_golpearjefeenzona",
-      "community": 12,
-      "community_name": "actualizarJugador",
-      "norm_label": "golpearjefeenzona()"
-    },
-    {
       "label": "enga\u00f1oDeRuna()",
       "file_type": "code",
       "source_file": "locuras.js",
@@ -1277,30 +1325,6 @@
       "community": 12,
       "community_name": "actualizarJugador",
       "norm_label": "enganoderuna()"
-    },
-    {
-      "label": "encenderEstatua()",
-      "file_type": "code",
-      "source_file": "mazmorra.js",
-      "source_location": "L279",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "mazmorra_encenderestatua",
-      "community": 12,
-      "community_name": "actualizarJugador",
-      "norm_label": "encenderestatua()"
-    },
-    {
-      "label": "moverLava()",
-      "file_type": "code",
-      "source_file": "mazmorra.js",
-      "source_location": "L90",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "mazmorra_moverlava",
-      "community": 12,
-      "community_name": "actualizarJugador",
-      "norm_label": "moverlava()"
     },
     {
       "label": "comoJugador()",
@@ -1337,6 +1361,18 @@
       "community": 13,
       "community_name": "golpearBloque",
       "norm_label": "soltarcorazon()"
+    },
+    {
+      "label": "abrirTiendaEnJuego()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L285",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_abrirtiendaenjuego",
+      "community": 13,
+      "community_name": "golpearBloque",
+      "norm_label": "abrirtiendaenjuego()"
     },
     {
       "label": "actualizarMonedasHud()",
@@ -1534,7 +1570,7 @@
       "label": "golpearRival()",
       "file_type": "code",
       "source_file": "arena.js",
-      "source_location": "L273",
+      "source_location": "L274",
       "_callable": true,
       "_origin": "ast",
       "id": "arena_golpearrival",
@@ -1673,30 +1709,6 @@
       "community": 15,
       "community_name": "da\u00f1arEnemigo",
       "norm_label": "fantasmamascercano()"
-    },
-    {
-      "label": "fantasmas()",
-      "file_type": "code",
-      "source_file": "multijugador.js",
-      "source_location": "L385",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "multijugador_fantasmas",
-      "community": 15,
-      "community_name": "da\u00f1arEnemigo",
-      "norm_label": "fantasmas()"
-    },
-    {
-      "label": "sinEfecto()",
-      "file_type": "code",
-      "source_file": "multijugador.js",
-      "source_location": "L378",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "multijugador_sinefecto",
-      "community": 15,
-      "community_name": "da\u00f1arEnemigo",
-      "norm_label": "sinefecto()"
     },
     {
       "label": "sonarCerca()",
@@ -1999,42 +2011,6 @@
       "norm_label": "movernieblaseleccion()"
     },
     {
-      "label": "abrirTiendaEnJuego()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L285",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_abrirtiendaenjuego",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "abrirtiendaenjuego()"
-    },
-    {
-      "label": "abrirTiendaFuera()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L278",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_abrirtiendafuera",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "abrirtiendafuera()"
-    },
-    {
-      "label": "actualizarSeleccion()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1204",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_actualizarseleccion",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "actualizarseleccion()"
-    },
-    {
       "label": "animSel()",
       "file_type": "code",
       "source_file": "game.js",
@@ -2045,66 +2021,6 @@
       "community": 18,
       "community_name": "vestidor.js",
       "norm_label": "animsel()"
-    },
-    {
-      "label": "colorTexto()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1145",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_colortexto",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "colortexto()"
-    },
-    {
-      "label": "crearSeleccion()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L949",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_crearseleccion",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "crearseleccion()"
-    },
-    {
-      "label": "marcarSeleccion()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1162",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_marcarseleccion",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "marcarseleccion()"
-    },
-    {
-      "label": "pintarBotonElegir()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1197",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_pintarbotonelegir",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "pintarbotonelegir()"
-    },
-    {
-      "label": "resplandor()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1150",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_resplandor",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "resplandor()"
     },
     {
       "label": "crearFinal()",
@@ -2359,6 +2275,18 @@
       "norm_label": "estilotexto()"
     },
     {
+      "label": "cargarPersonajes()",
+      "file_type": "code",
+      "source_file": "personajes.js",
+      "source_location": "L306",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "personajes_cargarpersonajes",
+      "community": 18,
+      "community_name": "vestidor.js",
+      "norm_label": "cargarpersonajes()"
+    },
+    {
       "label": "resDe()",
       "file_type": "code",
       "source_file": "personajes.js",
@@ -2369,18 +2297,6 @@
       "community": 18,
       "community_name": "vestidor.js",
       "norm_label": "resde()"
-    },
-    {
-      "label": "saldo()",
-      "file_type": "code",
-      "source_file": "tienda.js",
-      "source_location": "L159",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "tienda_saldo",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "saldo()"
     },
     {
       "label": "aHsl()",
@@ -2515,18 +2431,6 @@
       "norm_label": "iniciarvestidor()"
     },
     {
-      "label": "animar()",
-      "file_type": "code",
-      "source_file": "vestidor.js",
-      "source_location": "L265",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "vestidor_iniciarvestidor_animar",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "animar()"
-    },
-    {
       "label": "cerrar()",
       "file_type": "code",
       "source_file": "vestidor.js",
@@ -2623,6 +2527,18 @@
       "norm_label": "urlhoja()"
     },
     {
+      "label": "actualizarArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L243",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_actualizararena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "actualizararena()"
+    },
+    {
       "label": "arenaDisponible()",
       "file_type": "code",
       "source_file": "arena.js",
@@ -2631,164 +2547,416 @@
       "_origin": "ast",
       "id": "arena_arenadisponible",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "arenadisponible()"
     },
     {
-      "label": "actualizarCadena()",
+      "label": "arenaMuerte()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L89",
+      "source_file": "arena.js",
+      "source_location": "L310",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_actualizarcadena",
+      "id": "arena_arenamuerte",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "actualizarcadena()"
+      "community_name": "arena.js",
+      "norm_label": "arenamuerte()"
     },
     {
-      "label": "actualizarColgado()",
+      "label": "cerrarFin()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L134",
+      "source_file": "arena.js",
+      "source_location": "L421",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_actualizarcolgado",
+      "id": "arena_cerrarfin",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "actualizarcolgado()"
+      "community_name": "arena.js",
+      "norm_label": "cerrarfin()"
     },
     {
-      "label": "anclarJugador1()",
+      "label": "cerrarRonda()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L229",
+      "source_file": "arena.js",
+      "source_location": "L342",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_anclarjugador1",
+      "id": "arena_cerrarronda",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "anclarjugador1()"
+      "community_name": "arena.js",
+      "norm_label": "cerrarronda()"
     },
     {
-      "label": "arrastrar()",
+      "label": "cuentaRegresiva()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L274",
+      "source_file": "arena.js",
+      "source_location": "L220",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_arrastrar",
+      "id": "arena_cuentaregresiva",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "arrastrar()"
+      "community_name": "arena.js",
+      "norm_label": "cuentaregresiva()"
     },
     {
-      "label": "crearCadena()",
+      "label": "derrumbar()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L47",
+      "source_file": "arena.js",
+      "source_location": "L259",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_crearcadena",
+      "id": "arena_derrumbar",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "crearcadena()"
+      "community_name": "arena.js",
+      "norm_label": "derrumbar()"
     },
     {
-      "label": "dibujar()",
+      "label": "empezarArena()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L279",
+      "source_file": "arena.js",
+      "source_location": "L121",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_dibujar",
+      "id": "arena_empezararena",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "dibujar()"
+      "community_name": "arena.js",
+      "norm_label": "empezararena()"
     },
     {
-      "label": "enSuelo()",
+      "label": "equipoDe()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L45",
+      "source_file": "arena.js",
+      "source_location": "L146",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_ensuelo",
+      "id": "arena_equipode",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "ensuelo()"
+      "community_name": "arena.js",
+      "norm_label": "equipode()"
     },
     {
-      "label": "hayCadena()",
+      "label": "escena()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L181",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "cadena_haycadena",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "haycadena()"
-    },
-    {
-      "label": "haySueloDebajo()",
-      "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L174",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "cadena_haysuelodebajo",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "haysuelodebajo()"
-    },
-    {
-      "label": "moverCompa()",
-      "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L190",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "cadena_movercompa",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "movercompa()"
-    },
-    {
-      "label": "nodo()",
-      "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L184",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "cadena_nodo",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "nodo()"
-    },
-    {
-      "label": "sostenerEnCadena()",
-      "file_type": "code",
-      "source_file": "cadena.js",
+      "source_file": "arena.js",
       "source_location": "L117",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_sostenerencadena",
+      "id": "arena_escena",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "sostenerencadena()"
+      "community_name": "arena.js",
+      "norm_label": "escena()"
     },
     {
-      "label": "tensar()",
+      "label": "esModoArena()",
       "file_type": "code",
-      "source_file": "cadena.js",
-      "source_location": "L237",
+      "source_file": "arena.js",
+      "source_location": "L91",
       "_callable": true,
       "_origin": "ast",
-      "id": "cadena_tensar",
+      "id": "arena_esmodoarena",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "tensar()"
+      "community_name": "arena.js",
+      "norm_label": "esmodoarena()"
+    },
+    {
+      "label": "idNivelArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L150",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_idnivelarena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "idnivelarena()"
+    },
+    {
+      "label": "iniciarArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L93",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_iniciararena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "iniciararena()"
+    },
+    {
+      "label": "lugarDeAparicion()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L175",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_lugardeaparicion",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "lugardeaparicion()"
+    },
+    {
+      "label": "misVidas()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L148",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_misvidas",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "misvidas()"
+    },
+    {
+      "label": "mostrarFin()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L392",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_mostrarfin",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "mostrarfin()"
+    },
+    {
+      "label": "nivelArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L165",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_nivelarena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "nivelarena()"
+    },
+    {
+      "label": "nombreDe()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L151",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_nombrede",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "nombrede()"
+    },
+    {
+      "label": "nombreEquipo()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L152",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_nombreequipo",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "nombreequipo()"
+    },
+    {
+      "label": "nuevaRonda()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L138",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_nuevaronda",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "nuevaronda()"
+    },
+    {
+      "label": "pintarMarcador()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L235",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_pintarmarcador",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "pintarmarcador()"
+    },
+    {
+      "label": "prepararArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L184",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_preparararena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "preparararena()"
+    },
+    {
+      "label": "recibirGolpe()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L288",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_recibirgolpe",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "recibirgolpe()"
+    },
+    {
+      "label": "revisarRonda()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L328",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_revisarronda",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "revisarronda()"
+    },
+    {
+      "label": "sumarVictoria()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L83",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_sumarvictoria",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "sumarvictoria()"
+    },
+    {
+      "label": "terminarArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L136",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_terminararena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "terminararena()"
+    },
+    {
+      "label": "terminarPartida()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L367",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_terminarpartida",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "terminarpartida()"
+    },
+    {
+      "label": "usarJuego()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L116",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_usarjuego",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "usarjuego()"
+    },
+    {
+      "label": "victoriasArena()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L80",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_victoriasarena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "victoriasarena()"
+    },
+    {
+      "label": "crearLava()",
+      "file_type": "code",
+      "source_file": "mazmorra.js",
+      "source_location": "L83",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mazmorra_crearlava",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "crearlava()"
+    },
+    {
+      "label": "actualizarArgollas()",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
+      "source_location": "L171",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mecanismos_actualizarargollas",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "actualizarargollas()"
+    },
+    {
+      "label": "actualizarMecanismos()",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
+      "source_location": "L100",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mecanismos_actualizarmecanismos",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "actualizarmecanismos()"
+    },
+    {
+      "label": "jugadores()",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
+      "source_location": "L38",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mecanismos_jugadores",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "jugadores()"
+    },
+    {
+      "label": "necesarios()",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
+      "source_location": "L39",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mecanismos_necesarios",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "necesarios()"
+    },
+    {
+      "label": "piesDeTodos()",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
+      "source_location": "L87",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "mecanismos_piesdetodos",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "piesdetodos()"
+    },
+    {
+      "label": "alRecibir()",
+      "file_type": "code",
+      "source_file": "red.js",
+      "source_location": "L32",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "red_alrecibir",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "alrecibir()"
     },
     {
       "label": "atender()",
@@ -2799,7 +2967,7 @@
       "_origin": "ast",
       "id": "red_atender",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "atender()"
     },
     {
@@ -2811,7 +2979,7 @@
       "_origin": "ast",
       "id": "red_avisar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "avisar()"
     },
     {
@@ -2823,7 +2991,7 @@
       "_origin": "ast",
       "id": "red_conectar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "conectar()"
     },
     {
@@ -2835,7 +3003,7 @@
       "_origin": "ast",
       "id": "red_crearsala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "crearsala()"
     },
     {
@@ -2847,7 +3015,7 @@
       "_origin": "ast",
       "id": "red_direccion",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "direccion()"
     },
     {
@@ -2859,7 +3027,7 @@
       "_origin": "ast",
       "id": "red_elegirequipo",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "elegirequipo()"
     },
     {
@@ -2871,7 +3039,7 @@
       "_origin": "ast",
       "id": "red_elegirmodo",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "elegirmodo()"
     },
     {
@@ -2883,7 +3051,7 @@
       "_origin": "ast",
       "id": "red_elegirpersonaje",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "elegirpersonaje()"
     },
     {
@@ -2895,7 +3063,7 @@
       "_origin": "ast",
       "id": "red_empezarpartida",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "empezarpartida()"
     },
     {
@@ -2907,8 +3075,32 @@
       "_origin": "ast",
       "id": "red_enviar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "enviar()"
+    },
+    {
+      "label": "enviarEstado()",
+      "file_type": "code",
+      "source_file": "red.js",
+      "source_location": "L119",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "red_enviarestado",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "enviarestado()"
+    },
+    {
+      "label": "esAnfitrion()",
+      "file_type": "code",
+      "source_file": "red.js",
+      "source_location": "L127",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "red_esanfitrion",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "esanfitrion()"
     },
     {
       "label": "informarSaldo()",
@@ -2919,7 +3111,7 @@
       "_origin": "ast",
       "id": "red_informarsaldo",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "informarsaldo()"
     },
     {
@@ -2931,7 +3123,7 @@
       "_origin": "ast",
       "id": "red_limpiarsala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "limpiarsala()"
     },
     {
@@ -2943,7 +3135,7 @@
       "_origin": "ast",
       "id": "red_salirsala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "salirsala()"
     },
     {
@@ -2955,7 +3147,7 @@
       "_origin": "ast",
       "id": "red_unirsesala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "unirsesala()"
     },
     {
@@ -2967,7 +3159,7 @@
       "_origin": "ast",
       "id": "red_volverasala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "volverasala()"
     },
     {
@@ -2979,7 +3171,7 @@
       "_origin": "ast",
       "id": "sala_color",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "color()"
     },
     {
@@ -2991,7 +3183,7 @@
       "_origin": "ast",
       "id": "sala_escapar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "escapar()"
     },
     {
@@ -3003,7 +3195,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "iniciarsala()"
     },
     {
@@ -3015,7 +3207,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_actualizarescenario",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "actualizarescenario()"
     },
     {
@@ -3027,7 +3219,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_anunciarcolores",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "anunciarcolores()"
     },
     {
@@ -3039,7 +3231,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_avisar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "avisar()"
     },
     {
@@ -3051,7 +3243,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_cerrar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "cerrar()"
     },
     {
@@ -3063,7 +3255,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_conespera",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "conespera()"
     },
     {
@@ -3075,7 +3267,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_dibujarsala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "dibujarsala()"
     },
     {
@@ -3087,7 +3279,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_hoja",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "hoja()"
     },
     {
@@ -3099,7 +3291,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_marcarpersonaje",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "marcarpersonaje()"
     },
     {
@@ -3111,7 +3303,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_mostrarpaso",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "mostrarpaso()"
     },
     {
@@ -3123,7 +3315,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_nombrelimpio",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "nombrelimpio()"
     },
     {
@@ -3135,7 +3327,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_pasear",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "pasear()"
     },
     {
@@ -3147,7 +3339,7 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_sonar",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "sonar()"
     },
     {
@@ -3159,8 +3351,32 @@
       "_origin": "ast",
       "id": "sala_iniciarsala_teclado",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "teclado()"
+    },
+    {
+      "label": "saldo()",
+      "file_type": "code",
+      "source_file": "tienda.js",
+      "source_location": "L159",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "tienda_saldo",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "saldo()"
+    },
+    {
+      "label": "animar()",
+      "file_type": "code",
+      "source_file": "vestidor.js",
+      "source_location": "L265",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "vestidor_iniciarvestidor_animar",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "animar()"
     },
     {
       "label": "prefijoValido()",
@@ -3171,7 +3387,7 @@
       "_origin": "ast",
       "id": "vestidor_prefijovalido",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "prefijovalido()"
     },
     {
@@ -3259,18 +3475,6 @@
       "norm_label": "ajustarreloj()"
     },
     {
-      "label": "centroEnemigo()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1740",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_centroenemigo",
-      "community": 2,
-      "community_name": "game.js",
-      "norm_label": "centroenemigo()"
-    },
-    {
       "label": "compensarZoom()",
       "file_type": "code",
       "source_file": "game.js",
@@ -3305,18 +3509,6 @@
       "community": 2,
       "community_name": "game.js",
       "norm_label": "estilomoderno()"
-    },
-    {
-      "label": "haySueloEn()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1743",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_haysueloen",
-      "community": 2,
-      "community_name": "game.js",
-      "norm_label": "haysueloen()"
     },
     {
       "label": "moveFloorPiece()",
@@ -3403,18 +3595,6 @@
       "norm_label": "silenciar()"
     },
     {
-      "label": "soltarDelCielo()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1754",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_soltardelcielo",
-      "community": 2,
-      "community_name": "game.js",
-      "norm_label": "soltardelcielo()"
-    },
-    {
       "label": "trampasNivel1()",
       "file_type": "code",
       "source_file": "game.js",
@@ -3487,18 +3667,6 @@
       "norm_label": "monedas()"
     },
     {
-      "label": "cargarPersonajes()",
-      "file_type": "code",
-      "source_file": "personajes.js",
-      "source_location": "L306",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "personajes_cargarpersonajes",
-      "community": 2,
-      "community_name": "game.js",
-      "norm_label": "cargarpersonajes()"
-    },
-    {
       "label": "crearAnimacionesPersonajes()",
       "file_type": "code",
       "source_file": "personajes.js",
@@ -3521,18 +3689,6 @@
       "community": 2,
       "community_name": "game.js",
       "norm_label": "fijosenpantalla()"
-    },
-    {
-      "label": "sombraDeCaida()",
-      "file_type": "code",
-      "source_file": "senales.js",
-      "source_location": "L96",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "senales_sombradecaida",
-      "community": 2,
-      "community_name": "game.js",
-      "norm_label": "sombradecaida()"
     },
     {
       "label": "cargarSonidos()",
@@ -3667,364 +3823,160 @@
       "norm_label": "salir()"
     },
     {
-      "label": "actualizarArena()",
+      "label": "actualizarCadena()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L242",
+      "source_file": "cadena.js",
+      "source_location": "L89",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_actualizararena",
+      "id": "cadena_actualizarcadena",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "actualizararena()"
+      "community_name": "cadena.js",
+      "norm_label": "actualizarcadena()"
     },
     {
-      "label": "arenaMuerte()",
+      "label": "actualizarColgado()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L309",
+      "source_file": "cadena.js",
+      "source_location": "L134",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_arenamuerte",
+      "id": "cadena_actualizarcolgado",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "arenamuerte()"
+      "community_name": "cadena.js",
+      "norm_label": "actualizarcolgado()"
     },
     {
-      "label": "cerrarRonda()",
+      "label": "anclarJugador1()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L341",
+      "source_file": "cadena.js",
+      "source_location": "L229",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_cerrarronda",
+      "id": "cadena_anclarjugador1",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "cerrarronda()"
+      "community_name": "cadena.js",
+      "norm_label": "anclarjugador1()"
     },
     {
-      "label": "colorDe()",
+      "label": "arrastrar()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L156",
+      "source_file": "cadena.js",
+      "source_location": "L274",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_colorde",
+      "id": "cadena_arrastrar",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "colorde()"
+      "community_name": "cadena.js",
+      "norm_label": "arrastrar()"
     },
     {
-      "label": "cuentaRegresiva()",
+      "label": "crearCadena()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L219",
+      "source_file": "cadena.js",
+      "source_location": "L47",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_cuentaregresiva",
+      "id": "cadena_crearcadena",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "cuentaregresiva()"
+      "community_name": "cadena.js",
+      "norm_label": "crearcadena()"
     },
     {
-      "label": "derrumbar()",
+      "label": "dibujar()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L258",
+      "source_file": "cadena.js",
+      "source_location": "L279",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_derrumbar",
+      "id": "cadena_dibujar",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "derrumbar()"
+      "community_name": "cadena.js",
+      "norm_label": "dibujar()"
     },
     {
-      "label": "empezarArena()",
+      "label": "enSuelo()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L121",
+      "source_file": "cadena.js",
+      "source_location": "L45",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_empezararena",
+      "id": "cadena_ensuelo",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "empezararena()"
+      "community_name": "cadena.js",
+      "norm_label": "ensuelo()"
     },
     {
-      "label": "equipoDe()",
+      "label": "hayCadena()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L145",
+      "source_file": "cadena.js",
+      "source_location": "L181",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_equipode",
+      "id": "cadena_haycadena",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "equipode()"
+      "community_name": "cadena.js",
+      "norm_label": "haycadena()"
     },
     {
-      "label": "escena()",
+      "label": "haySueloDebajo()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L117",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_escena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "escena()"
-    },
-    {
-      "label": "esModoArena()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L91",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_esmodoarena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "esmodoarena()"
-    },
-    {
-      "label": "esRival()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L146",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_esrival",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "esrival()"
-    },
-    {
-      "label": "idNivelArena()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L149",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_idnivelarena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "idnivelarena()"
-    },
-    {
-      "label": "iniciarArena()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L93",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_iniciararena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "iniciararena()"
-    },
-    {
-      "label": "lugarDeAparicion()",
-      "file_type": "code",
-      "source_file": "arena.js",
+      "source_file": "cadena.js",
       "source_location": "L174",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_lugardeaparicion",
+      "id": "cadena_haysuelodebajo",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "lugardeaparicion()"
+      "community_name": "cadena.js",
+      "norm_label": "haysuelodebajo()"
     },
     {
-      "label": "misVidas()",
+      "label": "moverCompa()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L147",
+      "source_file": "cadena.js",
+      "source_location": "L190",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_misvidas",
+      "id": "cadena_movercompa",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "misvidas()"
+      "community_name": "cadena.js",
+      "norm_label": "movercompa()"
     },
     {
-      "label": "nivelArena()",
+      "label": "nodo()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L164",
+      "source_file": "cadena.js",
+      "source_location": "L184",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_nivelarena",
+      "id": "cadena_nodo",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "nivelarena()"
+      "community_name": "cadena.js",
+      "norm_label": "nodo()"
     },
     {
-      "label": "nombreDe()",
+      "label": "sostenerEnCadena()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L150",
+      "source_file": "cadena.js",
+      "source_location": "L117",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_nombrede",
+      "id": "cadena_sostenerencadena",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "nombrede()"
+      "community_name": "cadena.js",
+      "norm_label": "sostenerencadena()"
     },
     {
-      "label": "nombreEquipo()",
+      "label": "tensar()",
       "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L151",
+      "source_file": "cadena.js",
+      "source_location": "L237",
       "_callable": true,
       "_origin": "ast",
-      "id": "arena_nombreequipo",
+      "id": "cadena_tensar",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "nombreequipo()"
-    },
-    {
-      "label": "nuevaRonda()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L137",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_nuevaronda",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "nuevaronda()"
-    },
-    {
-      "label": "pintarMarcador()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L234",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_pintarmarcador",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "pintarmarcador()"
-    },
-    {
-      "label": "prepararArena()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L183",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_preparararena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "preparararena()"
-    },
-    {
-      "label": "recibirGolpe()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L287",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_recibirgolpe",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "recibirgolpe()"
-    },
-    {
-      "label": "revisarRonda()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L327",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_revisarronda",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "revisarronda()"
-    },
-    {
-      "label": "sumarVictoria()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L83",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_sumarvictoria",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "sumarvictoria()"
-    },
-    {
-      "label": "terminarArena()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L135",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_terminararena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "terminararena()"
-    },
-    {
-      "label": "terminarPartida()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L366",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_terminarpartida",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "terminarpartida()"
-    },
-    {
-      "label": "usarJuego()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L116",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_usarjuego",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "usarjuego()"
-    },
-    {
-      "label": "victoriasArena()",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L80",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "arena_victoriasarena",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "victoriasarena()"
-    },
-    {
-      "label": "crearLava()",
-      "file_type": "code",
-      "source_file": "mazmorra.js",
-      "source_location": "L83",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "mazmorra_crearlava",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "crearlava()"
-    },
-    {
-      "label": "remoto()",
-      "file_type": "code",
-      "source_file": "multijugador.js",
-      "source_location": "L124",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "multijugador_remoto",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "remoto()"
+      "community_name": "cadena.js",
+      "norm_label": "tensar()"
     },
     {
       "label": ".useAppContext()",
@@ -4183,6 +4135,18 @@
       "norm_label": "actualizartrampas()"
     },
     {
+      "label": "centroEnemigo()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1740",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_centroenemigo",
+      "community": 27,
+      "community_name": "crearEnemigo",
+      "norm_label": "centroenemigo()"
+    },
+    {
       "label": "crearEnemigo()",
       "file_type": "code",
       "source_file": "game.js",
@@ -4219,6 +4183,30 @@
       "norm_label": "descartarenemigo()"
     },
     {
+      "label": "haySueloEn()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1743",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_haysueloen",
+      "community": 27,
+      "community_name": "crearEnemigo",
+      "norm_label": "haysueloen()"
+    },
+    {
+      "label": "soltarDelCielo()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1754",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_soltardelcielo",
+      "community": 27,
+      "community_name": "crearEnemigo",
+      "norm_label": "soltardelcielo()"
+    },
+    {
       "label": "soyReplica()",
       "file_type": "code",
       "source_file": "multijugador.js",
@@ -4229,6 +4217,18 @@
       "community": 27,
       "community_name": "crearEnemigo",
       "norm_label": "soyreplica()"
+    },
+    {
+      "label": "sombraDeCaida()",
+      "file_type": "code",
+      "source_file": "senales.js",
+      "source_location": "L96",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "senales_sombradecaida",
+      "community": 27,
+      "community_name": "crearEnemigo",
+      "norm_label": "sombradecaida()"
     },
     {
       "label": "usarRunaDeReserva()",
@@ -5575,76 +5575,124 @@
       "norm_label": "romperescudo()"
     },
     {
-      "label": "actualizarArgollas()",
+      "label": "abrirTiendaFuera()",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L171",
+      "source_file": "game.js",
+      "source_location": "L278",
       "_callable": true,
       "_origin": "ast",
-      "id": "mecanismos_actualizarargollas",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "actualizarargollas()"
+      "id": "game_abrirtiendafuera",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "abrirtiendafuera()"
     },
     {
-      "label": "actualizarMecanismos()",
+      "label": "actualizarSeleccion()",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L100",
+      "source_file": "game.js",
+      "source_location": "L1204",
       "_callable": true,
       "_origin": "ast",
-      "id": "mecanismos_actualizarmecanismos",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "actualizarmecanismos()"
+      "id": "game_actualizarseleccion",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "actualizarseleccion()"
     },
     {
-      "label": "crearMecanismos()",
+      "label": "colorTexto()",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L50",
+      "source_file": "game.js",
+      "source_location": "L1145",
       "_callable": true,
       "_origin": "ast",
-      "id": "mecanismos_crearmecanismos",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "crearmecanismos()"
+      "id": "game_colortexto",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "colortexto()"
     },
     {
-      "label": "jugadores()",
+      "label": "crearSeleccion()",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L38",
+      "source_file": "game.js",
+      "source_location": "L949",
       "_callable": true,
       "_origin": "ast",
-      "id": "mecanismos_jugadores",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "jugadores()"
+      "id": "game_crearseleccion",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "crearseleccion()"
     },
     {
-      "label": "necesarios()",
+      "label": "leerPartida()",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L39",
+      "source_file": "game.js",
+      "source_location": "L1249",
       "_callable": true,
       "_origin": "ast",
-      "id": "mecanismos_necesarios",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "necesarios()"
+      "id": "game_leerpartida",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "leerpartida()"
     },
     {
-      "label": "piesDeTodos()",
+      "label": "marcarSeleccion()",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L87",
+      "source_file": "game.js",
+      "source_location": "L1162",
       "_callable": true,
       "_origin": "ast",
-      "id": "mecanismos_piesdetodos",
+      "id": "game_marcarseleccion",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "marcarseleccion()"
+    },
+    {
+      "label": "pintarBotonElegir()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1197",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_pintarbotonelegir",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "pintarbotonelegir()"
+    },
+    {
+      "label": "resplandor()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1150",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "game_resplandor",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "resplandor()"
+    },
+    {
+      "label": "colorDe()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L157",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_colorde",
       "community": 4,
       "community_name": "multijugador.js",
-      "norm_label": "piesdetodos()"
+      "norm_label": "colorde()"
+    },
+    {
+      "label": "esRival()",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L147",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "arena_esrival",
+      "community": 4,
+      "community_name": "multijugador.js",
+      "norm_label": "esrival()"
     },
     {
       "label": "actualizarEnLinea()",
@@ -5839,6 +5887,18 @@
       "norm_label": "escenanivel()"
     },
     {
+      "label": "fantasmas()",
+      "file_type": "code",
+      "source_file": "multijugador.js",
+      "source_location": "L385",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "multijugador_fantasmas",
+      "community": 4,
+      "community_name": "multijugador.js",
+      "norm_label": "fantasmas()"
+    },
+    {
       "label": "hacerReplica()",
       "file_type": "code",
       "source_file": "multijugador.js",
@@ -5959,6 +6019,18 @@
       "norm_label": "recibirenemigos()"
     },
     {
+      "label": "remoto()",
+      "file_type": "code",
+      "source_file": "multijugador.js",
+      "source_location": "L124",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "multijugador_remoto",
+      "community": 4,
+      "community_name": "multijugador.js",
+      "norm_label": "remoto()"
+    },
+    {
       "label": "semillaEnLinea()",
       "file_type": "code",
       "source_file": "multijugador.js",
@@ -5969,6 +6041,18 @@
       "community": 4,
       "community_name": "multijugador.js",
       "norm_label": "semillaenlinea()"
+    },
+    {
+      "label": "sinEfecto()",
+      "file_type": "code",
+      "source_file": "multijugador.js",
+      "source_location": "L378",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "multijugador_sinefecto",
+      "community": 4,
+      "community_name": "multijugador.js",
+      "norm_label": "sinefecto()"
     },
     {
       "label": "soltarReplicas()",
@@ -6007,18 +6091,6 @@
       "norm_label": "usarpoder()"
     },
     {
-      "label": "alRecibir()",
-      "file_type": "code",
-      "source_file": "red.js",
-      "source_location": "L32",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "red_alrecibir",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "alrecibir()"
-    },
-    {
       "label": "enLinea()",
       "file_type": "code",
       "source_file": "red.js",
@@ -6031,18 +6103,6 @@
       "norm_label": "enlinea()"
     },
     {
-      "label": "enviarEstado()",
-      "file_type": "code",
-      "source_file": "red.js",
-      "source_location": "L119",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "red_enviarestado",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "enviarestado()"
-    },
-    {
       "label": "enviarEvento()",
       "file_type": "code",
       "source_file": "red.js",
@@ -6053,18 +6113,6 @@
       "community": 4,
       "community_name": "multijugador.js",
       "norm_label": "enviarevento()"
-    },
-    {
-      "label": "esAnfitrion()",
-      "file_type": "code",
-      "source_file": "red.js",
-      "source_location": "L127",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "red_esanfitrion",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "esanfitrion()"
     },
     {
       "label": "abierto()",
@@ -6895,6 +6943,18 @@
       "norm_label": "garrotazo()"
     },
     {
+      "label": "golpearJefeEnZona()",
+      "file_type": "code",
+      "source_file": "jefes.js",
+      "source_location": "L767",
+      "_callable": true,
+      "_origin": "ast",
+      "id": "jefes_golpearjefeenzona",
+      "community": 6,
+      "community_name": "jefes.js",
+      "norm_label": "golpearjefeenzona()"
+    },
+    {
       "label": "golpeDeGarrote()",
       "file_type": "code",
       "source_file": "jefes.js",
@@ -6953,18 +7013,6 @@
       "community": 6,
       "community_name": "jefes.js",
       "norm_label": "pelear()"
-    },
-    {
-      "label": "prepararJefe()",
-      "file_type": "code",
-      "source_file": "jefes.js",
-      "source_location": "L86",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "jefes_prepararjefe",
-      "community": 6,
-      "community_name": "jefes.js",
-      "norm_label": "prepararjefe()"
     },
     {
       "label": "rebotaEnCoraza()",
@@ -7351,18 +7399,6 @@
       "norm_label": "vidasmaximas()"
     },
     {
-      "label": "animar()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L2235",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_animar",
-      "community": 9,
-      "community_name": "completarNivel",
-      "norm_label": "animar()"
-    },
-    {
       "label": "borrarPartida()",
       "file_type": "code",
       "source_file": "game.js",
@@ -7433,18 +7469,6 @@
       "community": 9,
       "community_name": "completarNivel",
       "norm_label": "guardarpartida()"
-    },
-    {
-      "label": "leerPartida()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1249",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "game_leerpartida",
-      "community": 9,
-      "community_name": "completarNivel",
-      "norm_label": "leerpartida()"
     },
     {
       "label": "reiniciarDesdeCero()",
@@ -7604,17 +7628,6 @@
       "community": 0,
       "community_name": "create",
       "norm_label": ".reaparecerenarena()"
-    },
-    {
-      "label": ".recargarParaJefe()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L642",
-      "_origin": "ast",
-      "id": "game_create_recargarparajefe",
-      "community": 0,
-      "community_name": "create",
-      "norm_label": ".recargarparajefe()"
     },
     {
       "label": "azar.js",
@@ -7791,6 +7804,17 @@
       "community": 11,
       "community_name": "arte.js",
       "norm_label": "arte.js"
+    },
+    {
+      "label": ".recargarParaJefe()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L642",
+      "_origin": "ast",
+      "id": "game_create_recargarparajefe",
+      "community": 12,
+      "community_name": "actualizarJugador",
+      "norm_label": ".recargarparajefe()"
     },
     {
       "label": "enemigos.js",
@@ -8167,61 +8191,6 @@
       "norm_label": "@capacitor/core"
     },
     {
-      "label": "abrirTienda",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L265",
-      "_origin": "ast",
-      "id": "game_abrirtienda",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "abrirtienda"
-    },
-    {
-      "label": "abrirVestidor",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L266",
-      "_origin": "ast",
-      "id": "game_abrirvestidor",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": "abrirvestidor"
-    },
-    {
-      "label": ".abrirTiendaSel()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1124",
-      "_origin": "ast",
-      "id": "game_crearseleccion_abrirtiendasel",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": ".abrirtiendasel()"
-    },
-    {
-      "label": ".abrirVestidorSel()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1109",
-      "_origin": "ast",
-      "id": "game_crearseleccion_abrirvestidorsel",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": ".abrirvestidorsel()"
-    },
-    {
-      "label": ".acomodarPastillas()",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L1136",
-      "_origin": "ast",
-      "id": "game_crearseleccion_acomodarpastillas",
-      "community": 18,
-      "community_name": "vestidor.js",
-      "norm_label": ".acomodarpastillas()"
-    },
-    {
       "label": "historia.js",
       "file_type": "code",
       "source_file": "historia.js",
@@ -8275,6 +8244,39 @@
       "community": 18,
       "community_name": "vestidor.js",
       "norm_label": "puntos"
+    },
+    {
+      "label": "personajes.js",
+      "file_type": "code",
+      "source_file": "personajes.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "personajes",
+      "community": 18,
+      "community_name": "vestidor.js",
+      "norm_label": "personajes.js"
+    },
+    {
+      "label": "MANA_MAXIMO",
+      "file_type": "code",
+      "source_file": "personajes.js",
+      "source_location": "L304",
+      "_origin": "ast",
+      "id": "personajes_mana_maximo",
+      "community": 18,
+      "community_name": "vestidor.js",
+      "norm_label": "mana_maximo"
+    },
+    {
+      "label": "PERSONAJES",
+      "file_type": "code",
+      "source_file": "personajes.js",
+      "source_location": "L39",
+      "_origin": "ast",
+      "id": "personajes_personajes",
+      "community": 18,
+      "community_name": "vestidor.js",
+      "norm_label": "personajes"
     },
     {
       "label": "vestidor.js",
@@ -8332,6 +8334,28 @@
       "norm_label": "partes"
     },
     {
+      "label": "arena.js",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "arena",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "arena.js"
+    },
+    {
+      "label": "APUESTAS",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L38",
+      "_origin": "ast",
+      "id": "arena_apuestas",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "apuestas"
+    },
+    {
       "label": "ARENAS",
       "file_type": "code",
       "source_file": "arena.js",
@@ -8339,52 +8363,74 @@
       "_origin": "ast",
       "id": "arena_arenas",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "arenas"
     },
     {
-      "label": "cadena.js",
+      "label": "BORDES",
       "file_type": "code",
-      "source_file": "cadena.js",
+      "source_file": "arena.js",
+      "source_location": "L42",
+      "_origin": "ast",
+      "id": "arena_bordes",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "bordes"
+    },
+    {
+      "label": "COLORES_EQUIPO",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L35",
+      "_origin": "ast",
+      "id": "arena_colores_equipo",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "colores_equipo"
+    },
+    {
+      "label": "NOMBRES_EQUIPO",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L36",
+      "_origin": "ast",
+      "id": "arena_nombres_equipo",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "nombres_equipo"
+    },
+    {
+      "label": "SALUD_POR_DA\u00d1O",
+      "file_type": "code",
+      "source_file": "arena.js",
+      "source_location": "L33",
+      "_origin": "ast",
+      "id": "arena_salud_por_da\u00f1o",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "salud_por_dano"
+    },
+    {
+      "label": "abrirSala",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L343",
+      "_origin": "ast",
+      "id": "game_abrirsala",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "abrirsala"
+    },
+    {
+      "label": "mecanismos.js",
+      "file_type": "code",
+      "source_file": "mecanismos.js",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "cadena",
+      "id": "mecanismos",
       "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "cadena.js"
-    },
-    {
-      "label": "personajes.js",
-      "file_type": "code",
-      "source_file": "personajes.js",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "personajes",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "personajes.js"
-    },
-    {
-      "label": "MANA_MAXIMO",
-      "file_type": "code",
-      "source_file": "personajes.js",
-      "source_location": "L304",
-      "_origin": "ast",
-      "id": "personajes_mana_maximo",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "mana_maximo"
-    },
-    {
-      "label": "PERSONAJES",
-      "file_type": "code",
-      "source_file": "personajes.js",
-      "source_location": "L39",
-      "_origin": "ast",
-      "id": "personajes_personajes",
-      "community": 19,
-      "community_name": "sala.js",
-      "norm_label": "personajes"
+      "community_name": "arena.js",
+      "norm_label": "mecanismos.js"
     },
     {
       "label": "red.js",
@@ -8394,7 +8440,7 @@
       "_origin": "ast",
       "id": "red",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "red.js"
     },
     {
@@ -8405,8 +8451,19 @@
       "_origin": "ast",
       "id": "red_oyentes",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "oyentes"
+    },
+    {
+      "label": "red",
+      "file_type": "code",
+      "source_file": "red.js",
+      "source_location": "L16",
+      "_origin": "ast",
+      "id": "red_red",
+      "community": 19,
+      "community_name": "arena.js",
+      "norm_label": "red"
     },
     {
       "label": "sala.js",
@@ -8416,7 +8473,7 @@
       "_origin": "ast",
       "id": "sala",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "sala.js"
     },
     {
@@ -8427,7 +8484,7 @@
       "_origin": "ast",
       "id": "sala_modos",
       "community": 19,
-      "community_name": "sala.js",
+      "community_name": "arena.js",
       "norm_label": "modos"
     },
     {
@@ -8882,81 +8939,15 @@
       "norm_label": "ws"
     },
     {
-      "label": "arena.js",
+      "label": "cadena.js",
       "file_type": "code",
-      "source_file": "arena.js",
+      "source_file": "cadena.js",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "arena",
+      "id": "cadena",
       "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "arena.js"
-    },
-    {
-      "label": "APUESTAS",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L38",
-      "_origin": "ast",
-      "id": "arena_apuestas",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "apuestas"
-    },
-    {
-      "label": "BORDES",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L42",
-      "_origin": "ast",
-      "id": "arena_bordes",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "bordes"
-    },
-    {
-      "label": "COLORES_EQUIPO",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L35",
-      "_origin": "ast",
-      "id": "arena_colores_equipo",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "colores_equipo"
-    },
-    {
-      "label": "NOMBRES_EQUIPO",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L36",
-      "_origin": "ast",
-      "id": "arena_nombres_equipo",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "nombres_equipo"
-    },
-    {
-      "label": "SALUD_POR_DA\u00d1O",
-      "file_type": "code",
-      "source_file": "arena.js",
-      "source_location": "L33",
-      "_origin": "ast",
-      "id": "arena_salud_por_da\u00f1o",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "salud_por_dano"
-    },
-    {
-      "label": "abrirSala",
-      "file_type": "code",
-      "source_file": "game.js",
-      "source_location": "L343",
-      "_origin": "ast",
-      "id": "game_abrirsala",
-      "community": 22,
-      "community_name": "arena.js",
-      "norm_label": "abrirsala"
+      "community_name": "cadena.js",
+      "norm_label": "cadena.js"
     },
     {
       "label": "SKILL.md",
@@ -9660,15 +9651,59 @@
       "norm_label": "escudo.js"
     },
     {
-      "label": "mecanismos.js",
+      "label": "abrirTienda",
       "file_type": "code",
-      "source_file": "mecanismos.js",
-      "source_location": "L1",
+      "source_file": "game.js",
+      "source_location": "L265",
       "_origin": "ast",
-      "id": "mecanismos",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "mecanismos.js"
+      "id": "game_abrirtienda",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "abrirtienda"
+    },
+    {
+      "label": "abrirVestidor",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L266",
+      "_origin": "ast",
+      "id": "game_abrirvestidor",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": "abrirvestidor"
+    },
+    {
+      "label": ".abrirTiendaSel()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1124",
+      "_origin": "ast",
+      "id": "game_crearseleccion_abrirtiendasel",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": ".abrirtiendasel()"
+    },
+    {
+      "label": ".abrirVestidorSel()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1109",
+      "_origin": "ast",
+      "id": "game_crearseleccion_abrirvestidorsel",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": ".abrirvestidorsel()"
+    },
+    {
+      "label": ".acomodarPastillas()",
+      "file_type": "code",
+      "source_file": "game.js",
+      "source_location": "L1136",
+      "_origin": "ast",
+      "id": "game_crearseleccion_acomodarpastillas",
+      "community": 38,
+      "community_name": "crearSeleccion",
+      "norm_label": ".acomodarpastillas()"
     },
     {
       "label": "multijugador.js",
@@ -9691,17 +9726,6 @@
       "community": 4,
       "community_name": "multijugador.js",
       "norm_label": "nada"
-    },
-    {
-      "label": "red",
-      "file_type": "code",
-      "source_file": "red.js",
-      "source_location": "L16",
-      "_origin": "ast",
-      "id": "red_red",
-      "community": 4,
-      "community_name": "multijugador.js",
-      "norm_label": "red"
     },
     {
       "label": "voz.js",
@@ -10760,7 +10784,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L253",
+      "source_location": "L254",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_actualizararena",
@@ -10784,7 +10808,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L310",
+      "source_location": "L311",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_arenamuerte",
@@ -10797,7 +10821,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "arena.js",
-      "source_location": "L313",
+      "source_location": "L314",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_arenamuerte",
@@ -10808,7 +10832,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L323",
+      "source_location": "L324",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_arenamuerte",
@@ -10820,7 +10844,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L345",
+      "source_location": "L346",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_cerrarronda",
@@ -10832,7 +10856,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L349",
+      "source_location": "L350",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_cerrarronda",
@@ -10844,7 +10868,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L354",
+      "source_location": "L355",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_cerrarronda",
@@ -10856,7 +10880,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L357",
+      "source_location": "L358",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_cerrarronda",
@@ -10868,7 +10892,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L359",
+      "source_location": "L360",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_cerrarronda",
@@ -10880,7 +10904,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L158",
+      "source_location": "L159",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_colorde",
@@ -10892,7 +10916,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L266",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_derrumbar",
@@ -10904,7 +10928,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L133",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena_empezararena",
+      "target": "arena_cerrarfin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
+      "source_location": "L134",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_empezararena",
@@ -10916,7 +10952,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L146",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_esrival",
@@ -10929,7 +10965,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "arena.js",
-      "source_location": "L280",
+      "source_location": "L281",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_golpearrival",
@@ -11000,7 +11036,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L176",
+      "source_location": "L177",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_lugardeaparicion",
@@ -11012,7 +11048,31 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L169",
+      "source_location": "L393",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena_mostrarfin",
+      "target": "arena_cerrarfin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
+      "source_location": "L394",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena_mostrarfin",
+      "target": "red_esanfitrion",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
+      "source_location": "L170",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_nivelarena",
@@ -11024,7 +11084,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L153",
+      "source_location": "L154",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_nombreequipo",
@@ -11036,7 +11096,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L237",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_pintarmarcador",
@@ -11048,7 +11108,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L194",
+      "source_location": "L195",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_preparararena",
@@ -11060,7 +11120,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L195",
+      "source_location": "L196",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_preparararena",
@@ -11072,7 +11132,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L200",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_preparararena",
@@ -11084,7 +11144,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L214",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_preparararena",
@@ -11096,7 +11156,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L216",
+      "source_location": "L217",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_preparararena",
@@ -11108,7 +11168,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L328",
+      "source_location": "L329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_revisarronda",
@@ -11120,7 +11180,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L330",
+      "source_location": "L331",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_revisarronda",
@@ -11132,7 +11192,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L336",
+      "source_location": "L337",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_revisarronda",
@@ -11144,7 +11204,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L337",
+      "source_location": "L338",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_revisarronda",
@@ -11168,11 +11228,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L367",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "arena_terminarpartida",
-      "target": "arena_escena",
+      "source": "arena_terminararena",
+      "target": "arena_cerrarfin",
       "confidence_score": 1.0
     },
     {
@@ -11184,6 +11244,18 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_terminarpartida",
+      "target": "arena_escena",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
+      "source_location": "L369",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena_terminarpartida",
       "target": "arena_equipode",
       "confidence_score": 1.0
     },
@@ -11192,7 +11264,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L370",
+      "source_location": "L371",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_terminarpartida",
@@ -11204,7 +11276,19 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L387",
+      "source_location": "L379",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena_terminarpartida",
+      "target": "arena_mostrarfin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_terminarpartida",
@@ -11216,23 +11300,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L389",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena_terminarpartida",
       "target": "arena_victoriasarena",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "arena.js",
-      "source_location": "L398",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "arena_terminarpartida",
-      "target": "red_esanfitrion",
       "confidence_score": 1.0
     },
     {
@@ -27879,7 +27951,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L135",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27890,7 +27962,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L137",
+      "source_location": "L138",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27901,7 +27973,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L145",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27912,7 +27984,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L146",
+      "source_location": "L147",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27923,7 +27995,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L147",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27934,7 +28006,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L149",
+      "source_location": "L150",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27945,7 +28017,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L150",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27956,7 +28028,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L151",
+      "source_location": "L152",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27967,7 +28039,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L156",
+      "source_location": "L157",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27978,7 +28050,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L164",
+      "source_location": "L165",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -27989,7 +28061,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L174",
+      "source_location": "L175",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28000,7 +28072,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L183",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28011,7 +28083,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L219",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28022,7 +28094,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L234",
+      "source_location": "L235",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28033,7 +28105,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L242",
+      "source_location": "L243",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28044,7 +28116,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L258",
+      "source_location": "L259",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28055,7 +28127,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L273",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28066,7 +28138,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L287",
+      "source_location": "L288",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28077,7 +28149,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L309",
+      "source_location": "L310",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28088,7 +28160,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L327",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28110,7 +28182,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L341",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28143,7 +28215,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
-      "source_location": "L366",
+      "source_location": "L367",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
@@ -28165,11 +28237,33 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "arena.js",
+      "source_location": "L392",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena",
+      "target": "arena_mostrarfin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
       "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast",
       "source": "arena",
       "target": "arena_bordes",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "arena.js",
+      "source_location": "L421",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "arena",
+      "target": "arena_cerrarfin",
       "confidence_score": 1.0
     },
     {
@@ -36737,5 +36831,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "425576da5f07313ac8470e87afb4c3dca58d3af4"
+  "built_at_commit": "12bf38a707b0c7df46750457779aaba20e1132e5"
 }

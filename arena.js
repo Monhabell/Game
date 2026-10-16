@@ -119,6 +119,7 @@ const escena = () => (juego?.scene.isActive('juego') ? juego.scene.getScene('jue
 // el anfitrión empezó una batalla: modo 'duelo' (cada uno solo) o 'equipos' (rojo y azul)
 // apuesta: monedas que paga cada jugador al empezar (el equipo ganador se reparte el pozo)
 export function empezarArena({ modo, arena, jugadores, apuesta = 0 }) {
+    cerrarFin(); // (revancha: se cierra la pantalla final)
     apuesta = APUESTAS.includes(Number(apuesta)) ? Number(apuesta) : 0;
     if (apuesta) api.pagar(apuesta);
     partida = {
@@ -132,7 +133,7 @@ export function empezarArena({ modo, arena, jugadores, apuesta = 0 }) {
     };
     nuevaRonda();
 }
-export const terminarArena = () => { partida = null; };
+export const terminarArena = () => { partida = null; cerrarFin(); };
 
 function nuevaRonda() {
     partida.vidas = new Map([...partida.equipos.keys()].map(id => [id, VIDAS]));
@@ -373,34 +374,51 @@ function terminarPartida(ganador) {
     const pozo = partida.apuesta * partida.equipos.size;
     const premio = partida.apuesta ? (mio ? Math.floor(pozo / ganadores) : 0) : (mio ? 30 : 10);
     if (premio) api.premio(premio);
-    if (!scene) return;
-    scene.cinematica = true;
-    const fondo = scene.add.rectangle(395, 190, 520, 230, 0x0b0f1c, 0.92).setStrokeStyle(2, mio ? 0xffc94a : 0x8a93ad)
-        .setScrollFactor(0).setDepth(80);
-    const t = (y, texto, tam, color = '#ffffff') => scene.add.text(395, y, texto, {
-        fontFamily: 'Poppins, sans-serif', fontSize: tam, fontStyle: '700', color, align: 'center', stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setScrollFactor(0).setDepth(81);
+    if (scene) scene.cinematica = true;
     const orden = [...new Set([...partida.equipos.values()])];
-    const objetos = [
-        fondo,
-        t(108, mio ? '¡VICTORIA!' : 'DERROTA', '30px', mio ? '#ffc94a' : '#ff8a8a'),
-        t(146, `Gana ${nombreEquipo(ganador)}`, '15px'),
-        t(172, orden.map(e => `${nombreEquipo(e)}: ${partida.marcador.get(e) || 0}`).join('   ·   '), '12px', '#b9c3ff'),
-        t(198, `${partida.apuesta ? `Pozo ◉ ${pozo} · ` : ''}${premio ? `◉ +${premio} monedas` : `perdiste ◉ ${partida.apuesta}`}${mio ? `   ·   ${victoriasArena()} victorias en la arena` : ''}`, '12px', '#ffd27a'),
-    ];
-    // botones: revancha y volver a la sala (el anfitrión), salir (todos)
-    const boton = (x, texto, accion) => {
-        const b = t(258, texto, '14px').setInteractive({ useHandCursor: true }).setPadding(14, 8, 14, 8).setBackgroundColor('#2a3352');
-        b.on('pointerdown', accion);
-        objetos.push(b);
-        return b;
-    };
-    if (esAnfitrion()) {
-        boton(275, '↻ Revancha', () => api.revancha());
-        boton(395, '☰ A la sala', () => api.volverASala());
-        boton(515, '✕ Salir', () => api.salir());
-    } else {
-        objetos.push(t(232, 'Esperando al anfitrión…', '11px', '#8a93ad'));
-        boton(395, '✕ Salir', () => api.salir());
-    }
+    mostrarFin({
+        mio,
+        titulo: mio ? '¡VICTORIA!' : 'DERROTA',
+        gana: `Gana ${nombreEquipo(ganador)}`,
+        marcador: orden.map(e => `${nombreEquipo(e)}: ${partida.marcador.get(e) || 0}`).join('  ·  '),
+        monedas: `${partida.apuesta ? `Pozo ◉ ${pozo} · ` : ''}${premio ? `◉ +${premio} monedas` : `Perdiste ◉ ${partida.apuesta}`}`
+            + (mio ? ` · ${victoriasArena()} victorias en la arena` : ''),
+    });
+}
+
+// pantalla final de la partida: capa HTML (como los menús), así los botones se pueden tocar
+// en el celular (los dibujos del juego quedan debajo de los controles táctiles y del zoom de la arena)
+let capaFin = null;
+function mostrarFin(d) {
+    cerrarFin();
+    const anfitrion = esAnfitrion();
+    capaFin = document.createElement('div');
+    capaFin.className = 'menu-capa';
+    capaFin.innerHTML = `
+        <div class="menu-panel arena-fin ${d.mio ? 'gano' : ''}" role="dialog" aria-modal="true" aria-labelledby="arena-fin-titulo">
+            <h2 id="arena-fin-titulo">${d.titulo}</h2>
+            <p class="arena-fin-gana">${d.gana}</p>
+            <p class="menu-nota">${d.marcador}</p>
+            <p class="arena-fin-monedas">${d.monedas}</p>
+            ${anfitrion ? `
+            <button type="button" class="menu-boton sala-empezar" data-fin="revancha">↻ Revancha</button>
+            <button type="button" class="menu-boton" data-fin="sala">☰ Volver a la sala</button>`
+            : '<p class="menu-nota">Esperando a que el anfitrión elija revancha o volver a la sala…</p>'}
+            <button type="button" class="menu-boton menu-salir" data-fin="salir">✕ Salir</button>
+        </div>`;
+    document.getElementById('game').append(capaFin);
+    capaFin.addEventListener('click', e => {
+        const accion = e.target.closest('[data-fin]')?.dataset.fin;
+        if (!accion) return;
+        cerrarFin();
+        if (accion === 'revancha') api.revancha();
+        else if (accion === 'sala') api.volverASala();
+        else api.salir();
+    });
+    capaFin.addEventListener('keydown', e => e.stopPropagation());
+    capaFin.querySelector('[data-fin]')?.focus();
+}
+export function cerrarFin() {
+    capaFin?.remove();
+    capaFin = null;
 }
