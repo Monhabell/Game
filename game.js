@@ -823,12 +823,15 @@ function create() {
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
     crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivelActual === 0 && !arena ? [[1350, 2310]] : []);
 
-    // HUD
-    const estiloHud = { fontSize: '16px', fill: '#fff', stroke: '#000', strokeThickness: 3 };
+    // HUD (en el celular, más chico y con íconos en vez de palabras: deja ver el juego, como en los
+    // juegos de celular; lo de los poderes V y B lo muestran los botones táctiles)
+    const movil = document.body.classList.contains('movil');
+    this.hudMovil = movil;
+    const estiloHud = { fontSize: movil ? '11px' : '16px', fill: '#fff', stroke: '#000', strokeThickness: movil ? 3 : 3 };
     // corazones de vida (los perdidos se ven grises)
     this.corazones = [];
     for (let i = 0; i < VIDAS_INICIALES; i++) {
-        this.corazones.push(this.add.image(28 + i * 26, 24, 'mz_corazon', 9).setScale(0.75)
+        this.corazones.push(this.add.image(movil ? 22 + i * 21 : 28 + i * 26, movil ? 20 : 24, 'mz_corazon', 9).setScale(movil ? 0.6 : 0.75)
             .setScrollFactor(0).setDepth(50)); // Mantener fijo en la pantalla
     }
     actualizarCorazones(this);
@@ -836,22 +839,25 @@ function create() {
     const corrido = Math.max(0, VIDAS_INICIALES - 4) * 26;
     this.hudCorrido = corrido;
     crearEscudo(this);
-    this.scoreText = this.add.text(180 + corrido, 15, `Puntaje: ${score}`, estiloHud)
+    // celular: puntaje y recurso en una fila debajo de los corazones; a la derecha monedas, muertes y nivel
+    this.scoreText = this.add.text(movil ? 12 : 180 + corrido, movil ? 50 : 15, movil ? `★ ${score}` : `Puntaje: ${score}`, estiloHud)
         .setScrollFactor(0).setDepth(50);
-    this.recursoText = this.add.text(370 + corrido, 15, '', estiloHud)
+    this.recursoText = this.add.text(movil ? 92 : 370 + corrido, movil ? 50 : 15, '', estiloHud)
         .setScrollFactor(0).setDepth(50);
     actualizarRecurso(this);
-    this.muertesText = this.add.text(VISTA.width - 130, 15, `☠ ${muertes}`, estiloHud)
+    this.muertesText = this.add.text(VISTA.width - (movil ? 62 : 130), movil ? 10 : 15, `☠ ${muertes}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
     // monedas: las guardadas y, en lavanda, las de la bolsa (se guardan en el próximo punto de control)
-    this.monedasText = this.add.text(VISTA.width - 196, 15, '', estiloHud).setOrigin(1, 0).setScrollFactor(0).setDepth(50);
-    this.bolsaText = this.add.text(VISTA.width - 192, 17, '', { ...estiloHud, fontSize: '12px', fill: '#b9c3ff' })
+    this.monedasText = this.add.text(VISTA.width - (movil ? 112 : 196), movil ? 10 : 15, '', estiloHud).setOrigin(1, 0).setScrollFactor(0).setDepth(50);
+    this.bolsaText = this.add.text(VISTA.width - (movil ? 110 : 192), movil ? 11 : 17, '', { ...estiloHud, fontSize: movil ? '9px' : '12px', fill: '#b9c3ff' })
         .setScrollFactor(0).setDepth(50);
     actualizarMonedasHud(this);
     crearEstela(this); // apariencia comprada en la tienda (solo visual)
     crearPoderes(this); // poderes especiales equipados (V y B) y su HUD
     this.estadoPoder = ranura => estadoPoder(this, ranura); // (para los botones táctiles)
-    this.nivelText = this.add.text(VISTA.width - 20, 15, `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
+    // (en el celular los poderes V y B ya se ven en sus botones: el HUD del juego se esconde)
+    if (movil) this.hudPoderes?.forEach(h => [h.fondo, h.icono, h.sombra, h.letra].forEach(o => o?.setVisible(false)));
+    this.nivelText = this.add.text(VISTA.width - (movil ? 14 : 20), movil ? 10 : 15, movil ? `${nivelActual + 1}/${NIVELES.length}` : `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
     if (arena) {
@@ -2291,9 +2297,11 @@ function recogerCarcaj(_mascotaGesi, carcaj) {
 }
 
 function actualizarRecurso(scene) {
-    const texto = scene.pj.recurso === 'flechas' ? `Flechas: ${flechas}`
-        : scene.pj.recurso === 'mana' ? `Maná: ${Math.floor(scene.mana)}`
-            : 'Espada: ∞';
+    const texto = scene.hudMovil
+        ? (scene.pj.recurso === 'flechas' ? `➶ ${flechas}` : scene.pj.recurso === 'mana' ? `✧ ${Math.floor(scene.mana)}` : '⚔ ∞')
+        : scene.pj.recurso === 'flechas' ? `Flechas: ${flechas}`
+            : scene.pj.recurso === 'mana' ? `Maná: ${Math.floor(scene.mana)}`
+                : 'Espada: ∞';
     if (scene.recursoText.text !== texto) scene.recursoText.setText(texto);
 }
 
@@ -2574,7 +2582,7 @@ function actualizarMonedasHud(scene) {
 function addToScore(scoreToAdd, origin, game) {
 
     score += scoreToAdd; // Actualiza la puntuación
-    game.scoreText.setText(`Puntaje: ${score}`);
+    game.scoreText.setText(game.hudMovil ? `★ ${score}` : `Puntaje: ${score}`);
 
     const scoreText = game.add.text(
         origin.x,

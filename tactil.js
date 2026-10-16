@@ -4,6 +4,9 @@
 // escenas activas. Solo aparecen en pantallas táctiles, y solo mientras se juega un nivel.
 //
 // - Joystick (lado izquierdo): aparece donde apoyas el pulgar; la bolita mueve izquierda/derecha.
+// - Lado derecho, como en los MOBA de celular: SALTAR grande en la esquina (es lo que más se usa: el
+//   pulgar descansa ahí), el ATAQUE a su izquierda, las dos habilidades en arco por encima y los poderes especiales
+//   (V y B, más chicos) en un arco exterior. Así cada botón queda a la misma distancia del pulgar.
 // - Poderes: un anillo se llena mientras el poder se recarga (o mientras juntas maná/flechas);
 //   el botón destella cuando vuelve a estar listo.
 // - Cada control se puede mover (⚙ → Botones táctiles → Mover botones): se arrastra y queda guardado
@@ -49,10 +52,10 @@ export function iniciarTactil(juego) {
         <div class="t-acciones">
             <button type="button" class="t-btn t-movible t-esp vacio" data-tecla="v" data-ranura="0" aria-label="Poder V"><b>V</b></button>
             <button type="button" class="t-btn t-movible t-esp vacio" data-tecla="b" data-ranura="1" aria-label="Poder B"><b>B</b></button>
-            <button type="button" class="t-btn t-movible t-hab" data-tecla="c"><b>C</b><small></small></button>
-            <button type="button" class="t-btn t-movible t-hab" data-tecla="x"><b>X</b><small></small></button>
-            <button type="button" class="t-btn t-movible t-hab" data-tecla="espacio"><b>●</b><small></small></button>
-            <button type="button" class="t-btn t-movible t-salto" data-tecla="arriba"><b>▲</b><small>SALTAR</small></button>
+            <button type="button" class="t-btn t-movible t-hab" data-tecla="c"><b>❖</b><small></small></button>
+            <button type="button" class="t-btn t-movible t-hab" data-tecla="x"><b>✦</b><small></small></button>
+            <button type="button" class="t-btn t-movible t-salto" data-tecla="arriba" aria-label="Saltar"><b>▲</b></button>
+            <button type="button" class="t-btn t-movible t-hab t-ataque" data-tecla="espacio"><b>⚔</b><small></small></button>
         </div>
         <button type="button" class="t-btn t-movible t-anclar" data-tecla="abajo"><b>⚓</b><small>ANCLAR</small></button>
         <div class="t-editor">
@@ -127,6 +130,8 @@ export function iniciarTactil(juego) {
     const contenedor = document.getElementById('game');
     const movibles = [...capa.querySelectorAll('.t-movible')];
     const idDe = el => el.dataset.id || el.dataset.tecla;
+    // (disposición 2: los botones cambiaron de lugar; lo que se había movido antes ya no sirve)
+    if (ajustes.disposicion !== 2) guardarAjustes({ posBotones: {}, disposicion: 2 });
     let posiciones = { ...(ajustes.posBotones || {}) }; // id: [fracción del ancho, fracción del alto]
     let medidas = '';
     function aplicarPosiciones() {
@@ -259,7 +264,9 @@ export function iniciarTactil(juego) {
         if (visible && nivel.pj !== pjActual) {
             pjActual = nivel.pj;
             poderes.forEach(p => {
-                p.b.querySelector('small').textContent = pjActual.habilidades[p.tecla].nombre.split(' / ')[0];
+                const nombre = pjActual.habilidades[p.tecla].nombre.split(' / ')[0];
+                p.b.querySelector('small').textContent = nombre;
+                p.b.setAttribute('aria-label', nombre);
                 // personaje nuevo: el botón empieza limpio
                 p.listo = true;
                 p.valor = p.sinRecurso = undefined;

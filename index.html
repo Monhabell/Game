@@ -396,15 +396,31 @@
         /* tamaño elegido en la configuración (--t-escala) */
         .t-acciones { transform: scale(var(--t-escala, 1)); transform-origin: right bottom; }
 
+        /* acciones como en los MOBA de celular: el botón que más se usa (SALTAR) grande en la esquina y lo
+           demás en arco a su alrededor (todo a la misma distancia del pulgar). Cada botón: centro (--cx, --cy)
+           y diámetro --d dentro de un cuadro de 240 px pegado a la esquina */
         .t-acciones {
             position: absolute;
             right: var(--t-borde-der);
             bottom: var(--t-borde-abajo);
-            display: grid;
-            grid-template-columns: repeat(2, 64px);
-            grid-template-rows: 52px repeat(2, 64px);
-            gap: 10px;
+            width: 240px;
+            height: 240px;
         }
+        .t-acciones .t-btn {
+            position: absolute;
+            left: calc(var(--cx) - var(--d) / 2);
+            top: calc(var(--cy) - var(--d) / 2);
+            width: var(--d);
+            height: var(--d);
+        }
+        .t-acciones .t-salto { --cx: 196px; --cy: 196px; --d: 84px; background: rgba(139, 156, 255, 0.14); }
+        .t-salto b { font-size: 28px; }
+        .t-ataque { --cx: 96px; --cy: 200px; --d: 64px; border-color: rgba(255, 201, 74, 0.55); background: rgba(255, 201, 74, 0.1); }
+        .t-ataque b { font-size: 22px; }
+        .t-acciones [data-tecla="x"] { --cx: 120px; --cy: 120px; --d: 54px; }
+        .t-acciones [data-tecla="c"] { --cx: 196px; --cy: 98px; --d: 54px; }
+        .t-acciones [data-ranura="0"] { --cx: 40px; --cy: 140px; --d: 44px; }
+        .t-acciones [data-ranura="1"] { --cx: 140px; --cy: 40px; --d: 44px; }
 
         .t-btn {
             position: relative;
@@ -460,13 +476,13 @@
             .t-bolita { transition: none; }
         }
 
-        .t-btn b { font-size: 16px; font-weight: 600; }
+        .t-btn b { font-size: 18px; font-weight: 600; line-height: 1; }
 
         .t-btn small {
-            font-size: 8px;
+            font-size: 7px;
             font-weight: 500;
-            line-height: 1.2;
-            max-width: 56px;
+            line-height: 1.1;
+            max-width: 46px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -486,10 +502,10 @@
         .t-anclar {
             display: none;
             position: absolute;
-            right: calc(var(--t-borde-der) + 150px * var(--t-escala, 1));
-            bottom: calc(var(--t-borde-abajo) + 2px);
-            width: 58px;
-            height: 58px;
+            right: calc(var(--t-borde-der) + 250px * var(--t-escala, 1));
+            bottom: calc(var(--t-borde-abajo) + 8px);
+            width: 50px;
+            height: 50px;
             border-color: rgba(79, 209, 165, 0.5);
             transform: scale(var(--t-escala, 1));
             transform-origin: right bottom;
@@ -1389,8 +1405,8 @@
         }
         .poder-filtro.activo { color: #fff; background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); }
         /* botones táctiles de los poderes especiales (V y B): con el ícono del poder */
-        .t-esp { width: 48px; height: 48px; justify-self: center; align-self: end; background-size: cover; background-position: center; }
-        .t-esp b { font-size: 11px; position: absolute; right: -2px; bottom: -4px; text-shadow: 0 1px 3px #000; }
+        .t-esp { background-size: cover; background-position: center; border: 2px solid rgba(199, 125, 255, 0.6); }
+        .t-esp b { display: none; } /* (en el celular la tecla no dice nada: se ve el ícono del poder) */
         .t-esp.vacio { visibility: hidden; }
         .t-esp.cargando { filter: grayscale(0.7) brightness(0.7); }
         .tienda-btn { min-height: 38px; padding: 0 14px; font-size: 13px; white-space: nowrap; }
