@@ -33,7 +33,8 @@ const color = pj => '#' + pj.color.toString(16).padStart(6, '0');
 // alEmpezar({ nivel, pj }): el juego arranca la partida en línea
 export function iniciarSala(juego, { alEmpezar }) {
     const capa = document.createElement('div');
-    capa.className = 'menu-capa';
+    // (ocupa toda la pantalla, no solo el recuadro del juego: así caben todas las opciones)
+    capa.className = 'menu-capa sala-capa';
     capa.hidden = true;
     capa.innerHTML = `
         <div class="menu-panel menu-panel-ancho sala-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-sala">
@@ -41,40 +42,58 @@ export function iniciarSala(juego, { alEmpezar }) {
 
             <!-- el cuerpo se desplaza si no cabe; los botones de abajo siempre se ven -->
             <div class="sala-cuerpo">
-            <div class="sala-paso" data-paso="entrar">
-                <label class="sala-campo">Tu nombre
-                    <input type="text" id="sala-nombre" maxlength="14" autocomplete="nickname" placeholder="Ej: Gesi">
-                </label>
-                <fieldset class="menu-grupo">
-                    <legend>Tu personaje</legend>
-                    <div class="menu-opciones" data-personajes></div>
-                </fieldset>
-                <button type="button" class="menu-boton" data-accion="crear">✚ Crear sala</button>
-                <div class="menu-fila">
-                    <input type="text" id="sala-codigo" maxlength="4" placeholder="CÓDIGO" autocapitalize="characters"
-                        autocomplete="off" aria-label="Código de la sala">
-                    <button type="button" class="menu-boton" data-accion="unirse">Unirse →</button>
-                </div>
-            </div>
-
-            <div class="sala-paso sala-dos-columnas" data-paso="sala" hidden>
-                <div class="sala-escenario" data-escenario aria-hidden="true"><div class="sala-piso"></div></div>
+            <!-- primer paso: a la izquierda quién eres, a la derecha crear una sala o unirte a una -->
+            <div class="sala-paso sala-entrar" data-paso="entrar">
                 <div class="sala-columna">
-                    <p class="sala-codigo">Código de la sala: <b data-codigo></b></p>
-                    <p class="menu-nota">Pásale este código a tus amigos (hasta 8)</p>
-                    <ol class="sala-lista" data-lista></ol>
-                </div>
-                <div class="sala-columna">
+                    <h3 class="sala-titulo">Quién eres</h3>
+                    <label class="sala-campo">Tu nombre
+                        <input type="text" id="sala-nombre" maxlength="14" autocomplete="nickname" placeholder="Ej: Gesi">
+                    </label>
                     <fieldset class="menu-grupo">
                         <legend>Tu personaje</legend>
                         <div class="menu-opciones" data-personajes></div>
                     </fieldset>
-                    <fieldset class="menu-grupo" data-solo-anfitrion>
-                        <legend>Modo</legend>
-                        <div class="menu-opciones" data-modos>${Object.entries(MODOS).map(([m, t]) =>
-                            `<button type="button" class="menu-opcion" data-modo="${m}">${t}</button>`).join('')}</div>
+                </div>
+                <div class="sala-columna">
+                    <h3 class="sala-titulo">A jugar</h3>
+                    <div class="sala-tarjeta">
+                        <b>Crear una sala</b>
+                        <p class="menu-nota">Te da un código de 4 letras para pasarle a tus amigos (hasta 8).</p>
+                        <button type="button" class="menu-boton sala-empezar" data-accion="crear">✚ Crear sala</button>
+                    </div>
+                    <div class="sala-tarjeta">
+                        <b>Unirme a una sala</b>
+                        <p class="menu-nota">Escribe el código que te pasó tu amigo.</p>
+                        <div class="menu-fila">
+                            <input type="text" id="sala-codigo" maxlength="4" placeholder="CÓDIGO" autocapitalize="characters"
+                                autocomplete="off" aria-label="Código de la sala">
+                            <button type="button" class="menu-boton" data-accion="unirse">Unirse →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- la sala: a la izquierda la sala de espera (escenario y jugadores), a la derecha las opciones -->
+            <div class="sala-paso sala-dos-columnas" data-paso="sala" hidden>
+                <div class="sala-espera">
+                <div class="sala-escenario" data-escenario aria-hidden="true"><div class="sala-piso"></div></div>
+                <div class="sala-columna">
+                    <h3 class="sala-titulo">Jugadores</h3>
+                    <div class="sala-codigo">
+                        <span>Código</span><b data-codigo></b>
+                        <button type="button" class="sala-copiar" data-copiar aria-label="Copiar el código">Copiar</button>
+                    </div>
+                    <p class="menu-nota">Pásale este código a tus amigos (hasta 8)</p>
+                    <ol class="sala-lista" data-lista></ol>
+                </div>
+                </div>
+                <div class="sala-opciones">
+                <div class="sala-columna">
+                    <h3 class="sala-titulo">Tú</h3>
+                    <fieldset class="menu-grupo">
+                        <legend>Tu personaje</legend>
+                        <div class="menu-opciones" data-personajes></div>
                     </fieldset>
-                    <p class="menu-nota" data-modo-texto></p>
                     <fieldset class="menu-grupo" data-equipos hidden>
                         <legend>Tu equipo</legend>
                         <div class="menu-opciones">
@@ -89,6 +108,15 @@ export function iniciarSala(juego, { alEmpezar }) {
                         <p class="menu-nota">Si ganas, cada rival te paga lo que apostaste (o lo que apostó él, si es menos)</p>
                         <button type="button" class="menu-boton" data-listo>✔ Estoy listo</button>
                     </fieldset>
+                </div>
+                <div class="sala-columna">
+                    <h3 class="sala-titulo">La partida</h3>
+                    <fieldset class="menu-grupo" data-solo-anfitrion>
+                        <legend>Modo</legend>
+                        <div class="menu-opciones" data-modos>${Object.entries(MODOS).map(([m, t]) =>
+                            `<button type="button" class="menu-opcion" data-modo="${m}">${t}</button>`).join('')}</div>
+                    </fieldset>
+                    <p class="menu-nota sala-modo-texto" data-modo-texto></p>
                     <label class="sala-campo" data-solo-anfitrion data-solo-arena hidden>Arena
                         <select id="sala-arena"></select>
                     </label>
@@ -102,6 +130,7 @@ export function iniciarSala(juego, { alEmpezar }) {
                         <select id="sala-pista">${PISTAS.map((p, i) => `<option value="${i}">${p.nombre}</option>`).join('')}</select>
                     </label>
                     <p class="menu-nota" data-esperando>Esperando a que el anfitrión empiece…</p>
+                </div>
                 </div>
             </div>
             </div>
@@ -204,6 +233,13 @@ export function iniciarSala(juego, { alEmpezar }) {
     });
     $('#sala-arena').addEventListener('change', e => { if (esAnfitrion()) elegirModo(red.modo, e.target.value, red.apuesta); });
     $('#sala-apuesta').addEventListener('change', e => { if (esAnfitrion()) elegirModo(red.modo, red.arena, Number(e.target.value)); });
+    // copiar el código de la sala (para mandarlo por mensaje)
+    $('[data-copiar]').addEventListener('click', async e => {
+        const b = e.currentTarget;
+        try { await navigator.clipboard.writeText(red.codigo || ''); b.textContent = '¡Copiado!'; }
+        catch (_e) { b.textContent = 'No se pudo'; }
+        setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
+    });
     codigo.addEventListener('input', () => { codigo.value = codigo.value.toUpperCase().replace(/[^A-Z]/g, ''); });
     codigo.addEventListener('keydown', e => { if (e.key === 'Enter') capa.querySelector('[data-accion="unirse"]').click(); });
 

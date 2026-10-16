@@ -527,8 +527,36 @@
         .sala-paso { display: flex; flex-direction: column; gap: 12px; }
         .sala-paso[hidden] { display: none; }
 
+        /* la sala ocupa TODA la pantalla (no solo el recuadro del juego): así se ven todas las opciones */
+        .sala-capa {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+            background: rgba(5, 7, 15, 0.82);
+        }
         /* la sala: título y botones fijos, el medio se desplaza (con 8 jugadores no cabe todo) */
-        .sala-panel { overflow: hidden; }
+        .sala-capa .sala-panel { overflow: hidden; width: min(1280px, 100%); height: 100%; padding: 18px 22px; }
+        .sala-panel > h2 { margin: 0; }
+        /* primer paso: quién eres (izquierda) · crear o unirse (derecha) */
+        .sala-entrar:not([hidden]) {
+            width: min(980px, 100%);
+            margin: auto;
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+            gap: 24px;
+            align-items: start;
+        }
+        .sala-tarjeta {
+            display: flex; flex-direction: column; gap: 8px; text-align: left;
+            padding: 14px; border-radius: var(--radio);
+            background: var(--superficie-2); border: 1px solid var(--borde);
+        }
+        .sala-tarjeta > b { font-size: 15px; }
+        .sala-tarjeta .menu-nota { margin: 0; text-align: left; }
+        .sala-tarjeta .sala-empezar { margin-top: 2px; }
+        @media (max-width: 640px) { .sala-entrar:not([hidden]) { grid-template-columns: 1fr; gap: 12px; } }
+        @media (max-height: 520px) { .sala-entrar:not([hidden]) { gap: 14px; } .sala-tarjeta { padding: 8px 10px; gap: 4px; } .sala-tarjeta > b { font-size: 13px; } }
         .sala-cuerpo {
             flex: 1 1 auto;
             min-height: 0;
@@ -544,13 +572,39 @@
         .sala-pie .sala-empezar { margin-top: 0; }
 
         /* en la sala: lista a la izquierda, personaje y nivel a la derecha (si hay ancho) */
+        /* izquierda: la sala de espera (el escenario crece hasta llenar el alto) · derecha: las opciones.
+           Cada lado se desplaza solo si no cabe; en pantallas angostas van uno debajo del otro */
         .sala-dos-columnas:not([hidden]) {
+            flex: 1 1 auto;
+            min-height: 0;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-            gap: 12px;
-            align-items: start;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+            gap: 18px;
         }
-        .sala-columna { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        .sala-espera, .sala-opciones { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+        .sala-espera { display: flex; flex-direction: column; gap: 12px; }
+        .sala-espera .sala-escenario { flex: 1 1 auto; min-height: 120px; height: auto; }
+        .sala-opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px 16px; align-content: start; }
+        @media (max-width: 720px) {
+            .sala-dos-columnas:not([hidden]) { display: flex; flex-direction: column; overflow-y: auto; }
+            .sala-espera, .sala-opciones { overflow: visible; flex: none; }
+            .sala-espera .sala-escenario { flex: none; height: 120px; }
+        }
+        .sala-columna { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+        .sala-titulo {
+            margin: 0;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--texto-2);
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--borde);
+        }
+        /* modos: de a dos por fila (los nombres son largos) */
+        [data-modos] { flex-wrap: wrap; }
+        [data-modos] .menu-opcion { flex: 1 1 calc(50% - 6px); min-height: 40px; }
+        .sala-modo-texto { margin: 0; text-align: left; line-height: 1.5; }
 
         .sala-campo {
             display: flex;
@@ -598,7 +652,7 @@
         .sala-escenario {
             grid-column: 1 / -1;
             position: relative;
-            height: 120px;
+            height: clamp(100px, 24vh, 210px);
             overflow: hidden;
             border-radius: var(--radio);
             border: 1px solid var(--borde);
@@ -667,14 +721,28 @@
             .sala-heroe.entrando .sala-sprite, .sala-heroe.saltando .sala-sprite { animation-name: sala-cuadros; }
         }
 
-        .sala-codigo { margin: 0; text-align: center; font-size: 13px; color: var(--texto-2); }
-        .sala-codigo b { display: block; margin-top: 6px; font-size: 30px; font-weight: 600; letter-spacing: 8px; color: var(--texto); }
+        .sala-codigo {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: var(--radio-chico);
+            background: var(--superficie-2); border: 1px solid var(--borde);
+            font-size: 12px; color: var(--texto-2);
+        }
+        .sala-codigo b { flex: 1; font-size: 26px; font-weight: 700; letter-spacing: 8px; color: var(--texto); }
+        .sala-copiar {
+            min-height: 32px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+            font: inherit; font-size: 12px; font-weight: 600; color: var(--texto);
+            background: transparent; border: 1px solid var(--borde-fuerte);
+        }
+        .sala-copiar:hover { background: var(--superficie-3); }
+        .sala-copiar:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        /* personajes grandes en pantallas altas */
+        @media (min-height: 700px) { .sala-escenario .sala-heroe { --tam: 120px; } .sala-etiqueta { font-size: 11px; } }
 
         .sala-lista {
+            max-height: 30vh;
             margin: 0;
             text-align: left;
             padding: 8px 10px 8px 32px;
-            max-height: 150px;
             overflow-y: auto;
             font-size: 13px;
             line-height: 1.9;
@@ -875,8 +943,12 @@
             .sala-paso { gap: 8px; }
             .sala-campo { font-size: 10px; gap: 4px; }
             .sala-campo input, .sala-campo select, #sala-codigo { min-height: 34px; font-size: 12px; }
-            .sala-codigo b { font-size: 22px; margin-top: 2px; }
-            .sala-lista { max-height: 80px; font-size: 11px; line-height: 1.8; padding: 4px 6px 4px 26px; }
+            .sala-panel { padding: 10px 14px; }
+            .sala-codigo { padding: 4px 10px; }
+            .sala-codigo b { font-size: 20px; }
+            .sala-titulo { font-size: 10px; padding-bottom: 3px; }
+            [data-modos] .menu-opcion { min-height: 30px; }
+            .sala-lista { font-size: 11px; line-height: 1.8; padding: 4px 6px 4px 26px; }
             .sala-escenario { height: 92px; }
             .sala-heroe { --tam: 72px; }
             .sala-etiqueta { font-size: 9px; top: 4px; }
