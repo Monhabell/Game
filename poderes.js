@@ -17,8 +17,13 @@
 // Contra el jefe un poder hace como mucho 2 de daño por golpe (la pelea se gana aprendiendo sus
 // patrones, no con un solo poder).
 //
+// En la CARRERA los poderes de los rivales también te alcanzan: cada pantalla dibuja los poderes
+// de los demás desde su fantasma y revisa si te tocaron (alcanzarme). El efecto lo decide
+// carrera.js (empujón, aturdir, congelar, atraer: nunca quita vidas).
+//
 // api (la da game.js): { dañar(scene, e, daño, congela), golpearJefe(scene, zona, daño), congelar(scene, e, ms),
-//   habilidadBase(scene, h), recuperarEscudo(scene), curarVida(scene), animarPoder(scene), mensaje(scene, texto) }
+//   habilidadBase(scene, h), recuperarEscudo(scene), curarVida(scene), animarPoder(scene), mensaje(scene, texto),
+//   golpeCarrera(scene, p, de, ox) }
 
 import { enLinea, enviarEvento } from "./red.js"
 
@@ -339,7 +344,8 @@ export function usarPoder(scene, ranura) {
 export function poderRemoto(scene, sprite, m) {
     const p = conNivel(poderPorId(m.id), Math.min(NIVEL_MAX, Number(m.nv) || 1));
     if (!p || !sprite?.active) return;
-    asegurar(scene, p, () => sprite.active && lanzar(scene, p, m.dir, true, sprite));
+    // (remoto: quién lo lanzó, para que en la carrera se sepa quién te alcanzó)
+    asegurar(scene, p, () => sprite.active && lanzar(scene, p, m.dir, { de: m.de }, sprite));
 }
 
 function sonar(scene, p, remoto) {
@@ -387,7 +393,7 @@ function golpear(scene, p, e, remoto, daño = p.daño) {
 
 // jefe: daño máximo al jefe (0 = no lo toca; las zonas que duran le pegan poco y cada tanto)
 function golpearZona(scene, p, zona, remoto, daño = p.daño, jefe = 2) {
-    if (remoto) return;
+    if (remoto) { alcanzarme(scene, p, remoto, zona.centerX, b => Phaser.Geom.Intersects.RectangleToRectangle(zona, b)); return; }
     vivos(scene).forEach(e => {
         const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
         if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) golpear(scene, p, e, false, daño);
@@ -397,8 +403,20 @@ function golpearZona(scene, p, zona, remoto, daño = p.daño, jefe = 2) {
 
 const zonaCirculo = (x, y, r) => new Phaser.Geom.Rectangle(x - r, y - r, r * 2, r * 2);
 
+// carrera: ¿el poder de un rival (remoto = { de }) me alcanzó? toca(rectángulo de mi cuerpo)
+// ox: desde dónde viene (para el lado del empujón)
+function alcanzarme(scene, p, remoto, ox, toca) {
+    const g = scene.mascotaGesi;
+    if (!scene.carrera || !remoto?.de || !g?.body || g.isDead) return false;
+    const b = g.body;
+    if (!toca(new Phaser.Geom.Rectangle(b.left, b.top, b.width, b.height))) return false;
+    api.golpeCarrera?.(scene, p, remoto.de, ox);
+    return true;
+}
+const miCentro = scene => scene.mascotaGesi?.body?.center;
+
 function golpearRadio(scene, p, x, y, r, remoto, jefe = 2) {
-    if (remoto) return;
+    if (remoto) { alcanzarme(scene, p, remoto, x, b => Phaser.Math.Distance.Between(x, y, b.centerX, b.centerY) < r + 12); return; }
     vivos(scene).forEach(e => { if (Phaser.Math.Distance.Between(x, y, centro(e).x, centro(e).y) < r) golpear(scene, p, e, false); });
     if (p.daño && jefe) api.golpearJefe(scene, zonaCirculo(x, y, r), Math.min(jefe, p.daño));
 }
@@ -575,6 +593,7 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
                 desde = hasta;
             }
             if (!remoto) api.golpearJefe(scene, new Phaser.Geom.Rectangle(Math.min(cx, cx + dir * p.alcance), cy - 60, p.alcance, 120), Math.min(2, p.daño));
+            rayoARival(scene, p, remoto, { x: cx, y: cy }, p.alcance, tinte);
             break;
         }
         case 'tormenta': {
@@ -588,6 +607,7 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
                 golpear(scene, p, e, remoto);
             }));
             if (!remoto) api.golpearJefe(scene, new Phaser.Geom.Rectangle(cx - p.alcance, cy - 200, p.alcance * 2, 400), Math.min(2, p.daño));
+            rayoARival(scene, p, remoto, { x: cx, y: cy }, p.alcance, tinte, true);
             scene.cameras.main.flash(120, 255, 250, 200);
             break;
         }
@@ -595,6 +615,8 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
             efecto(scene, claveEfecto(p), cx, cy, { tinte, escala: p.escala || 1 });
             scene.cameras.main.flash(250, 255, 180, 230);
             if (!remoto) vivos(scene).forEach(e => { if (Math.abs(centro(e).x - cx) < p.alcance) api.congelar(scene, e, p.duracion); });
+            // carrera: el tiempo también se detiene para el rival que está cerca
+            else alcanzarme(scene, p, remoto, cx, b => Math.abs(b.centerX - cx) < p.alcance && Math.abs(b.centerY - cy) < 200);
             break;
         case 'rayo': {
             const x0 = dir > 0 ? cx + 10 : cx - 10 - p.alcance;
@@ -613,6 +635,15 @@ function explotar(scene, p, x, y, remoto) {
     else efecto(scene, claveEfecto(p), x, y, { tinte: p.tinte, escala: p.escala || 1 });
     if (p.temblor || p.tipo === 'meteoro') scene.cameras.main.shake(300, 0.008);
     golpearRadio(scene, p, x, y, p.radio, remoto);
+}
+
+// carrera: la chispa y la tormenta de un rival también buscan al jugador de esta pantalla
+function rayoARival(scene, p, remoto, desde, alcance, tinte, delCielo = false) {
+    const c = miCentro(scene);
+    if (!remoto || !scene.carrera || !c || Phaser.Math.Distance.Between(desde.x, desde.y, c.x, c.y) > alcance) return;
+    if (delCielo) rayoVertical(scene, c.x, scene.mascotaGesi.body.bottom, tinte);
+    else rayoEntre(scene, desde, { x: c.x, y: c.y }, tinte);
+    alcanzarme(scene, p, remoto, desde.x, () => true);
 }
 
 // rayo dibujado: zigzag entre dos puntos
@@ -651,6 +682,12 @@ export function actualizarPoderes(scene, time, delta) {
         // choque: caja chica alrededor del centro del efecto (más alta en las olas)
         const alto = q.p.tipo === 'ola' ? (q.p.alto || 70) : 30;
         const zona = new Phaser.Geom.Rectangle(s.x - 20, (q.p.tipo === 'ola' ? s.y - alto : s.y - 15), 40, alto);
+        // carrera: el proyectil de un rival también me puede alcanzar (una vez)
+        if (q.remoto && !q.meAlcanzo && alcanzarme(scene, q.p, q.remoto, s.x - Math.sign(q.vx || 1) * 30, b => Phaser.Geom.Intersects.RectangleToRectangle(zona, b))) {
+            q.meAlcanzo = true;
+            impacto(scene, q.p, s.x, s.y);
+            if (!q.p.perfora && q.p.tipo !== 'ola') { s.destroy(); return false; }
+        }
         for (const e of vivos(scene)) {
             if (q.golpeados.has(e)) continue;
             const re = new Phaser.Geom.Rectangle(e.body.left, e.body.top, e.body.width, e.body.height);
@@ -682,6 +719,13 @@ export function actualizarPoderes(scene, time, delta) {
             scene.tweens.add({ targets: z.s, alpha: 0, duration: 250, onComplete: () => z.s.destroy() });
             z.s.active = false;
             return false;
+        }
+        if (z.iman && z.remoto && scene.carrera) {
+            // carrera: el vórtice de un rival también me atrae (poco a poco: se puede escapar corriendo)
+            const c = miCentro(scene), g = scene.mascotaGesi;
+            if (c && !g.isDead && Math.abs(z.iman.x - c.x) < z.p.radio && Math.abs(z.iman.y - c.y) < 160) {
+                g.x += Math.sign(z.iman.x - c.x) * Math.min(130, Math.abs(z.iman.x - c.x) * 2) * (delta / 1000);
+            }
         }
         if (z.iman && !z.remoto) {
             vivos(scene).forEach(e => {

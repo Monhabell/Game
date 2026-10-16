@@ -398,6 +398,27 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     return n;
 }
 
+// ---------- Niveles con trampas puestas a mano (fija: true) ----------
+// Las Ruinas del Abismo (nivel 7 y pista de carrera): sus trampas no se reparten al azar (los
+// patrones se aprenden). Lo único que cambia con la semilla: en cada trío de "losas dudosas" cuál
+// es la falsa y cuál de las firmes tiene grietas de mentira. Los tablones 'fragil' caen al pisarlos.
+export function prepararNivelFijo(nivel, semilla = semillaDelIntento()) {
+    const r = crearAzar((semilla ^ 0x51ed270b) >>> 0);
+    const n = { ...nivel, semilla, cebos: [], descansos: [], trios: [] };
+    n.suelo = [...(n.suelo || [])];
+    n.falsos = [...(n.falsos || [])];
+    n.grietasFalsas = [...(n.grietasFalsas || [])];
+    (n.losasDudosas || []).forEach(x => {
+        const falsa = Math.floor(r() * 3);
+        for (let k = 0; k < 3; k++) (k === falsa ? n.falsos : n.suelo).push([x + k * 96, x + (k + 1) * 96]);
+        // una de las firmes del trío tiene grietas (asusta, pero aguanta)
+        n.grietasFalsas.push(x + ((falsa + 1 + Math.floor(r() * 2)) % 3) * 96 + 48);
+        n.trios.push([x, falsa]);
+    });
+    n.locuras = [...(n.locuras || []), ...(n.plataformas || []).filter(p => p[3] === 'fragil').map(([x]) => [x, 'puente'])];
+    return n;
+}
+
 // ---------- Cargas de escudo al azar ----------
 // si no tienes escudo, de vez en cuando aparece una carga delante de ti (fuera de la pelea con el jefe)
 export function iniciarEscudosAlAzar(scene, soltarEscudo, ancho) {

@@ -51,7 +51,9 @@ export const JEFES = [
     { encuentro: 5, troll: 3, vida: 24, vel: 105, escala: 0.66, ataques: ['salto', 'embestida', 'roca', 'rugido', 'terremoto'], coraza: 0.5, furia: 0.6,
         leccion: 'NUEVO: TERREMOTO. Cuando se enfurece salta tres veces: ¡salta con él!' },
     { encuentro: 6, troll: 3, vida: 30, vel: 115, escala: 0.72, ataques: ['salto', 'embestida', 'roca', 'rugido', 'terremoto'], coraza: 0.66, furia: 0.33,
-        leccion: 'PELEA FINAL: coraza, rocas y furia. Usa todo lo que aprendiste.', final: true },
+        leccion: 'Coraza, rocas y furia. Si lo vences, huirá al abismo...' },
+    { encuentro: 7, troll: 3, vida: 34, vel: 120, escala: 0.74, ataques: ['salto', 'embestida', 'roca', 'rugido', 'terremoto'], coraza: 0.66, furia: 0.5,
+        leccion: 'PELEA FINAL EN EL ABISMO: usa todo lo que aprendiste.', final: true },
 ];
 // avisos de cada ataque especial: símbolo y color sobre la cabeza (siempre los mismos)
 const AVISOS = {

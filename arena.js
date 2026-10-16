@@ -97,6 +97,20 @@ export const ARENAS = [
             plataformas: [[150, 236, 110], [640, 236, 110], [395, 150, 110], [60, 130, 90], [750, 130, 90]],
         },
     },
+    {
+        // Ruinas del Abismo (abismo.js): dos portales cruzan la arena de punta a punta (se abren a ratos)
+        // y el puente sobre la lava tiene tablones frágiles (las grietas lo avisan)
+        id: 'abismo', nombre: 'Ruinas del Abismo', victorias: 0, peligro: 'tablones frágiles y portales que se abren a ratos',
+        nivel: {
+            nubes: false, abismo: true, tinte: 0xa58a9a, suelo: [...BORDES, [120, 330], [570, 780]], lava: [[330, 570]],
+            plataformas: [[350, 300, 70, 'fragil'], [415, 290, 70], [480, 300, 70, 'fragil'], [60, 236, 100], [740, 236, 100], [230, 140, 100], [570, 140, 100]],
+            locuras: [[350, 'puente'], [480, 'puente']],
+            puentes: [[330, 570, -1]],
+            bolas: [[450, 3000]],
+            // [x, pie, salto en x, y de llegada, ms abierto, ms cerrado]
+            portales: [[165, 332, 520, 332, 1600, 3400], [735, 332, -520, 332, 1600, 3400]],
+        },
+    },
 ];
 
 // ---------- victorias guardadas ----------

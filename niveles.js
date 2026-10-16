@@ -48,6 +48,7 @@
 import {
     colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
     tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
+    zonaSalida, zonaPuente, zonaTunel, zonaAtajo, zonaSueloMentiroso, zonaPersecucion, zonaLlegada,
 } from "./tramos.js"
 
 export const SUELO_Y = 332;
@@ -316,6 +317,7 @@ export const NIVELES = [
         mezcla: ['alien_green', 'alien_blue', 'alien_red', 'alien_predator_mask', 'alien_armor', 'esqueleto'],
         especiales: ['puentesAltos', 'tunel', 'runa', 'torre6', 'dobleCamino', 'runa', 'tunel'],
     }),
+    nivelRuinas(),
 ];
 
 // ---------- Niveles más largos a medida que se avanza ----------
@@ -343,6 +345,44 @@ extender(NIVELES[3], 5160, [ // Fortaleza: túneles, doble camino y una torre al
 ]);
 
 // Generador de niveles grandes a partir de "tramos" que siempre se pueden pasar.
+// Nivel 7 · Las Ruinas del Abismo: el Rey Troll huye de las Nubes al abismo y ahí espera, en su
+// último trono. Es la pista de carrera de las Ruinas (las 7 zonas de tramos.js) alargada con piezas
+// conocidas. Trampas puestas a mano (fija: no pasa por aleatorizarNivel, ver prepararNivelFijo en
+// azar.js); los mecanismos propios (aplastadores, portal, muro que persigue) están en abismo.js.
+// Ritmo:
+//   1. Introducción: la salida y su bifurcación opcional (arriba premio, abajo directo)
+//   2. Desafío: el Puente de la Muerte (tablones frágiles) y el Túnel Maldito (aplastadores)
+//   3. Descanso: llano, una torre con cristal y el abismo rúnico
+//   4. Momento ¡wow!: el Atajo Maldito (senda segura arriba / atajo con portal y géiser abajo)
+//   5. Desafío fuerte: suelo mentiroso, otro puente, túnel y la Persecución del muro del abismo
+//   6. Antesala tranquila y el trono del Rey Troll
+function nivelRuinas() {
+    const n = {
+        nombre: 'Las Ruinas del Abismo', ancho: 0, meta: 0, fija: true, abismo: true,
+        tinte: 0xa58a9a, velEnemigos: 80,
+        mezcla: ['esqueleto', 'zombie3', 'alien_dark_gray', 'zombie2', 'alien_armor', 'esqueleto'],
+        suelo: [], checkpoints: [], carteles: [],
+    };
+    const piezas = [
+        zonaSalida(), zonaPuente(), zonaTunel(),
+        tramoLlano(400, { enemigos: 1 }), tramoTorre(5), tramoAbismoRunico(), tramoLlano(300),
+        zonaAtajo(), zonaSueloMentiroso(), tramoDobleCamino(), tramoLlano(500, { enemigos: 2 }),
+        zonaPuente(), tramoCornisaSecreta(), tramoAscensorMirador(), tramoTunel(800), tramoLlano(400),
+        zonaPersecucion(), zonaLlegada(), tramoLlano(800),
+    ];
+    const ancho = piezas.reduce((s, t) => s + t.ancho, 0);
+    const arena = ancho - 300 - 1500; // (la arena del jefe y su antesala: sin puntos de control dentro)
+    let x = 0;
+    piezas.forEach(t => {
+        colocar(n, t, x);
+        if (x > 0 && t.ancho >= 600 && x + 60 < arena) n.checkpoints.push(x + 60);
+        x += t.ancho;
+    });
+    n.ancho = ancho;
+    n.meta = ancho - 300;
+    return n;
+}
+
 // dificultad va de 0 (fácil) a 1 (difícil): huecos más anchos, más enemigos,
 // gotas más seguidas y plataformas más rápidas.
 function azar(semilla) {

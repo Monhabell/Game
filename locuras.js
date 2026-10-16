@@ -99,7 +99,7 @@ function burla(scene, api, texto, ms = 1000) {
 
 export function crearLocuras(scene, nivel, inicioX) {
     crearTexturas(scene);
-    const adelante = x => x > inicioX + 40;
+    const adelante = x => nivel.arena || x > inicioX + 40; // (en la arena se aparece en cualquier lado)
     scene.locuras = [];
     scene.invertidoHasta = 0;
     scene.gravedadBase = null; // se toma de Gesi al entrar a la gravedad loca (aún no existe aquí)

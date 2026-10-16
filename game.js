@@ -20,8 +20,9 @@ import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actuali
 import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
 import {
     iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
-    llegarMetaCarrera,
+    llegarMetaCarrera, recibirPoderCarrera,
 } from "./carrera.js"
+import { iniciarAbismo, crearFondoAbismo, crearAbismo, actualizarAbismo } from "./abismo.js"
 import { armarPista, pistaDe } from "./pistas.js"
 import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
@@ -47,7 +48,7 @@ import {
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
-import { aleatorizarNivel, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
+import { aleatorizarNivel, prepararNivelFijo, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
 import {
     cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe,
     datosJefe, recibirJefe, efectoJefe
@@ -72,6 +73,8 @@ iniciarPoderes({
     dañar: (scene, e, daño, congela, empuje) => (e.rivalId != null ? golpearRival(scene, e, daño, congela, empuje) : dañarEnemigo(scene, e, daño, congela)),
     golpearJefe: (scene, zona, daño) => golpearJefeEnZona(scene, zona, daño, apiJefe),
     congelar: (scene, e, ms) => congelarEnemigo(scene, e, ms),
+    // carrera: el poder de un rival me alcanzó (carrera.js decide el efecto)
+    golpeCarrera: (scene, p, de, ox) => recibirPoderCarrera(scene, p, de, ox),
     habilidadBase: (scene, h) => ejecutarHabilidad(scene, h),
     recuperarEscudo: scene => recuperarEscudo(scene, texto => mostrarMensaje(scene, texto, 900)),
     curarVida: scene => {
@@ -360,6 +363,11 @@ iniciarCarrera(juego, {
     revancha: pista => empezarPartida(pista),
     volverASala: () => volverASala(),
 });
+// mecanismos de las Ruinas del Abismo (abismo.js)
+iniciarAbismo({
+    killgesi: scene => killgesi(scene),
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+});
 // el anfitrión volvió a la sala de espera: todos vuelven a ella
 alRecibir('volver', () => {
     terminarArena();
@@ -572,7 +580,11 @@ function create() {
     const enEquipo = mundoCompartido() || (ajustes.cadena && !enLinea());
     // carrera: la pista con sus dos caminos (pistas.js), la misma para todos con la semilla de la sala
     const pista = !arena && enCarrera() && carreraActiva() ? carreraActiva().pista : null;
-    const nivel = arena ? nivelArena() : pista != null ? armarPista(pista, semillaEnLinea(nivelActual)) : aleatorizarNivel(enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual], nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
+    // (las Ruinas del Abismo tienen sus trampas puestas a mano: prepararNivelFijo en azar.js)
+    const delNivel = enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual];
+    const nivel = arena ? nivelArena() : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
+        : delNivel.fija ? prepararNivelFijo(delNivel, semillaEnLinea(nivelActual))
+        : aleatorizarNivel(delNivel, nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
@@ -614,6 +626,7 @@ function create() {
     this.volteretaHasta = 0;
     this.paradaHasta = 0;
     this.empujadoHasta = 0;
+    this.aturdidoHasta = 0; // carrera: aturdido o congelado por el poder de un rival (no se mueve)
     this.recogiendoFlechas = 0;
     this.tieneEscudo = true; // cada vida empieza con escudo (aguanta un golpe)
     this.saltosAire = 0;
@@ -628,6 +641,7 @@ function create() {
     this.contEnemigos = 0;
 
     crearFondo(this, nivel);
+    crearFondoAbismo(this, nivel); // (solo la pista de las Ruinas del Abismo: volcanes y ruinas)
 
     // estalactitas, hongos, antorchas y la puerta de entrada (detrás de todo lo jugable)
     const rangosSuelo = [...(nivel.suelo || []), ...(nivelActual === 0 && !arena ? [[0, 1106]] : [])];
@@ -666,6 +680,8 @@ function create() {
     crearSorpresas(this, nivel, checkpointX ?? 0);
     // cada tipo de trampa tiene su señal visible (grietas, temblores, destellos, ojos rojos)
     crearSenales(this);
+    // las Ruinas del Abismo: aplastadores, portales, el muro que persigue y la decoración (abismo.js)
+    crearAbismo(this, nivel);
 
     // corazones que aparecen al azar cuando te faltan vidas
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
@@ -2872,6 +2888,10 @@ function actualizarJugador(time, delta) {
     } else if (time < (this.empujadoHasta || 0)) {
         // lo acaban de empujar (escudo roto, golpe, mímico): las flechas no anulan el empujón
         if (!g.body.allowGravity) g.body.setAllowGravity(true);
+    } else if (time < (this.aturdidoHasta || 0)) {
+        // carrera: aturdido o congelado por un rival: se queda quieto (la gravedad sigue)
+        if (!g.body.allowGravity) g.body.setAllowGravity(true);
+        if (enSuelo) g.setVelocityX(0);
     } else {
         if (!g.body.allowGravity) g.body.setAllowGravity(true);
 
@@ -2898,14 +2918,17 @@ function actualizarJugador(time, delta) {
     }
 
     const JD = Phaser.Input.Keyboard.JustDown, t = this.teclasDisparo;
-    if (JD(t.espacio)) usarHabilidad(this, 'espacio');
-    if (JD(t.x)) usarHabilidad(this, 'x');
-    if (JD(t.c)) usarHabilidad(this, 'c');
-    if (JD(t.v)) usarPoder(this, 0);
-    if (JD(t.b)) usarPoder(this, 1);
+    const aturdido = time < (this.aturdidoHasta || 0);
+    if (JD(t.espacio) && !aturdido) usarHabilidad(this, 'espacio');
+    if (JD(t.x) && !aturdido) usarHabilidad(this, 'x');
+    if (JD(t.c) && !aturdido) usarHabilidad(this, 'c');
+    if (JD(t.v) && !aturdido) usarPoder(this, 0);
+    if (JD(t.b) && !aturdido) usarPoder(this, 1);
 
     if (enSuelo) this.saltosAire = 0;
-    if (this.keys.up.isDown && enSuelo) {
+    if (aturdido) {
+        // (no salta mientras está aturdido)
+    } else if (this.keys.up.isDown && enSuelo) {
         // se "gasta" la pulsación: el doble salto necesita volver a presionar ↑
         JD(this.keys.up);
         g.setVelocityY(-this.pj.salto);
@@ -2936,6 +2959,7 @@ function actualizarJugador(time, delta) {
     actualizarArena(this);
     actualizarTrampas(this);
     actualizarSorpresas(this, apiSorpresas);
+    actualizarAbismo(this);
     // en línea las trampas también se activan cuando pasa otro jugador (sin hacerte daño a ti)
     fantasmas(this).forEach(f => comoJugador(this, f, () => {
         if (nivelActual === 0 && !this.arena) trampasNivel1(this);

@@ -140,6 +140,140 @@ export function tramoAbismoRunico() {
     };
 }
 
+// ---------- Carrera: Las Ruinas del Abismo (pistas.js, mecanismos propios en abismo.js) ----------
+// Siete zonas seguidas. Cada pieza trae sus trampas puestas a mano (la pista no usa azar.js): así
+// todos corren exactamente lo mismo y se pueden aprender los patrones. Solo las "losas dudosas"
+// cambian con la semilla de la sala (una de cada tres es falsa).
+// Plataformas 'fragil': tiemblan 0,7 s al pisarlas, caen y vuelven a los 3 s (locura 'puente');
+// se distinguen por las grietas que dibuja abismo.js.
+
+// Zona 1 · La Salida Explosiva: salida ancha, un foso fácil y la primera bifurcación opcional:
+// arriba una cornisa con premio (subir cuesta ~1,5 s), abajo un foso y pinchos a la vista.
+// La cornisa está a y = 60: no es techo bajo para el que va por abajo (la cabeza llega a 135).
+export function zonaSalida() {
+    return {
+        ancho: 2200, alto: 160,
+        suelo: [[0, 1000], [1100, 1600], [1700, 2200]],
+        lava: [[1000, 1100], [1600, 1700]],
+        plataformas: [[1150, 236, 120], [1330, 140, 120], [1500, 60, 500]],
+        pinchos: [[1880, 2, false]],
+        monedas: [...fila(1530, 25, 8, 56), ...fila(1180, 200, 3)],
+        cristales: [[1760, -10]],
+        escudos: [[1960, 30]],
+        carteles: [[1060, 150, '↑ RUTA ALTA'], [1240, 300, 'RUTA BAJA →']],
+        enemigos: [2120],
+        zonas: [[0, 'LA SALIDA EXPLOSIVA']],
+    };
+}
+
+// Zona 2 · El Puente de la Muerte: tablones de 96 px sobre un río de lava, unos firmes y otros
+// frágiles. Antes de cada salto con bola de fuego hay un tablón FIRME (ahí se espera sin que se
+// caiga). El tramo roto mide 184 px (se salta con el salto más corto: 220 px).
+export function zonaPuente() {
+    return {
+        ancho: 2200,
+        suelo: [[0, 360], [1060, 1300], [1960, 2200]],
+        lava: [[360, 1060], [1300, 1960]],
+        plataformas: [
+            [400, 300, 96, 'fragil'], [540, 300, 96], [820, 300, 96], [950, 300, 96, 'fragil'],
+            [1340, 300, 96, 'fragil'], [1480, 290, 96], [1620, 280, 96, 'fragil'], [1760, 300, 96],
+        ],
+        bolas: [[728, 2400], [1908, 2600]],
+        pinchos: [[1180, 1, false]],
+        puentes: [[360, 1060, 728], [1300, 1960, -1]], // [inicio, fin, x del tramo roto] (cuerdas: abismo.js)
+        monedas: [[700, 240], [728, 220], [756, 240], ...fila(1500, 255, 3)],
+        zonas: [[0, 'EL PUENTE DE LA MUERTE']],
+    };
+}
+
+// Zona 3 · El Túnel Maldito: 360 px de suelo firme y una caverna de techos variables (136 a 172 px
+// de alto). Sin trampas de suelo: aplastadores que avisan (polvo y runas rojas 0,6 s) y caen con
+// un ritmo fijo, el mismo para todos (reloj de la carrera). Un foso corto donde el techo es más alto.
+export function zonaTunel() {
+    return {
+        ancho: 2200,
+        suelo: [[0, 1150], [1230, 2200]],
+        lava: [[1150, 1230]],
+        techos: [[360, 900, 196], [900, 1400, 160], [1400, 1800, 196], [1800, 2000, 176]],
+        // [x, ciclo ms, desfase ms]: 64 px de ancho; seguros ~1,4 s de cada ciclo
+        aplastadores: [[600, 2800, 0], [1000, 2600, 1300], [1530, 2400, 700], [1650, 2400, 1900], [1880, 2800, 400]],
+        antorchas: [[500, 240], [1300, 210], [1760, 240]],
+        cuevas: [[360, 2000]], // oscuridad visual del túnel (abismo.js)
+        enemigos: [800, 1400],
+        monedas: [...fila(420, 300, 3, 48), ...fila(1160, 230, 3, 28), ...fila(2050, 300, 3)],
+        zonas: [[0, 'EL TÚNEL MALDITO']],
+    };
+}
+
+// Zona 4 · El Atajo Maldito: arriba la senda del guardián de tramoBifurcacion (larga, ancha,
+// un puente móvil que se espera). Abajo, el atajo: foso con bola de fuego, suelo que se hunde en
+// cadena, un portal que solo se abre a ratos (se salta el géiser) o el foso del géiser, una roca
+// del techo y otro foso. Se reúnen al final (la última isla de arriba baja al suelo de abajo).
+export function zonaAtajo() {
+    const t = tramoBifurcacion();
+    return {
+        ...t,
+        suelo: [[0, 700], [880, 950], [1250, 1500], [1690, 2000], [2160, 2600]],
+        falsos: [[950, 1050], [1050, 1150], [1150, 1250]],
+        lava: [[700, 880], [1500, 1690], [2000, 2160]],
+        bolas: [[790, 2600], [2080, 2500]],
+        locuras: [[1100, 'cadena'], [1500, 'geiser', 1690]],
+        rocas: [1860],
+        // [x, y de los pies, salto en x, y de llegada, ms abierto, ms cerrado]
+        portales: [[1380, 332, 380, 332, 1400, 2600]],
+        carteles: [[90, 150, '↑ SENDA SEGURA'], [540, 200, '☠ ATAJO MALDITO →']],
+        zonas: [[0, 'EL ATAJO MALDITO']],
+    };
+}
+
+// Zona 5 · El Suelo Mentiroso: tríos de losas (una es falsa: deja escapar brillo de lava por las
+// juntas), grietas que asustan pero son firmes, un suelo que se desliza sobre la lava, una losa
+// que muerde y un suelo agrietado que solo castiga al que se queda quieto
+export function zonaSueloMentiroso() {
+    return {
+        ancho: 1800,
+        suelo: [[0, 400], [688, 800], [1060, 1440], [1728, 1800]],
+        lava: [[800, 1060]],
+        losasDudosas: [400, 1440], // cada una: tres losas de 96 px (pistas.js elige la falsa)
+        moviles: [[874, 316, 'x', 112, 70]], // (128 px de ancho: nunca toca las orillas; huecos de 10 a 122 px)
+        mordedoras: [[1140, 316]],
+        locuras: [[1330, 'quieto']],
+        grietasFalsas: [300, 1220],
+        monedas: [...fila(700, 300, 3), ...fila(1080, 300, 2), ...fila(1260, 300, 3)],
+        zonas: [[0, 'EL SUELO MENTIROSO']],
+    };
+}
+
+// Zona 6 · La Persecución: al pasar por x = 300 despierta el Muro del Abismo (aparece 520 px
+// detrás, avisa 1 s y avanza a 165 px/s: el héroe más lento corre a 209). Nada obliga a esperar:
+// fosos de ≤ 150 px, pinchos a la vista, una roca del techo y dos plataformas sobre la lava.
+export function zonaPersecucion() {
+    return {
+        ancho: 2300,
+        suelo: [[0, 520], [640, 1000], [1150, 1500], [1620, 1700], [2040, 2300]],
+        lava: [[520, 640], [1000, 1150], [1500, 1620], [1700, 2040]],
+        plataformas: [[1720, 250, 140], [1900, 250, 140]],
+        pinchos: [[800, 2, false]],
+        rocas: [1300],
+        murosAbismo: [[300, 2150]],
+        monedas: [...fila(1740, 215, 3), ...fila(1920, 215, 3)],
+        zonas: [[0, 'LA PERSECUCIÓN']],
+    };
+}
+
+// Zona 7 · La Llegada: un último foso con bola de fuego y la recta final hasta el Portal de la
+// meta (se ve desde lejos: columna de luz). Sin trampas en la recta: se gana corriendo.
+export function zonaLlegada() {
+    return {
+        ancho: 1900,
+        suelo: [[0, 500], [640, 1900]],
+        lava: [[500, 640]],
+        bolas: [[570, 2200]],
+        monedas: [...fila(800, 300, 4), ...fila(1100, 300, 4)],
+        zonas: [[0, 'LA LLEGADA']],
+    };
+}
+
 // ---------- Bosque (nivel 1) ----------
 
 // ramas sobre la lava: tres ramas de madera que se doblan al pisarlas y se rompen si te quedas
@@ -201,9 +335,13 @@ export function tramoArgollas() {
 
 // campos con x en la primera posición ([x, ...]) y campos que son solo x
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
-    'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas'];
-const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints'];
-const RANGOS = ['suelo', 'lava', 'falsos', 'atajos'];
+    'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas',
+    'escudos', 'aplastadores', 'portales', 'zonas'];
+const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints', 'losasDudosas', 'grietasFalsas'];
+const RANGOS = ['suelo', 'lava', 'falsos', 'atajos', 'cuevas', 'murosAbismo'];
+// locuras: [x, tipo, extra]; en las de lava y el túnel, extra es la x del final (también se corre)
+const LOCURAS_CON_FIN = ['ola', 'geiser', 'techoBaja'];
+const moverLocura = ([lx, tipo, extra], d) => [lx + d, tipo, LOCURAS_CON_FIN.includes(tipo) ? extra + d : extra];
 
 const moverEnemigo = (e, d) => Array.isArray(e) ? [e[0] + d, ...e.slice(1)] : e + d;
 
@@ -216,6 +354,8 @@ export function colocar(n, t, x) {
     (t.techos || []).forEach(([a, b, abajo]) => (n.techos = n.techos || []).push([a + x, b + x, abajo]));
     (t.runas || []).forEach(([rx, ry, losas]) => (n.runas = n.runas || []).push([rx + x, ry, losas.map(([lx, ...r]) => [lx + x, ...r])]));
     (t.emboscadas || []).forEach(([a, xs]) => (n.emboscadas = n.emboscadas || []).push([a + x, xs.map(v => v + x)]));
+    (t.locuras || []).forEach(l => (n.locuras = n.locuras || []).push(moverLocura(l, x)));
+    (t.puentes || []).forEach(([a, b, roto]) => (n.puentes = n.puentes || []).push([a + x, b + x, roto < 0 ? roto : roto + x]));
     if (t.alto) n.alto = Math.max(n.alto || 0, t.alto);
 }
 
@@ -233,6 +373,8 @@ export function extender(nivel, x, piezas) {
     nivel.techos = (nivel.techos || []).map(([a, b, abajo]) => [mover(a), mover(b), abajo]);
     nivel.runas = (nivel.runas || []).map(([rx, ry, losas]) => [mover(rx), ry, losas.map(([lx, ...r]) => [mover(lx), ...r])]);
     nivel.emboscadas = (nivel.emboscadas || []).map(([a, xs]) => [mover(a), xs.map(mover)]);
+    nivel.locuras = (nivel.locuras || []).map(l => (l[0] >= x ? moverLocura(l, d) : l));
+    nivel.puentes = (nivel.puentes || []).map(([a, b, roto]) => [mover(a), mover(b), roto < 0 ? roto : mover(roto)]);
     nivel.meta += d;
     nivel.ancho += d;
     let px = x;

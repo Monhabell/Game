@@ -296,7 +296,7 @@ export function iniciarSala(juego, { alEmpezar }) {
         });
         const arenaSel = ARENAS.find(a => a.id === red.arena);
         $('[data-modo-texto]').textContent = carrera
-            ? `Carrera: todos corren la misma pista y ven el avance de los demás. Hay dos caminos: uno largo y seguro, y un atajo con trampas ocultas. Gana el primero en llegar · hasta 8 jugadores · apostado en total ◉ ${red.jugadores.reduce((t, j) => t + (j.apuesta || 0), 0)}`
+            ? `Carrera: todos corren la misma pista y ven el avance de los demás. Hay caminos largos y seguros y atajos con trampas. Tus poderes especiales alcanzan a los rivales (empujan, aturden o congelan, sin quitar vidas). Gana el primero en llegar · hasta 8 jugadores · apostado en total ◉ ${red.jugadores.reduce((t, j) => t + (j.apuesta || 0), 0)}`
             : enArena
             ? `${MODOS[red.modo]} · ${arenaSel?.nombre || ''} (${arenaSel?.peligro || ''}) · al mejor de 3 · ${red.apuesta ? `apuesta ◉ ${red.apuesta} cada uno, el ganador se lleva el pozo` : 'sin apuesta'} · 🏆 Tu liga: ${ligaDe(copasArena())} (${copasArena()} copas)`
             : 'Aventura: todos atados con la cadena';

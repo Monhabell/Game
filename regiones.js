@@ -37,6 +37,8 @@ export const REGIONES = [
         nombre: 'Nubes', oscuridad: 0.7, particulas: 'lluvia', niebla: 'variable', relampagos: [9000, 16000],
         eventos: [{ tipo: 'apagon', en: 0.5, dura: 8000, texto: 'La tormenta tapa la luna...' }],
     },
+    // (sin apagones: la penumbra la pone la caverna del nivel, ver abismo.js)
+    { nombre: 'Ruinas del Abismo', oscuridad: 0.66, particulas: 'brasas', niebla: 'variable', relampagos: [14000, 24000], eventos: [] },
 ];
 
 export function regionDe(indice) {

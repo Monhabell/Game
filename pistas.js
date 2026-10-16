@@ -19,8 +19,11 @@
 // del atajo las pone ponerAtajo con esa misma semilla. Así TODOS corren exactamente la misma pista,
 // y al morir se reaparece con las mismas trampas (en la carrera la semilla no cambia).
 
-import { colocar, tramoLlano, tramoBifurcacion, tramoAbismoRunico } from "./tramos.js"
-import { aleatorizarNivel, crearAzar } from "./azar.js"
+import {
+    colocar, tramoLlano, tramoBifurcacion, tramoAbismoRunico,
+    zonaSalida, zonaPuente, zonaTunel, zonaAtajo, zonaSueloMentiroso, zonaPersecucion, zonaLlegada,
+} from "./tramos.js"
+import { aleatorizarNivel, crearAzar, prepararNivelFijo } from "./azar.js"
 import { NIVELES } from "./niveles.js"
 
 // region: el nivel de la historia del que toma el paisaje, el ambiente y los enemigos
@@ -37,6 +40,22 @@ export const PISTAS = [
             tramoBifurcacion(),
             tramoLlano(1400, { enemigos: 1 }),
         ],
+    },
+    // Las Ruinas del Abismo: fantasía oscura (ruinas, caverna, lava, portales). Siete zonas con
+    // trampas puestas a mano (fija: no pasa por azar.js) y mecanismos propios en abismo.js.
+    //   1. La Salida Explosiva   0 %-14 %   salida ancha, foso fácil, bifurcación opcional
+    //   2. El Puente de la Muerte  -29 %    tablones firmes y frágiles, bolas de fuego, tramo roto
+    //   3. El Túnel Maldito        -43 %    caverna oscura, techos variables, aplastadores con ritmo
+    //   4. El Atajo Maldito        -60 %    senda segura arriba / atajo con cadena, portal y géiser
+    //   5. El Suelo Mentiroso      -72 %    losas falsas (con pista), grietas que mienten, suelo móvil
+    //   6. La Persecución          -87 %    el Muro del Abismo te persigue: no se puede parar
+    //   7. La Llegada             -100 %    último foso y recta hasta el Portal de la meta
+    // Un punto de control al empezar cada zona (en suelo firme): caer cuesta tiempo, nunca la carrera.
+    {
+        nombre: 'Las Ruinas del Abismo',
+        region: 2, // Puentes sobre la Lava: cielo abierto, ceniza y relámpagos (lo oscuro lo pone abismo.js)
+        fija: true,
+        piezas: () => [zonaSalida(), zonaPuente(), zonaTunel(), zonaAtajo(), zonaSueloMentiroso(), zonaPersecucion(), zonaLlegada()],
     },
 ];
 
@@ -67,6 +86,8 @@ export function armarPista(i, semilla) {
     // en la recta final, un punto de control más (nunca más de 3500 px sin uno)
     const ultimo = base.checkpoints[base.checkpoints.length - 1] || 0;
     if (base.meta - ultimo > 3000) base.checkpoints.push(ultimo + 2700);
+
+    if (pista.fija) return prepararNivelFijo({ ...base, abismo: true }, semilla);
 
     const n = aleatorizarNivel(base, INDICE_TRAMPAS, [], semilla);
     // los carteles de las bifurcaciones dicen la verdad: siempre están (azar.js a veces quita carteles)

@@ -8,7 +8,7 @@ import { CASTILLO_META } from "./castillos.js"
 import { crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
 
 // posición de cada nivel en el mapa (el camino pasa por estos puntos)
-const PUNTOS = [[80, 300], [205, 215], [345, 285], [485, 195], [620, 270], [720, 150]];
+const PUNTOS = [[70, 300], [180, 215], [300, 285], [420, 195], [535, 270], [640, 150], [735, 245]];
 const DURACION_CAMINATA = 2600;
 
 const estiloTexto = (tam, color = '#ffffff') => ({

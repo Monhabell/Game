@@ -5,6 +5,12 @@
 //     anfitrión elige la pista y arranca cuando todos están listos. De 2 a 8 jugadores.
 //   - Cada uno corre en su pantalla, con sus enemigos y sus trampas (la misma semilla para todos, así
 //     el recorrido es igual y justo). Los rivales se ven como fantasmas: no estorban ni activan trampas.
+//   - PODERES: los poderes especiales de un rival sí te alcanzan (poderes.js revisa en TU pantalla si
+//     el poder que lanzó su fantasma te tocó). Nunca quitan vidas: empujan, aturden, congelan o
+//     atraen un momento (recibirPoderCarrera). Después de un golpe hay 1,5 s de protección (nada de
+//     encadenar golpes) y un escudo activo lo para. Quien te alcanzó se entera ('carreraGolpe').
+//   - Pistas con zonas (las Ruinas del Abismo): al entrar a cada zona se anuncia su nombre y el aviso
+//     de "lo que viene" muestra la zona siguiente.
 //   - HUD: arriba a la izquierda las posiciones, al centro el cronómetro y el avance de cada uno (para
 //     ver cómo lo pasa el rival), a la derecha el premio. En el escenario, lo que viene (lava,
 //     bifurcación, meta) con su distancia, y un letrero sobre la meta.
@@ -58,6 +64,7 @@ export function iniciarCarrera(juegoPhaser, ganchos) {
         if (m.tipo === 'carreraMeta') llegada(m.de, Number(m.ms));
         else if (m.tipo === 'carreraFin') terminar(m);
         else if (m.tipo === 'carreraOtra' && carrera.fin && esAnfitrion()) { (carrera.piden ||= new Set()).add(m.de); pintarPiden(); }
+        else if (m.tipo === 'carreraGolpe' && m.para === red.tuId) avisarGolpe(m);
     });
     // se fueron todos los rivales: el que queda gana (lo anuncia él mismo, ya es el anfitrión)
     alRecibir('sala', () => {
@@ -92,6 +99,7 @@ export function prepararCarrera(scene, nivel, inicioX) {
     carrera.meta = nivel.meta;
     carrera.inicioX ??= inicioX;
     carrera.peligros ??= peligrosDe(nivel);
+    carrera.zonas ??= nivel.zonas?.length ? [...nivel.zonas].sort((a, b) => a[0] - b[0]) : null;
     letreroMeta(scene, nivel.meta);
     if (carrera.fin) { scene.cinematica = true; return; }
     const falta = carrera.salida - Date.now();
@@ -128,7 +136,70 @@ export function actualizarCarrera(scene) {
     if (!scene.mascotaGesi.isDead) carrera.avance.set(red.tuId, fraccion(scene.mascotaGesi.x));
     scene.remotos?.forEach((r, id) => { if (r.estado && !r.estado.muerto) carrera.avance.set(id, fraccion(r.estado.x)); });
     if (carrera.fin) carrera.avance.set(carrera.fin.ganador, 1);
+    anunciarZona(scene);
     pintarHud(scene);
+}
+
+// pistas con zonas: al entrar a una zona nueva, su nombre en grande (una vez por carrera)
+function anunciarZona(scene) {
+    const zonas = carrera.zonas;
+    const g = scene.mascotaGesi;
+    if (!zonas?.length || carrera.fin || carrera.llegue || g.isDead) return;
+    let i = -1;
+    zonas.forEach(([x], k) => { if (g.x >= x) i = k; });
+    if (i <= (carrera.zonaVista ?? 0)) return; // (la primera la anuncia la salida)
+    carrera.zonaVista = i;
+    api.mensaje(scene, `ZONA ${i + 1}\n${zonas[i][1]}`, 1600);
+}
+
+// ---------- poderes entre rivales ----------
+const PROTEGIDO_MS = 1500;  // después de un golpe de rival, un rato sin recibir otro
+const QUIETO_MAX = 1100;    // ms máximos sin poder moverse por un golpe
+const CONGELA_MAX = 1500;   // ms máximos congelado (contra jugadores, congelar dura la mitad)
+
+// el poder de un rival me alcanzó (lo decidió mi pantalla, ver poderes.js): nunca quita vidas
+export function recibirPoderCarrera(scene, p, de, ox) {
+    const g = scene.mascotaGesi;
+    if (!carrera || carrera.fin || carrera.llegue || scene.cinematica || g.isDead || scene.nivelTerminado) return;
+    const ahora = scene.time.now;
+    if (ahora < (scene.protegidoCarrera || 0)) return;
+    scene.protegidoCarrera = ahora + PROTEGIDO_MS;
+    const quien = nombreDe(de).toUpperCase();
+    // un escudo activo (habilidad o poder de escudo) lo para
+    if (ahora < (scene.escudoHasta || 0)) {
+        api.mensaje(scene, '¡BLOQUEADO!', 700);
+        enviarEvento('carreraGolpe', { para: de, bloqueado: 1 });
+        return;
+    }
+    const congela = p.tipo === 'tiempo' ? Math.min(2000, (p.duracion || 0) / 2) : Math.min(CONGELA_MAX, (p.congela || 0) / 2);
+    const aturde = Math.min(QUIETO_MAX, p.aturde || 0);
+    const quieto = Math.max(congela, aturde, Math.min(QUIETO_MAX, 250 + 120 * (p.daño || 0)));
+    // empujón hacia el lado contrario de donde vino (el tiempo detenido y el vórtice no empujan)
+    let empuje = 0;
+    if (p.tipo !== 'tiempo' && p.tipo !== 'iman') {
+        const lado = Math.sign(g.body.center.x - ox) || 1;
+        const fuerza = Math.min(320, p.empuje || 160 + 30 * (p.daño || 0));
+        g.setVelocity(lado * fuerza, -180);
+        empuje = 220;
+        scene.empujadoHasta = ahora + empuje;
+    }
+    scene.aturdidoHasta = ahora + empuje + quieto;
+    // se ve: congelado (celeste) o aturdido (amarillo), y parpadea mientras está protegido
+    g.setTint(congela ? 0x9fe8ff : 0xffe066);
+    scene.time.delayedCall(empuje + quieto, () => g.active && !g.isDead && g.clearTint());
+    scene.tweens.add({ targets: g, alpha: 0.55, yoyo: true, repeat: Math.floor(PROTEGIDO_MS / 240), duration: 120, onComplete: () => g.setAlpha(1) });
+    scene.cameras.main.shake(140, 0.005);
+    scene.sound.play('bump', { volume: 0.6 });
+    api.mensaje(scene, congela ? `¡${quien} TE CONGELÓ!` : p.tipo === 'iman' ? `¡${quien} TE ATRAPÓ!` : `¡${quien} TE ALCANZÓ!`, 900);
+    enviarEvento('carreraGolpe', { para: de, poder: p.nombre });
+}
+
+// yo alcancé a un rival con un poder (me avisa él)
+function avisarGolpe(m) {
+    const scene = escena();
+    if (!scene || carrera.fin) return;
+    const quien = nombreDe(m.de).toUpperCase();
+    api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : `¡LE DISTE A ${quien}!`, 800);
 }
 
 // llegué a la meta (game.js ya hizo la fiesta del faro)
@@ -326,6 +397,14 @@ function pintarHud(scene) {
 
 // lo que viene en la pista: fosos de lava, bifurcaciones y la meta (las trampas ocultas, no: son ocultas)
 function peligrosDe(nivel) {
+    // pista con zonas: se avisa la zona que viene, las bifurcaciones y la meta
+    if (nivel.zonas?.length) {
+        return [
+            ...nivel.zonas.filter(([x]) => x > 0).map(([x, nombre]) => ({ x, tipo: 'zona', texto: `⚑ ${nombre.charAt(0)}${nombre.slice(1).toLowerCase()}` })),
+            ...(nivel.atajos || []).map(([a]) => ({ x: a - 330, tipo: 'bifurcacion', texto: '⑂ Bifurcación' })),
+            { x: nivel.meta, tipo: 'meta', texto: '🏁 Meta' },
+        ].sort((p, q) => p.x - q.x);
+    }
     const lista = [
         ...(nivel.lava || []).filter(([a, b]) => b - a >= 100).map(([a]) => ({ x: a, tipo: 'lava', texto: '🔥 Lava' })),
         // (la bifurcación empieza ~330 px antes de su atajo: donde está el primer escalón)
