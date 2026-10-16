@@ -1,6 +1,6 @@
 // Ajustes del jugador (menú de configuración): se guardan en el navegador / la app.
 // La dificultad y los enemigos se aplican al empezar o reiniciar un nivel (al morir también);
-// la cámara, el volumen y los botones táctiles, al momento.
+// la cámara, el volumen y los botones táctiles (tamaño y posición), al momento.
 
 const CLAVE = 'monhabell-aventura-ajustes';
 
@@ -59,6 +59,10 @@ function leer() {
         if (!VOCES[a.voz]) a.voz = POR_DEFECTO.voz;
         if (![1, 1.25, 1.5].includes(a.autoRes)) delete a.autoRes;
         if (!(a.volumen >= 0 && a.volumen <= 100)) a.volumen = POR_DEFECTO.volumen;
+        // posición de los botones táctiles (tactil.js): { id: [fracción del ancho, fracción del alto] }
+        if (typeof a.posBotones !== 'object' || !a.posBotones) a.posBotones = {};
+        for (const [id, p] of Object.entries(a.posBotones))
+            if (!Array.isArray(p) || !p.every(n => Number.isFinite(n) && Math.abs(n) <= 1)) delete a.posBotones[id];
         return a;
     } catch (_e) {
         return { ...POR_DEFECTO };

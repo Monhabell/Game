@@ -6,6 +6,7 @@
 import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION, VOCES } from "./ajustes.js"
 import { enLinea } from "./red.js"
 import { saldo } from "./tienda.js"
+import { editarBotones, terminarEdicion } from "./tactil.js"
 
 // dentro del APK (Capacitor): se puede cerrar la app y usar el botón "atrás" de Android
 const APP = !!window.Capacitor?.isNativePlatform?.();
@@ -22,7 +23,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
     // llegan al juego: Phaser también escucha fuera del lienzo y "tocaría" lo que hay debajo
     // (por ejemplo, al tocar "Listo" en el vestidor se empezaba a jugar)
     ['mousedown', 'touchstart', 'pointerdown'].forEach(tipo => contenedor.addEventListener(tipo, e => {
-        if (e.target.closest?.('.menu-capa, .botones-flotantes, .boton-voz')) e.stopPropagation();
+        if (e.target.closest?.('.menu-capa, .botones-flotantes, .boton-voz, .tactil.editando')) e.stopPropagation();
     }));
 
     // ---------- botones flotantes: pausa y configuración ----------
@@ -122,7 +123,15 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
                         <output for="ajuste-volumen" id="valor-volumen"></output>
                     </div>
                 </fieldset>
-                ${document.body.classList.contains('movil') ? grupo('botones', 'Botones táctiles', BOTONES) : ''}
+                ${document.body.classList.contains('movil') ? `
+                <fieldset class="menu-grupo">
+                    <legend>Botones táctiles</legend>
+                    <div class="menu-opciones">
+                        ${Object.entries(BOTONES).map(([v, o]) =>
+                            `<button type="button" class="menu-opcion" data-clave="botones" data-valor="${v}">${o.nombre}</button>`).join('')}
+                    </div>
+                    <button type="button" class="menu-boton" data-accion="mover-botones">✥ Mover botones</button>
+                </fieldset>` : ''}
                 ${grupo('voz', 'Chat de voz (en línea)', VOCES, 'Pulsar: mantén 🎤 o Q para hablar · Abierto: 🎤 o Q te silencia')}
                 <fieldset class="menu-grupo">
                     <legend>Para probar</legend>
@@ -280,6 +289,11 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
     });
     capaAjustes.querySelector('[data-accion="volver"]').addEventListener('click', cerrarAjustes);
     capaAjustes.querySelector('[data-accion="reabrir"]').addEventListener('click', () => location.reload());
+    // mover los botones: se esconde la configuración mientras se arrastran y al terminar vuelve
+    capaAjustes.querySelector('[data-accion="mover-botones"]')?.addEventListener('click', () => {
+        ocultar(capaAjustes);
+        editarBotones(() => mostrar(capaAjustes));
+    });
 
     // salir del juego (solo en el APK): pide un segundo toque para confirmar
     [capaPausa, capaAjustes].forEach(capa => capa.querySelector('[data-accion="cerrar"]')?.addEventListener('click', e => {
@@ -292,6 +306,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
 
     // botón "atrás" de Android: cierra el menú abierto; en un nivel pausa; en los menús abre la configuración
     pluginApp()?.addListener('backButton', () => {
+        if (terminarEdicion()) return;
         if (!capaAjustes.hidden) cerrarAjustes();
         else if (pausado) reanudar();
         else if (juego.scene.isActive('juego')) pausar();

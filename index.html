@@ -330,9 +330,17 @@
             z-index: 9;
             pointer-events: none;
             font-family: var(--letra);
+            /* separación de los bordes: ~32px a los lados y ~24px abajo (lo que se usa en juegos de celular
+               para que el pulgar no toque el borde ni la curva de la pantalla), más el notch si lo hay */
+            --t-borde-izq: max(32px, calc(env(safe-area-inset-left) + 16px));
+            --t-borde-der: max(32px, calc(env(safe-area-inset-right) + 16px));
+            --t-borde-abajo: max(24px, calc(env(safe-area-inset-bottom) + 12px));
         }
 
-        .tactil.visible { display: block; }
+        .tactil.visible, .tactil.editando { display: block; }
+
+        /* cada control se puede mover (⚙ → Mover botones): tactil.js pone --dx / --dy */
+        .t-movible { translate: var(--dx, 0px) var(--dy, 0px); }
 
         .t-zona-joy, .t-btn {
             pointer-events: auto;
@@ -353,8 +361,8 @@
 
         .t-joy {
             position: absolute;
-            left: calc(max(12px, env(safe-area-inset-left)) + 62px);
-            top: calc(100% - 74px);
+            left: calc(var(--t-borde-izq) + 60px * var(--t-escala, 1));
+            top: calc(100% - var(--t-borde-abajo) - 60px * var(--t-escala, 1));
             width: 120px;
             height: 120px;
             border-radius: 50%;
@@ -367,7 +375,7 @@
             transition: opacity 0.15s;
         }
 
-        .t-joy.activo { opacity: 1; }
+        .t-joy.activo { opacity: 1; translate: none; }
 
         .t-bolita {
             position: absolute;
@@ -390,8 +398,8 @@
 
         .t-acciones {
             position: absolute;
-            right: max(12px, env(safe-area-inset-right));
-            bottom: 12px;
+            right: var(--t-borde-der);
+            bottom: var(--t-borde-abajo);
             display: grid;
             grid-template-columns: repeat(2, 64px);
             grid-template-rows: 52px repeat(2, 64px);
@@ -478,8 +486,8 @@
         .t-anclar {
             display: none;
             position: absolute;
-            right: calc(max(12px, env(safe-area-inset-right)) + 150px * var(--t-escala, 1));
-            bottom: 14px;
+            right: calc(var(--t-borde-der) + 150px * var(--t-escala, 1));
+            bottom: calc(var(--t-borde-abajo) + 2px);
             width: 58px;
             height: 58px;
             border-color: rgba(79, 209, 165, 0.5);
@@ -488,6 +496,32 @@
         }
 
         .tactil.con-cadena .t-anclar { display: flex; }
+
+        /* ---------- mover los botones (⚙ → Mover botones) ---------- */
+        .tactil.editando { pointer-events: auto; background: rgba(5, 7, 15, 0.45); z-index: 16; }
+        .tactil.editando .t-anclar { display: flex; }
+        .tactil.editando .t-esp.vacio { visibility: visible; }
+        .tactil.editando .t-movible { outline: 2px dashed rgba(139, 156, 255, 0.8); outline-offset: 3px; cursor: grab; }
+        .tactil.editando .t-joy { opacity: 1; }
+        .tactil.editando .t-movible.arrastrando { outline-color: #fff; cursor: grabbing; }
+        .t-editor {
+            display: none;
+            position: absolute;
+            top: max(10px, env(safe-area-inset-top));
+            left: 50%;
+            transform: translateX(-50%);
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 14px;
+            background: var(--superficie-2, #1b2033);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #eef1f7;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .tactil.editando .t-editor { display: flex; }
+        .t-editor .menu-boton { min-height: 34px; padding: 0 12px; font-size: 12px; }
 
         /* ---------- sala de espera del multijugador (sala.js) ---------- */
         .sala-paso { display: flex; flex-direction: column; gap: 12px; }
