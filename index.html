@@ -571,6 +571,13 @@
         .sala-tarjeta > b { font-size: 15px; }
         .sala-tarjeta .menu-nota { margin: 0; text-align: left; }
         .sala-tarjeta .sala-empezar { margin-top: 2px; }
+        /* buscar partida (automático): el modo a buscar y el botón en una fila */
+        .sala-buscar .menu-fila { align-items: center; }
+        .sala-buscar #sala-buscar-modo { flex: 1; min-width: 0; }
+        .sala-buscar .sala-empezar { margin-top: 0; white-space: nowrap; }
+        .sala-publica { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--texto-2, #c9cfe0); cursor: pointer; }
+        .sala-publica[hidden] { display: none; }
+        .sala-publica input { width: 16px; height: 16px; accent-color: var(--acento, #8b9cff); }
         @media (max-width: 640px) { .sala-entrar:not([hidden]) { grid-template-columns: 1fr; gap: 12px; } }
         @media (max-height: 520px) { .sala-entrar:not([hidden]) { gap: 14px; } .sala-tarjeta { padding: 8px 10px; gap: 4px; } .sala-tarjeta > b { font-size: 13px; } }
         .sala-cuerpo {
@@ -632,7 +639,7 @@
             text-align: left;
         }
 
-        .sala-campo input, .sala-campo select, #sala-codigo {
+        .sala-campo input, .sala-campo select, #sala-codigo, #sala-buscar-modo {
             min-height: 42px;
             padding: 0 14px;
             font-family: inherit;
@@ -647,7 +654,7 @@
 
         .sala-campo input::placeholder, #sala-codigo::placeholder { color: rgba(238, 241, 247, 0.35); }
 
-        .sala-campo input:hover, .sala-campo select:hover, #sala-codigo:hover { border-color: var(--borde-fuerte); }
+        .sala-campo input:hover, .sala-campo select:hover, #sala-codigo:hover, #sala-buscar-modo:hover { border-color: var(--borde-fuerte); }
 
         #sala-codigo {
             flex: 1;
@@ -658,7 +665,7 @@
             text-transform: uppercase;
         }
 
-        .sala-campo input:focus-visible, .sala-campo select:focus-visible, #sala-codigo:focus-visible {
+        .sala-campo input:focus-visible, .sala-campo select:focus-visible, #sala-codigo:focus-visible, #sala-buscar-modo:focus-visible {
             outline: none;
             border-color: var(--acento);
             box-shadow: 0 0 0 3px var(--acento-suave);
@@ -958,7 +965,7 @@
             .menu-volumen output { font-size: 10px; }
             .sala-paso { gap: 8px; }
             .sala-campo { font-size: 10px; gap: 4px; }
-            .sala-campo input, .sala-campo select, #sala-codigo { min-height: 34px; font-size: 12px; }
+            .sala-campo input, .sala-campo select, #sala-codigo, #sala-buscar-modo { min-height: 34px; font-size: 12px; }
             .sala-panel { padding: 10px 14px; }
             .sala-codigo { padding: 4px 10px; }
             .sala-codigo b { font-size: 20px; }
@@ -1408,7 +1415,8 @@
         .t-esp { background-size: cover; background-position: center; border: 2px solid rgba(199, 125, 255, 0.6); }
         .t-esp b { display: none; } /* (en el celular la tecla no dice nada: se ve el ícono del poder) */
         .t-esp.vacio { visibility: hidden; }
-        .t-esp.cargando { filter: grayscale(0.7) brightness(0.7); }
+        .t-esp { filter: var(--matiz, hue-rotate(0deg)); } /* (--matiz: el tono de los poderes nuevos) */
+        .t-esp.cargando { filter: var(--matiz, hue-rotate(0deg)) grayscale(0.7) brightness(0.7); }
         .tienda-btn { min-height: 38px; padding: 0 14px; font-size: 13px; white-space: nowrap; }
         .tienda-comprar:not(:disabled) { color: #fff; background: var(--acento-fuerte); border-color: transparent; }
         .tienda-comprar:not(:disabled):hover { background: var(--acento); }

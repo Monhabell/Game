@@ -1,6 +1,7 @@
 // "Jugar con amigos": sala de espera del multijugador (capa HTML sobre el juego).
 //   1. Tu nombre y tu personaje
-//   2. Crear sala (te da un código de 4 letras) o unirte con el código de un amigo
+//   2. Buscar partida (automático: entra a una sala pública con lugar o crea una y espera), crear sala
+//      (te da un código de 4 letras) o unirte con el código de un amigo
 //   3. En la sala: ves quién está, cambias de personaje; el anfitrión elige el nivel y empieza
 // Hasta 8 jugadores, atados en fila por la cadena en el orden en que entraron.
 // En la sala, cada jugador aparece en un escenario con su personaje: cae al unirse, pasea de un
@@ -17,7 +18,7 @@ import { PERSONAJES } from "./personajes.js"
 import { NIVELES } from "./niveles.js"
 import {
     red, alRecibir, crearSala, unirseSala, elegirPersonaje, empezarPartida, salirSala, esAnfitrion, enviarEvento, elegirModo, elegirEquipo,
-    informarSaldo, apostar, marcarListo,
+    informarSaldo, apostar, marcarListo, buscarSala, hacerPublica,
 } from "./red.js"
 import { PISTAS } from "./pistas.js"
 import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena, copasArena, ligaDe } from "./arena.js"
@@ -56,6 +57,17 @@ export function iniciarSala(juego, { alEmpezar }) {
                 </div>
                 <div class="sala-columna">
                     <h3 class="sala-titulo">A jugar</h3>
+                    <div class="sala-tarjeta sala-buscar">
+                        <b>Buscar partida</b>
+                        <p class="menu-nota">Te unimos a una sala con gente esperando (o creamos una y llegan otros).</p>
+                        <div class="menu-fila">
+                            <select id="sala-buscar-modo" aria-label="Modo a buscar">
+                                <option value="">Cualquier modo</option>
+                                ${Object.entries(MODOS).map(([m, t]) => `<option value="${m}">${t}</option>`).join('')}
+                            </select>
+                            <button type="button" class="menu-boton sala-empezar" data-accion="buscar">🔍 Buscar</button>
+                        </div>
+                    </div>
                     <div class="sala-tarjeta">
                         <b>Crear una sala</b>
                         <p class="menu-nota">Te da un código de 4 letras para pasarle a tus amigos (hasta 8).</p>
@@ -84,6 +96,10 @@ export function iniciarSala(juego, { alEmpezar }) {
                         <button type="button" class="sala-copiar" data-copiar aria-label="Copiar el código">Copiar</button>
                     </div>
                     <p class="menu-nota">Pásale este código a tus amigos (hasta 8)</p>
+                    <label class="sala-publica" data-solo-anfitrion>
+                        <input type="checkbox" data-publica> Pública: cualquiera que busque partida puede entrar
+                    </label>
+                    <p class="menu-nota" data-es-publica hidden>🌐 Sala pública: llegan jugadores que buscan partida</p>
                     <ol class="sala-lista" data-lista></ol>
                 </div>
                 </div>
@@ -188,6 +204,15 @@ export function iniciarSala(juego, { alEmpezar }) {
     capa.addEventListener('click', e => {
         const accion = e.target.closest('[data-accion]')?.dataset.accion;
         if (accion === 'crear') conEspera(() => crearSala(nombreLimpio(), pjElegido));
+        else if (accion === 'buscar') {
+            conEspera(async () => {
+                await buscarSala(nombreLimpio(), pjElegido, $('#sala-buscar-modo').value);
+                avisar('Buscando partida…');
+                // un servidor viejo no conoce la búsqueda: no contesta
+                const pedido = Date.now();
+                setTimeout(() => { if (!red.codigo && Date.now() - pedido >= 5900) avisar('El servidor todavía no tiene la búsqueda automática: crea una sala o únete con código', true); }, 6000);
+            });
+        }
         else if (accion === 'unirse') {
             const c = codigo.value.trim().toUpperCase();
             if (c.length !== 4) { avisar('El código tiene 4 letras', true); codigo.focus(); return; }
@@ -244,7 +269,13 @@ export function iniciarSala(juego, { alEmpezar }) {
     codigo.addEventListener('keydown', e => { if (e.key === 'Enter') capa.querySelector('[data-accion="unirse"]').click(); });
 
     // ---------- mensajes del servidor ----------
-    alRecibir('sala', () => { avisar(''); anunciarColores(); dibujarSala(); });
+    alRecibir('sala', () => { avisar(''); anunciarColores(); dibujarSala(); pintarPublica(); });
+    // sala pública: el anfitrión la abre o la cierra a la búsqueda automática
+    $('[data-publica]').addEventListener('change', e => hacerPublica(e.target.checked));
+    function pintarPublica() {
+        $('[data-publica]').checked = red.publica;
+        $('[data-es-publica]').hidden = !red.publica || esAnfitrion();
+    }
     // colores de los demás (prefijo de animación: "arquera~b4202a.o.o.o")
     const coloresDe = new Map();
     alRecibir('evento', m => {

@@ -11,6 +11,10 @@
 //   cliente -> servidor
 //     crear    { nombre, pj }            crea una sala y te une como anfitrión
 //     unirse   { codigo, nombre, pj }    entra a una sala que todavía no empezó
+//     buscar   { nombre, pj, modo? }     búsqueda automática: entra a una sala PÚBLICA que no empezó y tenga
+//                                        lugar (del modo pedido, si se pide; la más llena primero). Si no hay,
+//                                        crea una pública (con ese modo, o carrera) y espera a que lleguen otros
+//     publica  { publica }               (solo anfitrión) abre o cierra la sala a la búsqueda automática
 //     elegir   { pj }                    cambia de personaje en la sala de espera
 //     empezar  { nivel }                 (solo anfitrión) arranca la partida para todos (también la revancha)
 //     modo     { modo, arena, apuesta }  (solo anfitrión) 'aventura' | 'duelo' (1 contra 1) | 'equipos' (rojo contra azul)
@@ -22,7 +26,7 @@
 //     listo    { listo }                 (carrera) ya eligió su apuesta y está listo para correr
 //     estado / evento { ... }            se reenvía a los demás con { de: tuId }
 //   servidor -> cliente
-//     sala     { codigo, tuId, anfitrion, jugadores, modo, arena }   (cada vez que cambia la lista)
+//     sala     { codigo, tuId, anfitrion, jugadores, modo, arena, publica }   (cada vez que cambia la lista)
 //     empezar  { nivel, semilla, jugadores, modo, arena }
 //     volver   {}
 //     estado / evento { de, ... }
@@ -39,7 +43,7 @@ const MAX_MENSAJES_SEG = 60;         // por jugador (el juego manda ~20 por segu
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O (se confunden con 1 y 0)
 const MODOS = new Set(['aventura', 'duelo', 'equipos', 'carrera']);
 const esArena = modo => modo === 'duelo' || modo === 'equipos';
-const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo']);
+const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo', 'abismo']);
 const MAX_ARENA = 4; // jugadores en una batalla de la arena
 const APUESTAS = new Set([0, 10, 25, 50, 100]);
 const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera', 'paladina', 'asesina', 'elfa']);
@@ -51,7 +55,8 @@ const servidor = http.createServer((req, res) => {
     // para comprobar desde el navegador que el servidor está vivo
     if (req.url === '/salud' || req.url === '/') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, salas: salas.size, jugadores: [...salas.values()].reduce((n, s) => n + s.jugadores.size, 0) }));
+        res.end(JSON.stringify({ ok: true, salas: salas.size, publicas: [...salas.values()].filter(s => s.publica && !s.empezada).length,
+            jugadores: [...salas.values()].reduce((n, s) => n + s.jugadores.size, 0) }));
         return;
     }
     res.writeHead(404).end();
@@ -86,10 +91,26 @@ function atender(ws, m) {
     switch (m.t) {
         case 'crear': {
             if (ws.sala) return;
-            const sala = { codigo: nuevoCodigo(), jugadores: new Map(), anfitrion: 1, empezada: false, siguienteId: 1, modo: 'aventura', arena: 'bosque', apuesta: 0 };
-            salas.set(sala.codigo, sala);
+            entrar(ws, nuevaSala(), m);
+            return;
+        }
+        case 'buscar': {
+            if (ws.sala) return;
+            const modo = MODOS.has(m.modo) ? m.modo : null;
+            const libre = [...salas.values()]
+                .filter(s => s.publica && !s.empezada && s.jugadores.size < cupo(s) && (!modo || s.modo === modo))
+                .sort((a, b) => b.jugadores.size - a.jugadores.size)[0];
+            if (libre) { entrar(ws, libre, m); return; }
+            // nadie esperando: se crea una sala pública y los siguientes que busquen llegan a ella
+            const sala = nuevaSala({ publica: true, modo: modo || 'carrera' });
             entrar(ws, sala, m);
-            console.log(`sala ${sala.codigo} creada`);
+            return;
+        }
+        case 'publica': {
+            const sala = ws.sala;
+            if (!sala || sala.anfitrion !== ws.id) return;
+            sala.publica = !!m.publica;
+            avisarLista(sala);
             return;
         }
         case 'unirse': {
@@ -98,6 +119,7 @@ function atender(ws, m) {
             if (!sala) return enviar(ws, { t: 'error', motivo: 'No existe esa sala' });
             if (sala.empezada) return enviar(ws, { t: 'error', motivo: 'La partida ya empezó' });
             if (sala.jugadores.size >= MAX_JUGADORES) return enviar(ws, { t: 'error', motivo: 'La sala está llena (8 jugadores)' });
+            if (sala.modo === 'duelo' && sala.jugadores.size >= 2) return enviar(ws, { t: 'error', motivo: 'El duelo ya tiene sus 2 jugadores' });
             if (esArena(sala.modo) && sala.jugadores.size >= MAX_ARENA) return enviar(ws, { t: 'error', motivo: 'La sala de la arena está llena (4 jugadores)' });
             entrar(ws, sala, m);
             return;
@@ -202,6 +224,16 @@ function atender(ws, m) {
     }
 }
 
+// cuántos caben según el modo (duelo 2, arena por equipos 4, lo demás 8)
+const cupo = sala => (sala.modo === 'duelo' ? 2 : esArena(sala.modo) ? MAX_ARENA : MAX_JUGADORES);
+
+function nuevaSala({ publica = false, modo = 'aventura' } = {}) {
+    const sala = { codigo: nuevoCodigo(), jugadores: new Map(), anfitrion: 1, empezada: false, siguienteId: 1, modo, arena: 'bosque', apuesta: 0, publica };
+    salas.set(sala.codigo, sala);
+    console.log(`sala ${sala.codigo} creada${publica ? ' (pública)' : ''}`);
+    return sala;
+}
+
 function entrar(ws, sala, m) {
     ws.sala = sala;
     ws.id = sala.siguienteId++;
@@ -238,7 +270,7 @@ function salir(ws) {
 function avisarLista(sala) {
     const jugadores = lista(sala);
     for (const j of sala.jugadores.values()) {
-        enviar(j.ws, { t: 'sala', codigo: sala.codigo, tuId: j.id, anfitrion: sala.anfitrion, empezada: sala.empezada, jugadores, modo: sala.modo, arena: sala.arena, apuesta: sala.apuesta });
+        enviar(j.ws, { t: 'sala', codigo: sala.codigo, tuId: j.id, anfitrion: sala.anfitrion, empezada: sala.empezada, jugadores, modo: sala.modo, arena: sala.arena, apuesta: sala.apuesta, publica: !!sala.publica });
     }
 }
 

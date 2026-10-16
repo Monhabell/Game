@@ -19,7 +19,7 @@
 //     debilidad (Rubí sigue sin defensa, Aria sin ataque de lejos...). Cambian valores de una de
 //     sus habilidades (personajes.js): el juego usa los datos mejorados, sin lógica nueva.
 //     Algunos héroes tienen dos mejoras (se suman).
-//   - Poderes especiales (poderes.js): 50 poderes en su propia pestaña; se compran o se ganan al
+//   - Poderes especiales (poderes.js): 65 poderes en su propia pestaña; se compran o se ganan al
 //     terminar niveles, y cada héroe equipa dos (teclas V y B).
 //   - Los héroes siguen libres desde el principio (son la base del juego, no un premio).
 // Precios: hay ~700 monedas en la campaña y un jugador normal junta ~480. Lo permanente (300) y las
@@ -30,7 +30,7 @@
 
 import { PERSONAJES } from "./personajes.js"
 import {
-    PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, colorDe,
+    PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, filtroIcono, colorDe,
     nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX,
 } from "./poderes.js"
 
@@ -358,7 +358,7 @@ export function iniciarTienda() {
         const ranura = (id, i) => {
             const p = PODERES.find(q => q.id === id);
             return `<div class="poder-ranura"><kbd>${i ? 'B' : 'V'}</kbd>${p
-                ? `<img src="${urlIcono(p)}" alt="" width="34" height="34"><span>${p.nombre}</span>`
+                ? `<img src="${urlIcono(p)}" alt="" width="34" height="34" style="filter:${filtroIcono(p)}"><span>${p.nombre}</span>`
                 : '<span class="vacia">Vacía</span>'}</div>`;
         };
         const filtros = ['todos', 'mios', ...Object.keys(RAREZAS)].map(f => `<button type="button" class="poder-filtro ${filtro === f ? 'activo' : ''}"
@@ -366,7 +366,7 @@ export function iniciarTienda() {
         const visibles = PODERES.filter(p => filtro === 'todos' || (filtro === 'mios' ? tienePoder(p.id) : p.rareza === filtro));
         lista.innerHTML = `
             <div class="poder-equipo"><b>Equipados en <span style="color:${colorHeroe}">${h.nombre}</span></b>${eq.map(ranura).join('')}</div>
-            <p class="menu-nota">Ganas un poder al terminar cada nivel por primera vez (y a veces al rejugarlo). En el nivel se usan con V y B. Súbelos hasta ★★★ con monedas.</p>
+            <p class="menu-nota">Ganas un poder al terminar cada nivel por primera vez (y a veces al rejugarlo). En el nivel se usan con V y B. Súbelos hasta ★★★★★ con monedas.</p>
             <div class="poder-filtros" role="group" aria-label="Filtrar poderes">${filtros}</div>
             ${visibles.map(p => {
                 const mio = tienePoder(p.id), r = RAREZAS[p.rareza], precio = precioPoder(p);
@@ -385,7 +385,7 @@ export function iniciarTienda() {
                 const nivelChip = mio ? `<em class="poder-nivel" aria-label="Nivel ${nv} de ${NIVEL_MAX}">${'★'.repeat(nv)}${'☆'.repeat(NIVEL_MAX - nv)}</em>` : '';
                 return `
                 <div class="tienda-item poder-item ${mio ? 'comprado' : ''} ${eq.includes(p.id) ? 'equipado' : ''}" style="--tienda-color:${colorDe(p)}">
-                    <img class="poder-icono" src="${urlIcono(p)}" alt="" width="44" height="44" loading="lazy" style="border-color:${r.color}">
+                    <img class="poder-icono" src="${urlIcono(p)}" alt="" width="44" height="44" loading="lazy" style="border-color:${r.color};filter:${filtroIcono(p)}">
                     <div class="tienda-info">
                         <b>${p.nombre} <em class="tienda-heroe" style="--pj:${r.color}">${r.nombre}</em> ${nivelChip}</b>
                         <span>${p.descripcion}</span>

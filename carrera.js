@@ -6,9 +6,10 @@
 //   - Cada uno corre en su pantalla, con sus enemigos y sus trampas (la misma semilla para todos, así
 //     el recorrido es igual y justo). Los rivales se ven como fantasmas: no estorban ni activan trampas.
 //   - PODERES: los poderes especiales de un rival sí te alcanzan (poderes.js revisa en TU pantalla si
-//     el poder que lanzó su fantasma te tocó). Nunca quitan vidas: empujan, aturden, congelan o
-//     atraen un momento (recibirPoderCarrera). Después de un golpe hay 1,5 s de protección (nada de
-//     encadenar golpes) y un escudo activo lo para. Quien te alcanzó se entera ('carreraGolpe').
+//     el poder que lanzó su fantasma te tocó). Cada poder tiene su efecto (aturdir, congelar,
+//     ralentizar, explotar, empujar, confundir, bloquear poderes o atraer: EFECTOS_CARRERA en
+//     poderes.js) con su señal sobre el personaje. Nunca quitan vidas. Después de un golpe hay 1,5 s
+//     de protección (nada de encadenar golpes) y un escudo activo lo para. Quien te alcanzó se entera.
 //   - Pistas con zonas (las Ruinas del Abismo): al entrar a cada zona se anuncia su nombre y el aviso
 //     de "lo que viene" muestra la zona siguiente.
 //   - HUD: arriba a la izquierda las posiciones, al centro el cronómetro y el avance de cada uno (para
@@ -39,6 +40,8 @@ import { APUESTAS } from "./arena.js"
 import { saldo } from "./tienda.js"
 import { SUELO_Y } from "./niveles.js"
 import { pistaDe } from "./pistas.js"
+import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
+import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 
 const CUENTA_MS = 4000;      // de 'empezar' a la salida
 const ESPERA_LLEGADAS = 400; // el anfitrión espera este rato por si otro llegó casi a la vez
@@ -153,45 +156,25 @@ function anunciarZona(scene) {
 }
 
 // ---------- poderes entre rivales ----------
-const PROTEGIDO_MS = 1500;  // después de un golpe de rival, un rato sin recibir otro
-const QUIETO_MAX = 1100;    // ms máximos sin poder moverse por un golpe
-const CONGELA_MAX = 1500;   // ms máximos congelado (contra jugadores, congelar dura la mitad)
-
-// el poder de un rival me alcanzó (lo decidió mi pantalla, ver poderes.js): nunca quita vidas
+// Cada poder hace lo suyo (aturdir, congelar, ralentizar, explotar, empujar, confundir, bloquear o
+// atraer: efectos.js). Nunca quitan vidas (un empujón sí puede tirarte a la lava).
 export function recibirPoderCarrera(scene, p, de, ox) {
     const g = scene.mascotaGesi;
     if (!carrera || carrera.fin || carrera.llegue || scene.cinematica || g.isDead || scene.nivelTerminado) return;
-    const ahora = scene.time.now;
-    if (ahora < (scene.protegidoCarrera || 0)) return;
-    scene.protegidoCarrera = ahora + PROTEGIDO_MS;
+    const tipo = efectoEnCarrera(p);
+    if (!tipo || !puedeRecibirEfecto(scene)) return;
     const quien = nombreDe(de).toUpperCase();
     // un escudo activo (habilidad o poder de escudo) lo para
-    if (ahora < (scene.escudoHasta || 0)) {
+    if (scene.time.now < (scene.escudoHasta || 0)) {
         api.mensaje(scene, '¡BLOQUEADO!', 700);
         enviarEvento('carreraGolpe', { para: de, bloqueado: 1 });
         return;
     }
-    const congela = p.tipo === 'tiempo' ? Math.min(2000, (p.duracion || 0) / 2) : Math.min(CONGELA_MAX, (p.congela || 0) / 2);
-    const aturde = Math.min(QUIETO_MAX, p.aturde || 0);
-    const quieto = Math.max(congela, aturde, Math.min(QUIETO_MAX, 250 + 120 * (p.daño || 0)));
-    // empujón hacia el lado contrario de donde vino (el tiempo detenido y el vórtice no empujan)
-    let empuje = 0;
-    if (p.tipo !== 'tiempo' && p.tipo !== 'iman') {
-        const lado = Math.sign(g.body.center.x - ox) || 1;
-        const fuerza = Math.min(320, p.empuje || 160 + 30 * (p.daño || 0));
-        g.setVelocity(lado * fuerza, -180);
-        empuje = 220;
-        scene.empujadoHasta = ahora + empuje;
-    }
-    scene.aturdidoHasta = ahora + empuje + quieto;
-    // se ve: congelado (celeste) o aturdido (amarillo), y parpadea mientras está protegido
-    g.setTint(congela ? 0x9fe8ff : 0xffe066);
-    scene.time.delayedCall(empuje + quieto, () => g.active && !g.isDead && g.clearTint());
-    scene.tweens.add({ targets: g, alpha: 0.55, yoyo: true, repeat: Math.floor(PROTEGIDO_MS / 240), duration: 120, onComplete: () => g.setAlpha(1) });
-    scene.cameras.main.shake(140, 0.005);
-    scene.sound.play('bump', { volume: 0.6 });
-    api.mensaje(scene, congela ? `¡${quien} TE CONGELÓ!` : p.tipo === 'iman' ? `¡${quien} TE ATRAPÓ!` : `¡${quien} TE ALCANZÓ!`, 900);
-    enviarEvento('carreraGolpe', { para: de, poder: p.nombre });
+    // en la carrera los golpes siempre RETRASAN (hacia atrás en el recorrido, aunque le pegues por
+    // detrás) y dejan un momento de recuperación: nunca se ayuda al rival a avanzar
+    aplicarEfecto(scene, tipo, { rareza: p.rareza, nivel: p.nivel, lado: -1, empuje: p.empuje, recuperacion: 450 });
+    api.mensaje(scene, textoEfecto(tipo, quien), 1000);
+    enviarEvento('carreraGolpe', { para: de, efecto: tipo });
 }
 
 // yo alcancé a un rival con un poder (me avisa él)
@@ -199,7 +182,8 @@ function avisarGolpe(m) {
     const scene = escena();
     if (!scene || carrera.fin) return;
     const quien = nombreDe(m.de).toUpperCase();
-    api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : `¡LE DISTE A ${quien}!`, 800);
+    const e = EFECTOS_CARRERA[m.efecto];
+    api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : `${e ? `${e.icono} ` : ''}¡LE DISTE A ${quien}!`, 800);
 }
 
 // llegué a la meta (game.js ya hizo la fiesta del faro)

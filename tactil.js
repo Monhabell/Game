@@ -236,6 +236,7 @@ export function iniciarTactil(juego) {
                 if (icono !== p.icono) {
                     p.icono = icono;
                     p.b.style.backgroundImage = icono ? `url("${icono}")` : '';
+                    p.b.style.setProperty('--matiz', e?.filtro || 'hue-rotate(0deg)'); // (los poderes nuevos: ícono con otro tono)
                     p.b.classList.toggle('vacio', !icono);
                     p.b.setAttribute('aria-label', e ? `Poder ${e.nombre}` : 'Sin poder');
                 }

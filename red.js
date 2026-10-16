@@ -23,6 +23,7 @@ export const red = {
     modo: 'aventura', // 'aventura' (cadena) | 'duelo' (arena 1 contra 1) | 'equipos' (arena rojo contra azul) | 'carrera'
     arena: 'bosque',
     apuesta: 0,       // monedas que paga cada jugador en la arena
+    publica: false,   // la sala aparece en la búsqueda automática
     enPartida: false, // true desde que el anfitrión empieza hasta salir de la sala
     semilla: 0,
     intento: 0,       // sube con cada muerte del equipo: las trampas se reparten igual para todos
@@ -76,6 +77,7 @@ function atender(m) {
         red.modo = m.modo || 'aventura';
         red.arena = m.arena || 'bosque';
         red.apuesta = m.apuesta || 0;
+        red.publica = !!m.publica;
     } else if (m.t === 'volver') {
         red.enPartida = false;
     } else if (m.t === 'empezar') {
@@ -107,6 +109,14 @@ export async function unirseSala(codigo, nombre, pj) {
     await conectar();
     enviar({ t: 'unirse', codigo, nombre, pj });
 }
+
+// búsqueda automática: entra a una sala pública con lugar (del modo pedido, o cualquiera) o crea una
+export async function buscarSala(nombre, pj, modo) {
+    await conectar();
+    enviar({ t: 'buscar', nombre, pj, ...(modo ? { modo } : {}) });
+}
+// (solo el anfitrión) que la sala aparezca o no en la búsqueda automática
+export const hacerPublica = publica => enviar({ t: 'publica', publica });
 
 export const elegirPersonaje = pj => enviar({ t: 'elegir', pj });
 export const empezarPartida = nivel => enviar({ t: 'empezar', nivel });

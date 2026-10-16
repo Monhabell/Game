@@ -70,7 +70,7 @@ const apiJefe = {
 
 // poderes especiales (poderes.js): lo que necesitan del juego
 iniciarPoderes({
-    dañar: (scene, e, daño, congela, empuje) => (e.rivalId != null ? golpearRival(scene, e, daño, congela, empuje) : dañarEnemigo(scene, e, daño, congela)),
+    dañar: (scene, e, daño, congela, empuje, p) => (e.rivalId != null ? golpearRival(scene, e, daño, congela, empuje, p) : dañarEnemigo(scene, e, daño, congela)),
     golpearJefe: (scene, zona, daño) => golpearJefeEnZona(scene, zona, daño, apiJefe),
     congelar: (scene, e, ms) => congelarEnemigo(scene, e, ms),
     // carrera: el poder de un rival me alcanzó (carrera.js decide el efecto)
@@ -627,6 +627,8 @@ function create() {
     this.paradaHasta = 0;
     this.empujadoHasta = 0;
     this.aturdidoHasta = 0; // carrera: aturdido o congelado por el poder de un rival (no se mueve)
+    this.lentoHasta = 0;     // carrera: ralentizado (corre a la mitad y salta menos)
+    this.silenciadoHasta = 0; // carrera: bloqueado (no puede usar ataques ni poderes)
     this.recogiendoFlechas = 0;
     this.tieneEscudo = true; // cada vida empieza con escudo (aguanta un golpe)
     this.saltosAire = 0;
@@ -928,7 +930,9 @@ function moverCamara(scene) {
     const fx = c ? (g.x + c.x) / 2 : g.x, fy = c ? (g.y + c.y) / 2 : g.y;
     const dt = scene.game.loop.delta;
     if (scene.camaraArena) {
-        cam.scrollX = Phaser.Math.Clamp(scene.camaraArena - anchoVista / 2, 0, Math.max(0, scene.anchoNivel - anchoVista));
+        // (si se ve más que el nivel entero, como en la arena, queda centrada)
+        cam.scrollX = anchoVista >= scene.anchoNivel ? scene.camaraArena - anchoVista / 2
+            : Phaser.Math.Clamp(scene.camaraArena - anchoVista / 2, 0, scene.anchoNivel - anchoVista);
     } else if (!g.isDead) {
         // mira hacia donde se mueve: yendo a la derecha el personaje queda a ~40 % (más espacio delante);
         // quieto, mantiene la última dirección (la cámara no se mueve por soltar la tecla)
@@ -2864,7 +2868,8 @@ function actualizarJugador(time, delta) {
 
     const g = this.mascotaGesi;
     const enSuelo = g.body.touching.down || g.body.blocked.down;
-    const v = this.pj.velocidad;
+    const lento = time < (this.lentoHasta || 0); // (carrera: un rival lo ralentizó)
+    const v = this.pj.velocidad * (lento ? 0.5 : 1);
 
     // maná del mago se recupera poco a poco
     if (this.pj.recurso === 'mana' && this.mana < MANA_MAXIMO) {
@@ -2927,11 +2932,12 @@ function actualizarJugador(time, delta) {
 
     const JD = Phaser.Input.Keyboard.JustDown, t = this.teclasDisparo;
     const aturdido = time < (this.aturdidoHasta || 0);
-    if (JD(t.espacio) && !aturdido) usarHabilidad(this, 'espacio');
-    if (JD(t.x) && !aturdido) usarHabilidad(this, 'x');
-    if (JD(t.c) && !aturdido) usarHabilidad(this, 'c');
-    if (JD(t.v) && !aturdido) usarPoder(this, 0);
-    if (JD(t.b) && !aturdido) usarPoder(this, 1);
+    const sinPoderes = aturdido || time < (this.silenciadoHasta || 0); // (carrera: bloqueado por un rival)
+    if (JD(t.espacio) && !sinPoderes) usarHabilidad(this, 'espacio');
+    if (JD(t.x) && !sinPoderes) usarHabilidad(this, 'x');
+    if (JD(t.c) && !sinPoderes) usarHabilidad(this, 'c');
+    if (JD(t.v) && !sinPoderes) usarPoder(this, 0);
+    if (JD(t.b) && !sinPoderes) usarPoder(this, 1);
 
     if (enSuelo) this.saltosAire = 0;
     if (aturdido) {
@@ -2939,7 +2945,7 @@ function actualizarJugador(time, delta) {
     } else if (this.keys.up.isDown && enSuelo) {
         // se "gasta" la pulsación: el doble salto necesita volver a presionar ↑
         JD(this.keys.up);
-        g.setVelocityY(-this.pj.salto);
+        g.setVelocityY(-this.pj.salto * (lento ? 0.9 : 1));
         this.sound.play('salto', { volume: 0.3 });
         animar(this, 'jump');
     } else if (this.pj.dobleSalto && !enSuelo && this.saltosAire < 1 && JD(this.keys.up)) {
@@ -3056,7 +3062,7 @@ function killgesi(game, causa, daño = 20, origenX) {
             romperEscudo(game, texto => mostrarMensaje(game, texto, 900));
             usarRunaDeReserva(game);
             mostrarDolor(game);
-            factor *= 0.5; // el escudo absorbe la mitad y se rompe
+            factor *= game.golpeFuerte ? 0.75 : 0.5; // el escudo absorbe la mitad (un cuarto contra un poder de la arena) y se rompe
         }
         if (d === 'parada') factor *= 0.25; // la parada de Leo frena casi todo el garrotazo
         if (d === 'escudo') factor *= 0.5;  // el escudo mágico absorbe la mitad y se rompe

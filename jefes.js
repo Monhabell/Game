@@ -28,7 +28,7 @@ import { zoomCamara, RESOLUCION } from "./ajustes.js"
 
 const SUELO_Y = 332;
 export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para verla entera)
-const ZOOM_ARENA = 1.55;          // zoom de la cámara durante la pelea (normal = el de los ajustes)
+const ZOOM_ARENA = 1.3;           // zoom de la cámara durante la pelea (~1200 px de ancho: se ve todo el troll y sus rocas)
 const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
 const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
 const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };

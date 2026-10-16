@@ -33,6 +33,8 @@
 import { red, alRecibir, enviarEvento, esAnfitrion } from "./red.js"
 import { crearLava } from "./mazmorra.js"
 import { SUELO_Y } from "./niveles.js"
+import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
+import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 
 const VIDAS = 3;
 const RONDAS_PARA_GANAR = 2;
@@ -40,9 +42,14 @@ const DERRUMBE_MS = 45000;   // desde el comienzo de la ronda
 const ESPERA_REAPARECER = 1600;
 const PROTECCION_MS = 2000;  // al aparecer: un momento sin recibir golpes
 const SALUD_POR_DAÑO = [0, 15, 20, 25, 30]; // daño del ataque (1..4+) -> salud que quita
+// los PODERES especiales pegan fuerte (daño del poder ya con su nivel -> salud que quita):
+// uno de daño 3 o más elimina en 2 golpes; uno flojo (1-2), en 3-4. El escudo solo para un cuarto
+const SALUD_POR_PODER = [0, 25, 35, 50, 65, 80, 90, 100];
+const CURA_ARENA = 25; // lo que cura un corazón que cae en la arena (contra el jefe, más)
 const CLAVE = 'troll-night-arena';
 const TROLL_CADA_MS = 15000;
 const ORBE_CADA_MS = 20000;
+const VISTA_ARENA = 1100;     // px de ancho que muestra la cámara (la arena mide 900: se ven sus paredes)
 // poderes legendarios que dan los orbes (sus efectos se cargan al entrar a la arena)
 export const PODERES_ORBE = ['supernova', 'agujero_negro', 'tormenta', 'galaxia'];
 const TRAVESURAS = {
@@ -151,6 +158,8 @@ export function iniciarArena(ganchos) {
         const scene = escena();
         switch (m.tipo) {
             case 'pvp': if (scene && m.ronda === partida.ronda) recibirGolpe(scene, m); break;
+            // eliminé a un rival con un poder
+            case 'arenaDerribo': if (scene && m.para === red.tuId) api.mensaje(scene, `💀 ¡ELIMINASTE A ${nombreDe(m.de).toUpperCase()}!`, 1100); break;
             case 'arenaCae':
                 if (m.ronda !== partida.ronda) break;
                 partida.vidas.set(m.de, Math.max(0, m.vidas | 0));
@@ -256,6 +265,15 @@ export function lugarDeAparicion() {
     return [lado < 0 ? 140 + k * 70 : 760 - k * 70, 200]; // (cae sobre el suelo)
 }
 
+// paredes de roca a los dos lados de la arena (la cámara ve más allá de los 900 px)
+function paredesArena(scene) {
+    const g = scene.add.graphics().setDepth(2);
+    [[-400, 0], [900, 1300]].forEach(([a, b]) => {
+        g.fillStyle(0x1a1420, 1).fillRect(a, -600, b - a, SUELO_Y + 700);
+        g.fillStyle(0x2a2230, 1).fillRect(a < 0 ? b - 14 : a, -600, 14, SUELO_Y + 700);
+    });
+}
+
 // al crear la escena de la arena
 export function prepararArena(scene, alDañarRival) {
     scene.arena = partida;
@@ -264,9 +282,11 @@ export function prepararArena(scene, alDañarRival) {
         if (!flecha.perfora) flecha.destroy();
         alDañarRival(rival, 1, flecha.congela);
     });
-    // la cámara muestra la arena entera
+    scene.curacionArena = CURA_ARENA;
+    // la cámara muestra la arena entera y un poco más (se ven las paredes y más cielo: lo que cae de arriba)
     scene.camaraArena = 450;
-    scene.cameras.main.setZoom(scene.cameras.main.width / 900); // (justo los 900 px de la arena)
+    scene.cameras.main.setZoom(scene.cameras.main.width / VISTA_ARENA);
+    paredesArena(scene);
     // salud (como contra el jefe) y corazones de la ronda
     api.ponerVidas(scene, misVidas());
     scene.mascotaGesi.setFlipX(lugarDeAparicion()[0] > 450);
@@ -367,7 +387,8 @@ function derrumbar(scene, conEfecto) {
 
 // ---------- golpes entre jugadores ----------
 // yo golpeé a un rival (lo decide mi pantalla): se le avisa solo a él
-export function golpearRival(scene, rival, daño = 1, congela = 0, empuje = 0) {
+// p: el poder especial con el que le pegué (si fue uno): le hace además su efecto (efectos.js)
+export function golpearRival(scene, rival, daño = 1, congela = 0, empuje = 0, p = null) {
     if (!partida || partida.cerrada || rival.rivalId == null) return;
     const ahora = scene.time.now;
     if (ahora < (rival.pvpHasta || 0)) return; // (un mismo ataque no cuenta varias veces seguidas)
@@ -376,7 +397,9 @@ export function golpearRival(scene, rival, daño = 1, congela = 0, empuje = 0) {
     partida.golpeA.set(rival.rivalId, Date.now());
     const ox = scene.mascotaGesi.body.center.x;
     if (!empuje) empuje = Math.sign(rival.x - ox || 1) * 240;
-    enviarEvento('pvp', { para: rival.rivalId, daño, congela, empuje, ox, ronda: partida.ronda });
+    const efecto = efectoEnCarrera(p);
+    enviarEvento('pvp', { para: rival.rivalId, daño, congela, empuje, ox, ronda: partida.ronda,
+        ...(p ? { poder: 1 } : {}), ...(efecto ? { efecto, rareza: p.rareza, nv: p.nivel || 1 } : {}) });
     rival.setTintFill(0xffffff);
     scene.time.delayedCall(90, () => rival.active && rival.clearTint());
     scene.sound.play('bump', { volume: 0.5 });
@@ -391,11 +414,23 @@ function recibirGolpe(scene, m) {
     const congela = Math.min(1500, (Number(m.congela) || 0) / 2); // contra jugadores, congelar dura la mitad
     if (daño > 0) {
         const antes = scene.salud;
-        api.golpearme(scene, SALUD_POR_DAÑO[Math.min(4, Math.ceil(daño))], Number(m.ox));
+        const quita = m.poder ? SALUD_POR_PODER[Math.min(7, Math.ceil(daño))] : SALUD_POR_DAÑO[Math.min(4, Math.ceil(daño))];
+        scene.golpeFuerte = !!m.poder; // (game.js: contra un poder el escudo absorbe menos)
+        api.golpearme(scene, quita, Number(m.ox));
+        scene.golpeFuerte = false;
+        if (g.isDead && m.poder) enviarEvento('arenaDerribo', { para: m.de, ronda: partida.ronda });
         if (scene.salud === antes || g.isDead) return; // lo esquivó o lo paró (o ya cayó)
     }
-    // empujón: más fuerte cuanto menos salud te queda
     const lado = Math.sign(Number(m.empuje) || g.body.center.x - Number(m.ox)) || 1;
+    // poder especial: su efecto (congela, explota, ralentiza...), con los empujones más fuertes cuanto
+    // menos salud te queda; si acabas de recibir uno, solo cuenta el daño (nadie queda trabado)
+    if (m.efecto && EFECTOS_CARRERA[m.efecto]) {
+        if (!puedeRecibirEfecto(scene)) return;
+        aplicarEfecto(scene, m.efecto, { rareza: m.rareza, nivel: Number(m.nv) || 1, lado, fuerza: 1 + (1 - scene.salud / 100) * 0.9, empuje: Math.abs(Number(m.empuje)) });
+        api.mensaje(scene, textoEfecto(m.efecto, nombreDe(m.de).toUpperCase()), 900);
+        return;
+    }
+    // empujón: más fuerte cuanto menos salud te queda
     const fuerza = Math.min(560, Math.max(200, Math.abs(Number(m.empuje)) || 240) * (1 + (1 - scene.salud / 100) * 0.9));
     g.setVelocity(lado * fuerza, -220);
     scene.empujadoHasta = scene.time.now + 260 + congela;

@@ -1,16 +1,18 @@
-// Poderes especiales: 50 poderes que se ganan o se compran y cualquier héroe puede equipar.
+// Poderes especiales: 65 poderes que se ganan o se compran y cualquier héroe puede equipar.
 //
 // - Cada héroe lleva hasta 2 poderes equipados: teclas V y B (en el celular, dos botones redondos
 //   sobre los de ataque). Los poderes son de la cuenta (se ganan una vez), pero cada héroe elige los suyos.
 // - Se consiguen: comprándolos en la Tienda (pestaña Poderes) o como premio al terminar un nivel
 //   (la primera vez que se termina un nivel el premio es seguro; al rejugarlo, a veces).
 // - Rareza: común, raro, épico y legendario (más daño, efectos más grandes, más caros y más raros de ganar).
-// - Niveles (1 a 3): un poder ganado se puede subir de nivel con monedas en la tienda (ver conNivel):
-//   nivel 2 = menos recarga, efectos más largos y más alcance; nivel 3 = además +1 de daño y un golpe más.
+// - Niveles (1 a 5): un poder ganado se puede subir de nivel con monedas en la tienda (ver conNivel):
+//   cada nivel baja la recarga y alarga efectos y alcance; nivel 3 = +1 de daño y un golpe más;
+//   nivel 5 = otro +1 de daño y otro golpe más.
 // - Ventajas: cada poder muestra en la tienda qué le da al jugador (daño, congela, atraviesa...): ventajas().
 // - Efectos visuales: CraftPix "Free Flame / Water / Slash Effects" (assets/poderes, hojas reducidas
 //   con el script de conversión; las "_b" son versiones blancas que el juego tiñe del color del poder).
 //   Íconos: CraftPix "Free RPG Splash Game 512x512 Icons" (assets/poderes/iconos, reducidos a 96 px).
+//   Hay 50 íconos: los poderes 51-65 reusan uno con otro tono (matiz: grados de hue-rotate, ver filtroIcono).
 // - MEMORIA: solo se cargan los efectos de los poderes equipados (al entrar al nivel); los de los
 //   demás jugadores en línea se cargan la primera vez que los usan.
 //
@@ -24,6 +26,8 @@
 // api (la da game.js): { dañar(scene, e, daño, congela), golpearJefe(scene, zona, daño), congelar(scene, e, ms),
 //   habilidadBase(scene, h), recuperarEscudo(scene), curarVida(scene), animarPoder(scene), mensaje(scene, texto),
 //   golpeCarrera(scene, p, de, ox) }
+// En la ARENA el golpe a un rival lleva el poder (api.dañar(..., p)): además del daño, le hace su
+// efecto (congelar, explotar, ralentizar...: efectos.js), igual que en la carrera.
 
 import { enLinea, enviarEvento } from "./red.js"
 
@@ -110,17 +114,35 @@ export const PODERES = [
     { id: 'tormenta', icono: 48, nombre: 'Tormenta', rareza: 'legendario', tipo: 'tormenta', efecto: 'fuego7a', tinte: C.rayo, cantidad: 6, alcance: 420, daño: 3, enfriamiento: 13000, sonido: 'rayo', descripcion: 'Rayos caen sobre hasta 6 enemigos a la vez.' },
     { id: 'detener_tiempo', icono: 49, nombre: 'Detener el tiempo', rareza: 'legendario', tipo: 'tiempo', efecto: 'fuego7a', tinte: C.rosa, escala: 2, alcance: 520, duracion: 4500, enfriamiento: 18000, sonido: 'magia', descripcion: 'Todos los enemigos en pantalla se congelan 4,5 s.' },
     { id: 'galaxia', icono: 45, nombre: 'Galaxia', rareza: 'legendario', tipo: 'aura', efecto: 'agua1', tinte: C.arcano, escala: 1.5, radio: 110, daño: 2, duracion: 6000, enfriamiento: 15000, sonido: 'magia', descripcion: 'Una galaxia gira a tu alrededor y destroza a quien se acerque (6 s).' },
+    // ---------- nuevos (51-65): íconos de siempre con otro tono (matiz) ----------
+    { id: 'piedra_runica', icono: 39, matiz: 160, nombre: 'Piedra rúnica', rareza: 'comun', tipo: 'proyectil', efecto: 'corte8', tinte: C.tierra, impacto: 'corte3', vel: 420, vida: 1100, daño: 2, aturde: 600, enfriamiento: 2700, sonido: 'romper', descripcion: 'Lanza una runa de piedra que aturde al tocar.' },
+    { id: 'burbujas', icono: 30, matiz: 120, nombre: 'Lluvia de burbujas', rareza: 'comun', tipo: 'rafaga', efecto: 'agua7', impacto: 'agua10', cantidad: 3, vel: 400, vida: 900, daño: 1, empuje: 180, enfriamiento: 2800, sonido: 'disparo', descripcion: 'Tres burbujas en abanico que empujan.' },
+    { id: 'copo_helado', icono: 26, matiz: 200, nombre: 'Copo helado', rareza: 'comun', tipo: 'proyectil', efecto: 'fuego7b', tinte: C.hielo, impacto: 'corte3', vel: 520, vida: 1000, daño: 1, congela: 1200, enfriamiento: 2600, sonido: 'arco', descripcion: 'Un copo de nieve veloz que congela.' },
+    { id: 'telarana', icono: 40, matiz: 250, nombre: 'Telaraña', rareza: 'comun', tipo: 'trampa', efecto: 'corte8', tinte: 0xdddddd, distancia: 60, ancho: 90, alto: 60, daño: 1, duracion: 4000, enfriamiento: 6500, sonido: 'aparece', descripcion: 'Una red pegajosa: quien la pisa queda lento.' },
+    { id: 'zarpazo_sombra', icono: 5, matiz: 230, nombre: 'Zarpazo de sombra', rareza: 'comun', tipo: 'tajo', efecto: 'corte4', tinte: C.sombra, alcance: 85, alto: 70, daño: 2, enfriamiento: 2500, sonido: 'espada', descripcion: 'Un zarpazo oscuro que confunde.' },
+    { id: 'geiser_hirviente', icono: 42, matiz: 300, nombre: 'Géiser hirviente', rareza: 'raro', tipo: 'frente', efecto: 'agua3', distancia: 100, ancho: 70, alto: 130, daño: 2, empuje: 260, enfriamiento: 3600, sonido: 'aparece', descripcion: 'Un chorro hirviente que lanza por los aires.' },
+    { id: 'bomba_humo', icono: 21, matiz: 90, nombre: 'Bomba de humo', rareza: 'raro', tipo: 'explosion', efecto: 'agua5', tinte: C.sombra, radio: 90, daño: 1, aturde: 700, enfriamiento: 5000, sonido: 'aparece', descripcion: 'Una nube de humo: los de cerca se confunden.' },
+    { id: 'cadena_hielo', icono: 17, matiz: 140, nombre: 'Cadena de hielo', rareza: 'raro', tipo: 'cadena', efecto: 'fuego7a', tinte: C.hielo, alcance: 230, saltos: 2, daño: 1, congela: 1500, enfriamiento: 3800, sonido: 'rayo', descripcion: 'Un rayo helado que salta de uno a otro y congela.' },
+    { id: 'sello_runico', icono: 8, matiz: 60, nombre: 'Sello rúnico', rareza: 'raro', tipo: 'trampa', efecto: 'fuego8', tinte: C.arcano, distancia: 60, ancho: 100, alto: 100, daño: 1, duracion: 4000, enfriamiento: 7000, sonido: 'magia', descripcion: 'Un sello mágico: bloquea los poderes de quien lo toque.' },
+    { id: 'bumeran', icono: 36, matiz: 45, nombre: 'Bumerán dorado', rareza: 'raro', tipo: 'proyectil', efecto: 'corte7', tinte: C.oro, impacto: 'corte3', vel: 500, vida: 1200, daño: 2, perfora: true, aturde: 500, enfriamiento: 3000, sonido: 'latigo', descripcion: 'Una hoja dorada que atraviesa a todos y aturde.' },
+    { id: 'avalancha', icono: 34, matiz: 180, nombre: 'Avalancha', rareza: 'epico', tipo: 'ola', efecto: 'agua2', tinte: C.hielo, vel: 280, vida: 1700, daño: 2, congela: 1500, empuje: 200, enfriamiento: 7000, sonido: 'aparece', descripcion: 'Una ola de nieve que congela todo a su paso.' },
+    { id: 'columnas_fuego', icono: 47, matiz: 330, nombre: 'Columnas de fuego', rareza: 'epico', tipo: 'lluvia', efecto: 'fuego4', tinte: C.fuego, enSuelo: true, cantidad: 4, ancho: 300, daño: 3, enfriamiento: 8000, sonido: 'fuego', descripcion: 'Cuatro columnas de fuego brotan del suelo.' },
+    { id: 'pantano', icono: 31, matiz: 60, nombre: 'Pantano', rareza: 'epico', tipo: 'trampa', efecto: 'agua9', tinte: 0x6a8a3a, distancia: 90, ancho: 160, alto: 90, daño: 1, duracion: 5500, enfriamiento: 9000, sonido: 'aparece', descripcion: 'Un pantano que atrapa y ralentiza a quien entra.' },
+    { id: 'aliento_dragon', icono: 4, matiz: 300, nombre: 'Aliento de dragón', rareza: 'legendario', tipo: 'proyectil', efecto: 'fuego10', tinte: 0xff3a2a, impacto: 'fuego1', escala: 1.8, vel: 380, vida: 1600, daño: 5, perfora: true, enfriamiento: 13000, sonido: 'fuego', descripcion: 'El aliento de un dragón: arrasa una fila entera.' },
+    { id: 'eclipse', icono: 22, matiz: 220, nombre: 'Eclipse', rareza: 'legendario', tipo: 'explosion', efecto: 'fuego7a', tinte: C.sombra, escala: 2.2, radio: 200, daño: 3, aturde: 2000, temblor: true, enfriamiento: 15000, sonido: 'magia', descripcion: 'La luna tapa el sol: aturde y apaga la magia de todos cerca.' },
     { id: 'renacer', icono: 20, nombre: 'Renacer del Alba', rareza: 'legendario', tipo: 'cura', vida: true, efecto: 'fuego1', tinte: C.luz, enfriamiento: 60000, sonido: 'punto_control', descripcion: 'Recupera un corazón y tu escudo (una vez por minuto).' },
 ];
 
 export const poderPorId = id => PODERES.find(p => p.id === id);
 export const urlIcono = p => `${RUTA}/iconos/${p.icono}.jpg`;
+// los poderes 51-65 reusan un ícono con otro tono (CSS filter); '' en los demás
+export const filtroIcono = p => (p?.matiz ? `hue-rotate(${p.matiz}deg) saturate(1.25)` : '');
 const hexDe = n => '#' + n.toString(16).padStart(6, '0');
 export const colorDe = p => p.tinte ? hexDe(p.tinte) : RAREZAS[p.rareza].color;
 
 // ---------- guardado: poderes ganados y los equipados por cada héroe ----------
 const INICIALES = ['bola_fuego', 'bola_agua']; // con estos se empieza (para que se entienda el sistema)
-export const NIVEL_MAX = 3; // niveles de cada poder
+export const NIVEL_MAX = 5; // niveles de cada poder
 function leer() {
     const e = { tiene: [...INICIALES], equipo: {}, niveles: {} };
     try {
@@ -150,10 +172,18 @@ export const nivelPoder = id => estado.niveles[id] || 1;
 // monedas para subir al siguiente nivel (null si ya está al máximo)
 export const costoSubir = p => {
     const n = nivelPoder(p.id);
-    return n >= NIVEL_MAX ? null : Math.round(RAREZAS[p.rareza].precio * (n === 1 ? 0.8 : 1.5));
+    return n >= NIVEL_MAX ? null : Math.round(RAREZAS[p.rareza].precio * [0, 0.8, 1.5, 2.2, 3][n]);
 };
-export const queGana = n => (n === 2 ? '−15 % recarga, efectos +25 % más largos, +10 % de alcance'
-    : '+1 de daño, −30 % recarga, efectos +50 %, +20 % de alcance y un golpe más');
+// por nivel (1 a 5): recarga, duración de los efectos y alcance (multiplicadores)
+const RECARGA = [1, 1, 0.85, 0.7, 0.62, 0.55];
+const DURACION = [1, 1, 1.25, 1.5, 1.7, 1.9];
+const ALCANCE = [1, 1, 1.1, 1.2, 1.27, 1.35];
+export const queGana = n => ({
+    2: '−15 % recarga, efectos +25 % más largos, +10 % de alcance',
+    3: '+1 de daño, −30 % recarga, efectos +50 %, +20 % de alcance y un golpe más',
+    4: '−38 % recarga, efectos +70 %, +27 % de alcance',
+    5: '+2 de daño en total, −45 % recarga, efectos +90 %, +35 % de alcance y dos golpes más',
+})[n] || '';
 // (la tienda cobra las monedas y luego llama a esto)
 export function subirPoder(id) {
     if (!tienePoder(id) || nivelPoder(id) >= NIVEL_MAX) return false;
@@ -166,18 +196,63 @@ export function subirPoder(id) {
 export function conNivel(p, n = nivelPoder(p.id)) {
     if (!p || n <= 1) return p;
     const q = { ...p, nivel: n };
-    q.enfriamiento = Math.round(p.enfriamiento * (n === 2 ? 0.85 : 0.7));
+    q.enfriamiento = Math.round(p.enfriamiento * RECARGA[n]);
     ['congela', 'aturde', 'duracion'].forEach(k => {
-        if (p[k] && p.tipo !== 'impulso') q[k] = Math.round(p[k] * (n === 2 ? 1.25 : 1.5)); // (el dash no se alarga)
+        if (p[k] && p.tipo !== 'impulso') q[k] = Math.round(p[k] * DURACION[n]); // (el dash no se alarga)
     });
-    ['radio', 'alcance', 'ancho'].forEach(k => { if (p[k]) q[k] = Math.round(p[k] * (n === 2 ? 1.1 : 1.2)); });
-    if (n >= 3) {
-        if (p.daño) q.daño = p.daño + 1;
-        if (p.cantidad) q.cantidad = p.cantidad + 1;
-        if (p.saltos) q.saltos = p.saltos + 1;
-        if (p.golpes) q.golpes = p.golpes + 1;
+    ['radio', 'alcance', 'ancho'].forEach(k => { if (p[k]) q[k] = Math.round(p[k] * ALCANCE[n]); });
+    // +1 en el nivel 3 y otro +1 en el 5
+    const extra = n >= 5 ? 2 : n >= 3 ? 1 : 0;
+    if (extra) {
+        if (p.daño) q.daño = p.daño + extra;
+        if (p.cantidad) q.cantidad = p.cantidad + extra;
+        if (p.saltos) q.saltos = p.saltos + extra;
+        if (p.golpes) q.golpes = p.golpes + extra;
     }
     return q;
+}
+
+// ---------- en la carrera: qué le hace cada poder a un rival (carrera.js lo aplica) ----------
+// Efectos (nunca quitan vidas; duran más cuanto más raro es el poder, ver carrera.js):
+//   aturdir    estrellas sobre la cabeza: no se mueve, no salta ni ataca
+//   congelar   encerrado en un bloque de hielo: no se mueve
+//   ralentizar corre a la mitad y salta menos
+//   explotar   ¡BOOM!: sale volando hacia atrás y queda aturdido un momento
+//   empujar    lo arrastra hacia atrás (la ola, el viento)
+//   confundir  izquierda y derecha invertidas
+//   bloquear   no puede usar ataques ni poderes (sí correr y saltar)
+//   atraer     el vórtice lo jala hacia su centro
+export const EFECTOS_CARRERA = {
+    aturdir: { icono: '💫', nombre: 'Aturde', texto: 'TE ATURDIÓ' },
+    congelar: { icono: '❄', nombre: 'Congela', texto: 'TE CONGELÓ' },
+    ralentizar: { icono: '🐌', nombre: 'Ralentiza', texto: 'TE PUSO LENTO' },
+    explotar: { icono: '💥', nombre: 'Explota', texto: 'TE HIZO VOLAR' },
+    empujar: { icono: '🌊', nombre: 'Empuja', texto: 'TE EMPUJÓ' },
+    confundir: { icono: '🌀', nombre: 'Confunde', texto: 'TE CONFUNDIÓ' },
+    bloquear: { icono: '🚫', nombre: 'Bloquea poderes', texto: 'TE BLOQUEÓ' },
+    atraer: { icono: '🧲', nombre: 'Atrae', texto: 'TE ATRAPÓ' },
+};
+const EFECTO_DE = {
+    bola_fuego: 'explotar', bola_agua: 'empujar', garras_fuego: 'explotar', explosion: 'explotar', flecha_jade: 'ralentizar',
+    cascada: 'explotar', fogata: 'explotar', paso_fantasma: 'empujar', garras_hielo: 'congelar', charco_acido: 'ralentizar',
+    alas_luz: 'aturdir', serpiente: 'confundir', chispa: 'aturdir', latigo: 'ralentizar',
+    llama_esmeralda: 'explotar', cometa_arcano: 'confundir', lanzas_hielo: 'congelar', tajo_carmesi: 'bloquear',
+    arco_voltaico: 'aturdir', doble_tajo: 'explotar', golpe_sismico: 'aturdir', rayo_celestial: 'aturdir',
+    esfera_tormenta: 'aturdir', muro_helado: 'congelar', maremoto: 'empujar', grieta_lava: 'explotar',
+    viento_veloz: 'empujar', estallido_igneo: 'explotar', tornado: 'empujar',
+    nova_arcana: 'bloquear', fuego_azul: 'explotar', torbellino_hojas: 'empujar', vortice: 'atraer', rayo_vida: 'ralentizar',
+    lluvia_meteoros: 'explotar', pilares_luz: 'aturdir', meteoro: 'explotar', escarcha: 'congelar', terremoto: 'aturdir',
+    niebla_venenosa: 'confundir', llamarada: 'explotar',
+    supernova: 'explotar', agujero_negro: 'atraer', tormenta: 'aturdir', detener_tiempo: 'congelar', galaxia: 'confundir',
+    piedra_runica: 'aturdir', burbujas: 'empujar', copo_helado: 'congelar', telarana: 'ralentizar', zarpazo_sombra: 'confundir',
+    geiser_hirviente: 'explotar', bomba_humo: 'confundir', cadena_hielo: 'congelar', sello_runico: 'bloquear', bumeran: 'aturdir',
+    avalancha: 'congelar', columnas_fuego: 'explotar', pantano: 'ralentizar', aliento_dragon: 'explotar', eclipse: 'bloquear',
+};
+// (los poderes nuevos sin entrada: según lo que hacen)
+export function efectoEnCarrera(p) {
+    if (!p || p.tipo === 'escudo' || p.tipo === 'cura') return null;
+    return EFECTO_DE[p.id] || (p.congela || p.tipo === 'tiempo' ? 'congelar' : p.aturde ? 'aturdir' : p.tipo === 'iman' ? 'atraer'
+        : p.empuje ? 'empujar' : p.tipo === 'explosion' || p.tipo === 'meteoro' ? 'explotar' : 'aturdir');
 }
 
 // ventajas que da el poder (para la tienda): [ícono, texto]
@@ -202,6 +277,8 @@ export function ventajas(p) {
     if (p.tipo === 'impulso') v.push(['➜', 'Dash: esquiva golpes']);
     if (p.tipo === 'salto') v.push(['⤒', 'Supersalto']);
     if (p.temblor) v.push(['≋', 'Sacude la pantalla']);
+    const enCarrera = EFECTOS_CARRERA[efectoEnCarrera(p)];
+    if (enCarrera) v.push([enCarrera.icono, `Carrera: ${enCarrera.nombre.toLowerCase()} al rival`]);
     v.push(['⟳', `Recarga ${seg(p.enfriamiento)}`]);
     return v;
 }
@@ -318,7 +395,7 @@ export function estadoPoder(scene, ranura) {
     const p = scene.poderes?.[ranura];
     if (!p) return null;
     const resta = Math.max(0, scene.cdPoderes[ranura] - scene.time.now);
-    return { carga: 1 - resta / p.enfriamiento, icono: urlIcono(p), nombre: p.nombre };
+    return { carga: 1 - resta / p.enfriamiento, icono: urlIcono(p), filtro: filtroIcono(p), nombre: p.nombre };
 }
 
 export function usarPoder(scene, ranura) {
@@ -380,7 +457,7 @@ function golpear(scene, p, e, remoto, daño = p.daño) {
     if (e.rivalId != null) {
         // otro jugador en la arena: un solo aviso con el daño, lo que congela y el empujón
         const lado = Math.sign(centro(e).x - scene.mascotaGesi.body.center.x) || 1;
-        api.dañar(scene, e, daño || 0, Math.max(p.congela || 0, p.aturde || 0), p.empuje ? lado * p.empuje : 0);
+        api.dañar(scene, e, daño || 0, Math.max(p.congela || 0, p.aturde || 0), p.empuje ? lado * p.empuje : 0, p);
         return;
     }
     api.dañar(scene, e, daño || 0, p.congela || 0);
@@ -721,10 +798,11 @@ export function actualizarPoderes(scene, time, delta) {
             return false;
         }
         if (z.iman && z.remoto && scene.carrera) {
-            // carrera: el vórtice de un rival también me atrae (poco a poco: se puede escapar corriendo)
+            // carrera: el vórtice de un rival también me atrapa: solo me arrastra HACIA ATRÁS (si está
+            // delante, me frena; nunca me ayuda a avanzar). Poco a poco: se puede escapar corriendo
             const c = miCentro(scene), g = scene.mascotaGesi;
             if (c && !g.isDead && Math.abs(z.iman.x - c.x) < z.p.radio && Math.abs(z.iman.y - c.y) < 160) {
-                g.x += Math.sign(z.iman.x - c.x) * Math.min(130, Math.abs(z.iman.x - c.x) * 2) * (delta / 1000);
+                g.x -= Math.min(130, Math.max(60, Math.abs(z.iman.x - c.x) * 2)) * (delta / 1000);
             }
         }
         if (z.iman && !z.remoto) {
