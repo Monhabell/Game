@@ -294,8 +294,22 @@ export function crearPoderes(scene) {
     });
 }
 
+// orbe de la arena (arena.js): un poder legendario de un solo uso en la ranura V
+export function darOrbe(scene, id) {
+    const p = poderPorId(id);
+    if (!p || !scene.textures.exists(claveEfecto(p))) return false;
+    scene.orbe = conNivel(p, 1);
+    const h = scene.hudPoderes?.[0];
+    if (h) {
+        h.fondo.setStrokeStyle(2.5, 0xffc94a).setAlpha(1);
+        if (h.icono) h.icono.setTexture(scene.textures.exists(`pdi_${p.icono}`) ? `pdi_${p.icono}` : h.icono.texture.key);
+    }
+    return true;
+}
+
 // para los botones táctiles: carga 0..1 del poder de la ranura (null = vacía)
 export function estadoPoder(scene, ranura) {
+    if (ranura === 0 && scene.orbe) return { carga: 1, icono: urlIcono(scene.orbe), nombre: `${scene.orbe.nombre} (orbe)` };
     const p = scene.poderes?.[ranura];
     if (!p) return null;
     const resta = Math.max(0, scene.cdPoderes[ranura] - scene.time.now);
@@ -303,10 +317,18 @@ export function estadoPoder(scene, ranura) {
 }
 
 export function usarPoder(scene, ranura) {
-    const p = scene.poderes?.[ranura];
+    const orbe = ranura === 0 ? scene.orbe : null; // (el orbe va primero y no gasta la recarga)
+    const p = orbe || scene.poderes?.[ranura];
     const g = scene.mascotaGesi;
-    if (!p || g.isDead || scene.nivelTerminado || scene.atacando || scene.time.now < scene.cdPoderes[ranura]) return;
-    scene.cdPoderes[ranura] = scene.time.now + p.enfriamiento;
+    if (!p || g.isDead || scene.nivelTerminado || scene.atacando || (!orbe && scene.time.now < scene.cdPoderes[ranura])) return;
+    if (orbe) {
+        scene.orbe = null;
+        const h = scene.hudPoderes?.[0], normal = scene.poderes[0];
+        if (h) {
+            h.fondo.setStrokeStyle(1.5, normal ? Phaser.Display.Color.HexStringToColor(RAREZAS[normal.rareza].color).color : 0x444a5c);
+            if (h.icono && normal) h.icono.setTexture(`pdi_${normal.icono}`);
+        }
+    } else scene.cdPoderes[ranura] = scene.time.now + p.enfriamiento;
     api.animarPoder(scene);
     const dir = g.flipX ? -1 : 1;
     if (enLinea()) enviarEvento('poderEsp', { id: p.id, dir, nv: p.nivel || 1 });

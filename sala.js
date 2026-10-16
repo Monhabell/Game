@@ -16,7 +16,7 @@ import {
     red, alRecibir, crearSala, unirseSala, elegirPersonaje, empezarPartida, salirSala, esAnfitrion, enviarEvento, elegirModo, elegirEquipo,
     informarSaldo,
 } from "./red.js"
-import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena } from "./arena.js"
+import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena, copasArena, ligaDe } from "./arena.js"
 import { saldo } from "./tienda.js"
 
 const MODOS = { aventura: 'Aventura (en cadena)', duelo: 'Arena · 1 contra 1', equipos: 'Arena · por equipos' };
@@ -222,7 +222,7 @@ export function iniciarSala(juego, { alEmpezar }) {
         });
         const arenaSel = ARENAS.find(a => a.id === red.arena);
         $('[data-modo-texto]').textContent = enArena
-            ? `${MODOS[red.modo]} · ${arenaSel?.nombre || ''} (${arenaSel?.peligro || ''}) · al mejor de 3 · ${red.apuesta ? `apuesta ◉ ${red.apuesta} cada uno, el ganador se lleva el pozo` : 'sin apuesta'}`
+            ? `${MODOS[red.modo]} · ${arenaSel?.nombre || ''} (${arenaSel?.peligro || ''}) · al mejor de 3 · ${red.apuesta ? `apuesta ◉ ${red.apuesta} cada uno, el ganador se lleva el pozo` : 'sin apuesta'} · 🏆 Tu liga: ${ligaDe(copasArena())} (${copasArena()} copas)`
             : 'Aventura: todos atados con la cadena';
         const yo2 = red.jugadores.find(j => j.id === red.tuId);
         $('[data-equipos]').hidden = !porEquipos;

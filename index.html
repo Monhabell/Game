@@ -1156,6 +1156,17 @@
         .poder-ranura kbd { font: inherit; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: #fff; }
         .poder-ranura .vacia { opacity: 0.5; font-style: italic; }
         /* pantalla final de la Arena (arena.js) */
+        .arena-fin-liga { margin: 0; font-size: 12px; color: #b9c3ff; }
+        .arena-medallas { list-style: none; margin: 4px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 12px; }
+        .arena-medallas li { padding: 5px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
+        .arena-medallas small { opacity: 0.7; }
+        /* emotes de la arena (arriba a la derecha, bajo el HUD) */
+        .arena-emotes { position: absolute; top: 46px; right: max(10px, env(safe-area-inset-right)); display: flex; gap: 4px; z-index: 6; }
+        .arena-emotes button {
+            width: 34px; height: 34px; border-radius: 50%; font-size: 17px; line-height: 1; padding: 0; cursor: pointer;
+            background: rgba(10, 14, 28, 0.55); border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .arena-emotes button:active { transform: scale(0.9); }
         .arena-fin { text-align: center; align-items: stretch; }
         .arena-fin h2 { text-align: center; font-size: 28px; color: #ff8a8a; }
         .arena-fin.gano h2 { color: #ffc94a; }

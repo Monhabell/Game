@@ -20,7 +20,7 @@ import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actuali
 import { red, enLinea, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
 import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
-    actualizarArena, arenaMuerte, golpearRival, idNivelArena,
+    actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
 } from "./arena.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
@@ -37,7 +37,7 @@ import {
     personajeConMejoras, nivelMaximo, gastarMonedas,
 } from "./tienda.js"
 import {
-    iniciarPoderes, cargarPoderes, crearPoderes, usarPoder, actualizarPoderes, equipados, premioDeNivel, estadoPoder,
+    iniciarPoderes, cargarPoderes, crearPoderes, usarPoder, actualizarPoderes, equipados, premioDeNivel, estadoPoder, darOrbe,
 } from "./poderes.js"
 import { crearSorpresas, actualizarSorpresas, pisarMordedora, monedaTrampa, activarCebo } from "./sorpresas.js"
 import { crearSenales, sombraDeCaida } from "./senales.js"
@@ -320,6 +320,11 @@ iniciarArena({
     ponerVidas: (scene, n) => { vidas = n; actualizarCorazones(scene); },
     premio: n => sumarMonedas(n),
     pagar: n => gastarMonedas(n),
+    // orbe de poder: un poder legendario de un solo uso en la tecla V
+    orbe: (scene, id) => {
+        if (!darOrbe(scene, id)) return;
+        mostrarMensaje(scene, `¡ORBE DE PODER!\nV: ${scene.orbe.nombre} (un uso)`, 1500);
+    },
     reiniciar: scene => scene.scene.restart(),
     salir: () => {
         terminarArena();
@@ -520,7 +525,8 @@ function preload() {
 // al entrar a un nivel: carga solo los enemigos que usa y suelta los demás (memoria en celulares)
 function precargarNivel() {
     cargarEnemigos(this, arenaActiva() ? [] : enemigosDelNivel(NIVELES[nivelActual])); // (en la arena no hay enemigos)
-    cargarPoderes(this, equipados(personajeId).filter(Boolean)); // solo los efectos de los poderes equipados
+    // solo los efectos de los poderes equipados (en la arena, también los de los orbes)
+    cargarPoderes(this, [...equipados(personajeId).filter(Boolean), ...(arenaActiva() ? PODERES_ORBE : [])]);
     if (this.load.list.size) mostrarCarga(this, ZOOM);
 }
 
@@ -3004,7 +3010,7 @@ function killgesi(game, causa, daño = 20, origenX) {
     game.paradaHasta = 0;
     mascotaGesi.anims.play(`${game.pj.anim}-dead`);
     caerMuerto(game, causa);
-    if (game.arena) { arenaMuerte(game); return; } // en la arena: pierde un corazón de la ronda (arena.js)
+    if (game.arena) { arenaMuerte(game, causa); return; } // en la arena: pierde un corazón de la ronda (arena.js)
     game.musica.stop();
     game.musicaBatalla?.stop();
     sound.add('gameover', { volume: 1 }).play();

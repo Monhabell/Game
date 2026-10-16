@@ -18,10 +18,10 @@
   "16": "ajustes.js",
   "17": "package.json",
   "18": "vestidor.js",
-  "19": "sala.js",
+  "19": "arena.js",
   "20": "index.js",
   "21": "servidor/package.json",
-  "22": "arena.js",
+  "22": "cadena.js",
   "23": "Diseñar niveles de Monhabell Aventura",
   "24": "ExampleInstrumentedTest.java",
   "25": "iniciarTactil",
@@ -36,5 +36,6 @@
   "34": "settings.gradle",
   "35": "variables.gradle",
   "36": "construir-apk.ps1",
-  "37": "escudo.js"
+  "37": "escudo.js",
+  "38": "crearSeleccion"
 }

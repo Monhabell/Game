@@ -10,6 +10,14 @@
 //   - Apuesta (la elige el anfitrión: 0, 10, 25, 50 o 100 monedas): cada jugador la paga al empezar y
 //     el equipo ganador se reparte el pozo. Sin apuesta: 30 monedas al ganar y 10 al perder.
 //   - 4 arenas, cada una con su peligro; se desbloquean con victorias (Bosque, Cueva, Volcán, Castillo).
+//   - TRAVESURAS DEL TROLL: cada 15 s el Rey Troll asoma y hace una al azar (controles al revés, lluvia
+//     de rocas, apagón, gravedad baja o un cofre falso que explota). Las elige el anfitrión.
+//   - ORBES DE PODER: cada 20 s cae un orbe; quien lo toma tiene un poder legendario de UN uso (tecla V).
+//   - MEDALLAS al final (Rey del empujón, Cazador, Intocable, Murió solo en la lava, Troleado por el troll).
+//   - LIGAS: copas por ganar (+30) o perder (−15): Madera, Piedra, Hierro, Oro y Rey Troll (premio al subir).
+//   - EMOTES: 😂 🔥 😎 👋 sobre tu personaje (botones arriba a la derecha o tecla E); los eliminados también.
+// Rendimiento (celulares): todo usa imágenes ya cargadas o figuras simples; nada corre cada fotograma
+// salvo mover los ojos del apagón y revisar si tocas un orbe o un cofre.
 //
 // En red (servidor de salas, sin cambios de lógica en el servidor más allá del modo y los equipos):
 //   - Quien GOLPEA decide si golpeó (como con los enemigos): avisa al golpeado con 'pvp' (solo a él).
@@ -19,7 +27,8 @@
 //     las flechas, los golpes y los poderes los encuentran igual que a los enemigos.
 //
 // api (la da game.js): { golpearme(scene, daño, origenX), mensaje(scene, texto, ms), ponerVidas(scene, n),
-//   premio(monedas), pagar(monedas), salir(), volverASala(), revancha(), reiniciar(scene) }
+//   premio(monedas), pagar(monedas), salir(), volverASala(), revancha(), reiniciar(scene),
+//   orbe(scene, idPoder) }
 
 import { red, alRecibir, enviarEvento, esAnfitrion } from "./red.js"
 import { crearLava } from "./mazmorra.js"
@@ -32,6 +41,20 @@ const ESPERA_REAPARECER = 1600;
 const PROTECCION_MS = 2000;  // al aparecer: un momento sin recibir golpes
 const SALUD_POR_DAÑO = [0, 15, 20, 25, 30]; // daño del ataque (1..4+) -> salud que quita
 const CLAVE = 'troll-night-arena';
+const TROLL_CADA_MS = 15000;
+const ORBE_CADA_MS = 20000;
+// poderes legendarios que dan los orbes (sus efectos se cargan al entrar a la arena)
+export const PODERES_ORBE = ['supernova', 'agujero_negro', 'tormenta', 'galaxia'];
+const TRAVESURAS = {
+    controles: '¡CONTROLES AL REVÉS!',
+    rocas: '¡LLUVIA DE ROCAS!',
+    apagon: '¡APAGÓN!',
+    gravedad: '¡GRAVEDAD BAJA!',
+    cofre: 'UN COFRE MISTERIOSO…',
+};
+export const EMOTES = ['😂', '🔥', '😎', '👋'];
+// ligas por copas
+const LIGAS = [['Madera', 0], ['Piedra', 100], ['Hierro', 250], ['Oro', 500], ['Rey Troll', 900]];
 export const COLORES_EQUIPO = ['#ff5a5a', '#4fa3ff'];
 const NOMBRES_EQUIPO = ['Equipo Rojo', 'Equipo Azul'];
 
@@ -77,11 +100,28 @@ export const ARENAS = [
 ];
 
 // ---------- victorias guardadas ----------
-export function victoriasArena() {
-    try { return Math.max(0, Number(JSON.parse(localStorage.getItem(CLAVE))?.victorias) || 0); } catch (_e) { return 0; }
+function leerGuardado() {
+    try {
+        const g = JSON.parse(localStorage.getItem(CLAVE)) || {};
+        return { victorias: Math.max(0, Number(g.victorias) || 0), copas: Math.max(0, Number(g.copas) || 0) };
+    } catch (_e) { return { victorias: 0, copas: 0 }; }
 }
-function sumarVictoria() {
-    try { localStorage.setItem(CLAVE, JSON.stringify({ victorias: victoriasArena() + 1 })); } catch (_e) { /* sin almacenamiento */ }
+function escribirGuardado(g) {
+    try { localStorage.setItem(CLAVE, JSON.stringify(g)); } catch (_e) { /* sin almacenamiento */ }
+}
+export const victoriasArena = () => leerGuardado().victorias;
+export const copasArena = () => leerGuardado().copas;
+export const ligaDe = copas => LIGAS.reduce((l, [nombre, desde]) => (copas >= desde ? nombre : l), LIGAS[0][0]);
+// fin de una partida: victoria y copas; devuelve { copas, cambio, liga, subio }
+function anotarResultado(gano) {
+    const g = leerGuardado();
+    const antes = ligaDe(g.copas);
+    if (gano) g.victorias++;
+    const cambio = gano ? 30 : -Math.min(15, g.copas);
+    g.copas += cambio;
+    escribirGuardado(g);
+    const liga = ligaDe(g.copas);
+    return { copas: g.copas, cambio, liga, subio: liga !== antes && gano };
 }
 export const arenaDisponible = a => victoriasArena() >= a.victorias;
 
@@ -100,9 +140,21 @@ export function iniciarArena(ganchos) {
             case 'arenaCae':
                 if (m.ronda !== partida.ronda) break;
                 partida.vidas.set(m.de, Math.max(0, m.vidas | 0));
+                // ¿lo derribé yo? (lo golpeé hace poco)
+                if (Date.now() - (partida.golpeA.get(m.de) || 0) < 4000) partida.stats.derribos++;
                 revisarRonda();
                 break;
             case 'arenaRonda': cerrarRonda(m); break;
+            case 'arenaTroll': if (scene && m.ronda === partida.ronda) travesura(scene, m); break;
+            case 'arenaOrbe':
+                if (m.ronda !== partida.ronda) break;
+                partida.orbes.set(m.id, m);
+                if (scene) dibujarOrbe(scene, m);
+                break;
+            case 'arenaOrbeToma': quitarOrbe(scene, m.id); break;
+            case 'arenaCofre': quitarCofre(scene, m.id, true); break;
+            case 'arenaEmote': if (scene && EMOTES.includes(m.e)) mostrarEmote(scene, m.de, m.e); break;
+            case 'arenaStats': recibirStats(m); break;
             case 'salio':
                 partida.equipos.delete(m.de);
                 partida.vidas.delete(m.de);
@@ -130,6 +182,10 @@ export function empezarArena({ modo, arena, jugadores, apuesta = 0 }) {
         marcador: new Map(),
         ronda: 1,
         terminada: null,
+        stats: { golpes: 0, derribos: 0, lavaSolo: 0, troll: 0, perfectas: 0 }, // para las medallas
+        golpeA: new Map(),        // último golpe que le di a cada rival
+        statsDe: new Map(),       // medallas: lo que manda cada jugador al final
+        siguienteId: 1,
     };
     nuevaRonda();
 }
@@ -141,6 +197,12 @@ function nuevaRonda() {
     partida.inicio = Date.now();
     partida.cuenta = false; // la cuenta regresiva se ve una vez por ronda
     partida.derrumbe = false;
+    partida.orbes = new Map();   // orbes en el suelo (id -> { x, y, poder })
+    partida.cofres = new Map();  // cofres falsos (id -> x)
+    partida.proxTroll = Infinity;
+    partida.proxOrbe = Infinity;
+    partida.golpeRecibido = 0;
+    partida.dañoTroll = 0;
 }
 
 export const equipoDe = id => partida?.equipos.get(id);
@@ -195,6 +257,14 @@ export function prepararArena(scene, alDañarRival) {
     api.ponerVidas(scene, misVidas());
     scene.mascotaGesi.setFlipX(lugarDeAparicion()[0] > 450);
     // marcador arriba al centro
+    scene.physics.world.gravity.y = 300; // (por si reapareces en medio de la gravedad baja)
+    scene.orbesFx = new Map();
+    scene.cofresFx = new Map();
+    scene.ojos = null;
+    partida.orbes.forEach(o => dibujarOrbe(scene, o));
+    partida.cofres.forEach((x, id) => dibujarCofre(scene, id, x));
+    crearEmotes(scene);
+    scene.events.once('shutdown', () => { quitarEmotes(); scene.oscuro = null; });
     scene.textoMarcador = scene.add.text(395, 40, '', {
         fontFamily: 'Poppins, sans-serif', fontSize: '13px', fontStyle: '700', color: '#ffffff', stroke: '#000', strokeThickness: 4, align: 'center',
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(55);
@@ -228,6 +298,9 @@ function cuentaRegresiva(scene) {
         if (i === pasos.length - 1) {
             scene.cinematica = false;
             scene.proteccionHasta = scene.time.now + 600;
+            // el troll y los orbes empiezan un rato después
+            partida.proxTroll = Date.now() + 10000;
+            partida.proxOrbe = Date.now() + 6000;
         }
     }));
 }
@@ -241,7 +314,16 @@ function pintarMarcador(scene) {
 
 // cada fotograma
 export function actualizarArena(scene) {
-    if (!scene.arena || partida.cerrada) return;
+    if (!scene.arena) return;
+    actualizarOjos(scene);
+    if (partida.cerrada) return;
+    tocarOrbesYCofres(scene);
+    // el anfitrión decide las travesuras y los orbes (y los avisa a todos)
+    if (esAnfitrion() && partida.cuenta) {
+        const ahora = Date.now();
+        if (ahora > partida.proxTroll) { partida.proxTroll = ahora + TROLL_CADA_MS; elegirTravesura(scene); }
+        if (ahora > partida.proxOrbe) { partida.proxOrbe = ahora + ORBE_CADA_MS; soltarOrbe(); }
+    }
     const pasado = Date.now() - partida.inicio;
     if (partida.avisoDerrumbe !== partida.ronda && pasado > DERRUMBE_MS - 3000 && partida.cuenta) {
         partida.avisoDerrumbe = partida.ronda;
@@ -276,6 +358,8 @@ export function golpearRival(scene, rival, daño = 1, congela = 0, empuje = 0) {
     const ahora = scene.time.now;
     if (ahora < (rival.pvpHasta || 0)) return; // (un mismo ataque no cuenta varias veces seguidas)
     rival.pvpHasta = ahora + 300;
+    partida.stats.golpes++;
+    partida.golpeA.set(rival.rivalId, Date.now());
     const ox = scene.mascotaGesi.body.center.x;
     if (!empuje) empuje = Math.sign(rival.x - ox || 1) * 240;
     enviarEvento('pvp', { para: rival.rivalId, daño, congela, empuje, ox, ronda: partida.ronda });
@@ -288,6 +372,7 @@ export function golpearRival(scene, rival, daño = 1, congela = 0, empuje = 0) {
 function recibirGolpe(scene, m) {
     const g = scene.mascotaGesi;
     if (!scene.arena || g.isDead || scene.cinematica || scene.time.now < (scene.proteccionHasta || 0)) return;
+    partida.golpeRecibido = Date.now();
     const daño = Math.max(0, Number(m.daño) || 0);
     const congela = Math.min(1500, (Number(m.congela) || 0) / 2); // contra jugadores, congelar dura la mitad
     if (daño > 0) {
@@ -307,7 +392,10 @@ function recibirGolpe(scene, m) {
 }
 
 // perdí un corazón (lava o sin salud)
-export function arenaMuerte(scene) {
+export function arenaMuerte(scene, causa) {
+    const ahora = Date.now();
+    if (ahora - partida.dañoTroll < 2500) partida.stats.troll++;
+    else if (causa === 'caida' && ahora - partida.golpeRecibido > 3000) partida.stats.lavaSolo++;
     const quedan = Math.max(0, misVidas() - 1);
     partida.vidas.set(red.tuId, quedan);
     api.ponerVidas(scene, quedan);
@@ -346,6 +434,7 @@ function cerrarRonda(m) {
     const scene = escena();
     const g = m.ganador;
     if (g != null) partida.marcador.set(g, (partida.marcador.get(g) || 0) + 1);
+    if (g != null && g === equipoDe(red.tuId) && misVidas() === VIDAS) partida.stats.perfectas++; // ronda sin perder corazones
     if (scene) {
         pintarMarcador(scene);
         scene.cinematica = true;
@@ -368,7 +457,12 @@ function terminarPartida(ganador) {
     const scene = escena();
     const mio = ganador === equipoDe(red.tuId);
     partida.terminada = { ganador };
-    if (mio) sumarVictoria();
+    const liga = anotarResultado(mio);
+    if (liga.subio) api.premio(50); // premio por subir de liga
+    // medallas: cada uno manda sus números y todos calculan las mismas
+    partida.statsDe.set(red.tuId, partida.stats);
+    enviarEvento('arenaStats', { stats: partida.stats });
+    setTimeout(pintarMedallas, 1500);
     // con apuesta: el pozo (lo que pagaron todos) se reparte entre los del equipo ganador
     const ganadores = [...partida.equipos.values()].filter(e => e === ganador).length || 1;
     const pozo = partida.apuesta * partida.equipos.size;
@@ -383,6 +477,7 @@ function terminarPartida(ganador) {
         marcador: orden.map(e => `${nombreEquipo(e)}: ${partida.marcador.get(e) || 0}`).join('  ·  '),
         monedas: `${partida.apuesta ? `Pozo ◉ ${pozo} · ` : ''}${premio ? `◉ +${premio} monedas` : `Perdiste ◉ ${partida.apuesta}`}`
             + (mio ? ` · ${victoriasArena()} victorias en la arena` : ''),
+        liga: `🏆 Liga ${liga.liga} · ${liga.copas} copas (${liga.cambio >= 0 ? '+' : ''}${liga.cambio})${liga.subio ? ' · ¡SUBISTE DE LIGA! ◉ +50' : ''}`,
     });
 }
 
@@ -400,6 +495,8 @@ function mostrarFin(d) {
             <p class="arena-fin-gana">${d.gana}</p>
             <p class="menu-nota">${d.marcador}</p>
             <p class="arena-fin-monedas">${d.monedas}</p>
+            <p class="arena-fin-liga">${d.liga}</p>
+            <ul class="arena-medallas" data-medallas><li class="menu-nota">Repartiendo medallas…</li></ul>
             ${anfitrion ? `
             <button type="button" class="menu-boton sala-empezar" data-fin="revancha">↻ Revancha</button>
             <button type="button" class="menu-boton" data-fin="sala">☰ Volver a la sala</button>`
@@ -422,3 +519,240 @@ export function cerrarFin() {
     capaFin?.remove();
     capaFin = null;
 }
+
+
+// ---------- travesuras del Rey Troll ----------
+const azar = (a, b) => a + Math.random() * (b - a);
+const sueloLibre = () => (partida.arena.id === 'castillo' ? azar(150, 750) : Math.random() < 0.5 ? azar(150, 320) : azar(590, 760));
+
+function elegirTravesura() {
+    const tipos = Object.keys(TRAVESURAS);
+    const tipo = tipos[Math.floor(Math.random() * tipos.length)];
+    const m = { tipo, ronda: partida.ronda };
+    if (tipo === 'rocas') m.xs = Array.from({ length: 6 }, () => Math.round(azar(60, 840)));
+    if (tipo === 'cofre') { m.x = Math.round(sueloLibre()); m.id = partida.siguienteId++; }
+    enviarEvento('arenaTroll', m);
+    const scene = escena();
+    if (scene) travesura(scene, m);
+}
+
+function travesura(scene, m) {
+    if (!TRAVESURAS[m.tipo]) return;
+    asomarTroll(scene);
+    api.mensaje(scene, TRAVESURAS[m.tipo], 1400);
+    const ahora = scene.time.now;
+    if (m.tipo === 'controles') {
+        scene.invertidoHasta = ahora + 3500;
+    } else if (m.tipo === 'rocas') {
+        (m.xs || []).slice(0, 8).forEach((x, i) => scene.time.delayedCall(300 + i * 220, () => caerRoca(scene, Number(x))));
+    } else if (m.tipo === 'apagon') {
+        apagon(scene, 5000);
+    } else if (m.tipo === 'gravedad') {
+        const g = scene.mascotaGesi;
+        scene.physics.world.gravity.y = 110;
+        if (g.body) g.body.setGravityY(200);
+        scene.time.delayedCall(6000, () => {
+            scene.physics.world.gravity.y = 300;
+            if (g.active && g.body) g.body.setGravityY(480);
+        });
+    } else if (m.tipo === 'cofre') {
+        partida.cofres.set(m.id, Number(m.x));
+        dibujarCofre(scene, m.id, Number(m.x));
+    }
+}
+
+// el Rey Troll se asoma desde arriba un momento
+function asomarTroll(scene) {
+    if (!scene.textures.exists('troll3_Idle')) return;
+    const arriba = scene.cameras.main.worldView.y;
+    const t = scene.add.sprite(450, arriba - 70, 'troll3_Idle').setOrigin(0.5, 0).setScale(0.3).setDepth(48).setFlipY(true);
+    if (scene.anims.exists('troll3-idle')) t.anims.play('troll3-idle');
+    scene.sound.play('rugido', { volume: 0.35, rate: 1.2 });
+    scene.tweens.add({ targets: t, y: arriba - 10, duration: 350, yoyo: true, hold: 900, ease: 'Back.out', onComplete: () => t.destroy() });
+}
+
+// roca: sombra en el suelo, cae y golpea a quien esté debajo
+function caerRoca(scene, x) {
+    if (!scene.scene.isActive()) return;
+    const sombra = scene.add.ellipse(x, SUELO_Y - 2, 30, 8, 0x000000, 0.45).setDepth(20);
+    const roca = scene.add.circle(x, scene.cameras.main.worldView.y - 30, 13, 0x6b6157).setStrokeStyle(3, 0x3a332c).setDepth(36);
+    scene.tweens.add({
+        targets: roca, y: SUELO_Y - 14, duration: 850, ease: 'Quad.in',
+        onComplete: () => {
+            sombra.destroy();
+            scene.tweens.add({ targets: roca, alpha: 0, scale: 1.6, duration: 200, onComplete: () => roca.destroy() });
+            scene.sound.play('romper', { volume: 0.35 });
+            const g = scene.mascotaGesi;
+            if (!g.isDead && g.body && Math.abs(g.body.center.x - x) < 26 && g.body.bottom > SUELO_Y - 40 && !scene.cinematica) {
+                partida.dañoTroll = Date.now();
+                api.golpearme(scene, 15, x);
+            }
+        },
+    });
+}
+
+// apagón: todo a oscuras, solo se ven los ojos de cada personaje
+function apagon(scene, ms) {
+    const cam = scene.cameras.main;
+    scene.oscuro?.destroy();
+    scene.oscuro = scene.add.rectangle(0, 0, cam.width * 2, cam.height * 2, 0x000000, 0.94).setOrigin(0).setScrollFactor(0).setDepth(44);
+    scene.ojos = [];
+    scene.time.delayedCall(ms, () => {
+        if (!scene.oscuro) return;
+        scene.tweens.add({ targets: scene.oscuro, alpha: 0, duration: 400, onComplete: () => { scene.oscuro?.destroy(); scene.oscuro = null; } });
+        scene.ojos?.forEach(o => o.destroy());
+        scene.ojos = null;
+    });
+}
+function actualizarOjos(scene) {
+    if (!scene.ojos) return;
+    const cuerpos = [scene.mascotaGesi, ...[...(scene.remotos?.values() || [])].filter(r => r.visible).map(r => r.s)];
+    while (scene.ojos.length < cuerpos.length) {
+        scene.ojos.push(scene.add.text(0, 0, '• •', { fontSize: '10px', color: '#ffe066', fontStyle: '700' }).setOrigin(0.5).setDepth(45));
+    }
+    scene.ojos.forEach((o, i) => {
+        const c = cuerpos[i];
+        o.setVisible(!!c && c.visible && !c.isDead);
+        if (c) o.setPosition(c.x + (c.flipX ? -3 : 3), c.y - 22);
+    });
+}
+
+// cofre falso: parece un premio y explota al tocarlo
+function dibujarCofre(scene, id, x) {
+    if (scene.cofresFx.has(id) || !scene.textures.exists('misterio')) return;
+    const c = scene.add.sprite(x, SUELO_Y - 16, 'misterio').setScale(1.4).setDepth(30);
+    if (scene.anims.exists('misterio-brillo')) c.anims.play('misterio-brillo');
+    scene.tweens.add({ targets: c, y: c.y - 4, yoyo: true, repeat: -1, duration: 500 });
+    scene.cofresFx.set(id, c);
+}
+function quitarCofre(scene, id, remoto) {
+    partida?.cofres.delete(id);
+    const c = scene?.cofresFx?.get(id);
+    if (!c) return;
+    scene.cofresFx.delete(id);
+    if (remoto) explosion(scene, c.x, c.y);
+    c.destroy();
+}
+function explosion(scene, x, y) {
+    if (scene.textures.exists('pd_fuego2')) {
+        const e = scene.add.sprite(x, y, 'pd_fuego2').setDepth(37).setScale(0.8);
+        if (scene.anims.exists('pd_fuego2-a')) { e.anims.play('pd_fuego2-a'); e.once('animationcomplete', () => e.destroy()); } else scene.time.delayedCall(500, () => e.destroy());
+    }
+    scene.sound.play('romper', { volume: 0.6 });
+    scene.cameras.main.shake(200, 0.006);
+}
+
+// ---------- orbes de poder ----------
+function soltarOrbe() {
+    const scene = escena();
+    if (!scene) return;
+    // sobre una plataforma o el suelo, al azar
+    const lugares = scene.floor.getChildren().filter(p => p.body?.enable && p.body.width > 60).map(p => [p.body.left + 20, p.body.right - 20, p.body.top]);
+    if (!lugares.length) return;
+    const [x0, x1, arriba] = lugares[Math.floor(Math.random() * lugares.length)];
+    const m = { id: partida.siguienteId++, x: Math.round(azar(x0, x1)), y: Math.round(arriba - 18), poder: PODERES_ORBE[Math.floor(Math.random() * PODERES_ORBE.length)], ronda: partida.ronda };
+    enviarEvento('arenaOrbe', m);
+    partida.orbes.set(m.id, m);
+    dibujarOrbe(scene, m);
+}
+function dibujarOrbe(scene, o) {
+    if (scene.orbesFx.has(o.id)) return;
+    const brillo = scene.add.image(o.x, o.y, scene.textures.exists('brillo') ? 'brillo' : '__WHITE').setTint(0xffc94a).setBlendMode('ADD').setScale(0.5).setDepth(31);
+    const nucleo = scene.add.circle(o.x, o.y, 6, 0xfff3c0).setDepth(32);
+    scene.tweens.add({ targets: [brillo, nucleo], y: o.y - 6, yoyo: true, repeat: -1, duration: 600 });
+    scene.tweens.add({ targets: brillo, scale: 0.7, yoyo: true, repeat: -1, duration: 400 });
+    scene.orbesFx.set(o.id, [brillo, nucleo]);
+}
+function quitarOrbe(scene, id) {
+    partida?.orbes.delete(id);
+    const fx = scene?.orbesFx?.get(id);
+    if (!fx) return;
+    scene.orbesFx.delete(id);
+    fx.forEach(f => f.destroy());
+}
+function tocarOrbesYCofres(scene) {
+    const g = scene.mascotaGesi;
+    if (g.isDead || !g.body || scene.cinematica) return;
+    const cx = g.body.center.x, cy = g.body.center.y;
+    partida.orbes.forEach((o, id) => {
+        if (Math.abs(o.x - cx) > 22 || Math.abs(o.y - cy) > 40) return;
+        enviarEvento('arenaOrbeToma', { id });
+        quitarOrbe(scene, id);
+        api.orbe(scene, o.poder);
+        scene.sound.play('punto_control', { volume: 0.6, rate: 1.4 });
+    });
+    partida.cofres.forEach((x, id) => {
+        if (Math.abs(x - cx) > 22 || g.body.bottom < SUELO_Y - 40) return;
+        enviarEvento('arenaCofre', { id });
+        const c = scene.cofresFx.get(id);
+        explosion(scene, x, c ? c.y : SUELO_Y - 16);
+        quitarCofre(scene, id, false);
+        partida.dañoTroll = Date.now();
+        api.golpearme(scene, 25, x + (Math.random() < 0.5 ? -1 : 1));
+        g.setVelocityY(-380);
+        api.mensaje(scene, '¡ERA UNA TRAMPA DEL TROLL!', 1100);
+    });
+}
+
+// ---------- emotes ----------
+let barraEmotes = null, ultimoEmote = 0;
+function crearEmotes(scene) {
+    quitarEmotes();
+    barraEmotes = document.createElement('div');
+    barraEmotes.className = 'arena-emotes botones-flotantes-arena';
+    barraEmotes.innerHTML = EMOTES.map(e => `<button type="button" data-emote="${e}" aria-label="Emote ${e}">${e}</button>`).join('');
+    ['pointerdown', 'mousedown', 'touchstart'].forEach(t => barraEmotes.addEventListener(t, ev => ev.stopPropagation()));
+    barraEmotes.addEventListener('click', ev => {
+        const e = ev.target.closest('[data-emote]')?.dataset.emote;
+        if (e) enviarEmote(e);
+    });
+    document.getElementById('game').append(barraEmotes);
+    scene.input.keyboard?.on('keydown-E', () => enviarEmote(EMOTES[Math.floor(Math.random() * EMOTES.length)]));
+}
+function quitarEmotes() {
+    barraEmotes?.remove();
+    barraEmotes = null;
+}
+function enviarEmote(e) {
+    const scene = escena();
+    if (!scene || !partida || Date.now() - ultimoEmote < 1200) return;
+    ultimoEmote = Date.now();
+    enviarEvento('arenaEmote', { e });
+    mostrarEmote(scene, red.tuId, e);
+}
+function mostrarEmote(scene, id, e) {
+    const s = id === red.tuId ? scene.mascotaGesi : scene.remotos?.get(id)?.s;
+    // los eliminados no se ven: su emote sale arriba, como reacción del público
+    const visible = s && s.visible && !(id === red.tuId && s.isDead);
+    const x = visible ? s.x : azar(200, 700), y = visible ? s.y - 40 : scene.cameras.main.worldView.y + 70;
+    const t = scene.add.text(x, y, e, { fontSize: '22px' }).setOrigin(0.5).setDepth(60);
+    scene.tweens.add({ targets: t, y: y - 30, alpha: 0, duration: 1400, ease: 'Sine.out', onComplete: () => t.destroy() });
+}
+
+// ---------- medallas ----------
+function recibirStats(m) {
+    if (!partida || !m.stats) return;
+    const n = k => Math.max(0, Math.min(999, Number(m.stats[k]) || 0));
+    partida.statsDe.set(m.de, { golpes: n('golpes'), derribos: n('derribos'), lavaSolo: n('lavaSolo'), troll: n('troll'), perfectas: n('perfectas') });
+    pintarMedallas();
+}
+function pintarMedallas() {
+    const lista = capaFin?.querySelector('[data-medallas]');
+    if (!lista || !partida) return;
+    const todos = [...partida.statsDe.entries()];
+    const nombre = id => (id === red.tuId ? 'Tú' : nombreDe(id));
+    const mejor = clave => todos.reduce((a, b) => (b[1][clave] > (a?.[1][clave] ?? 0) ? b : a), null);
+    const medallas = [];
+    const empujon = mejor('golpes'), cazador = mejor('derribos');
+    if (empujon) medallas.push(['👊', 'Rey del empujón', nombre(empujon[0]), `${empujon[1].golpes} golpes`]);
+    if (cazador) medallas.push(['🎯', 'Cazador', nombre(cazador[0]), `${cazador[1].derribos} corazones quitados`]);
+    todos.forEach(([id, s]) => {
+        if (s.perfectas) medallas.push(['🛡', 'Intocable', nombre(id), `${s.perfectas} ronda${s.perfectas > 1 ? 's' : ''} sin perder corazones`]);
+        if (s.lavaSolo) medallas.push(['🌋', 'Murió solo en la lava', nombre(id), `${s.lavaSolo} vez${s.lavaSolo > 1 ? 'ces' : ''}`]);
+        if (s.troll) medallas.push(['🧌', 'Troleado por el troll', nombre(id), `${s.troll} vez${s.troll > 1 ? 'ces' : ''}`]);
+    });
+    lista.innerHTML = medallas.length
+        ? medallas.map(([i, t, quien, por]) => `<li><span aria-hidden="true">${i}</span> <b>${t}</b> · ${escaparTexto(quien)} <small>(${por})</small></li>`).join('')
+        : '<li class="menu-nota">Sin medallas esta vez</li>';
+}
+const escaparTexto = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
