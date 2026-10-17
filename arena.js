@@ -508,7 +508,7 @@ function terminarPartida(ganador) {
     const mio = ganador === equipoDe(red.tuId);
     partida.terminada = { ganador };
     const liga = anotarResultado(mio);
-    setTimeout(() => ganarXP(mio ? XP.arenaGana : XP.arenaPierde, scene?.pj?.id), 2000); // (progreso.js)
+    setTimeout(() => ganarXP(mio ? XP.arenaGana : XP.arenaPierde, scene?.pj?.id, { victoria: mio }), 2000); // (progreso.js)
     if (liga.subio) api.premio(50); // premio por subir de liga
     // medallas: cada uno manda sus números y todos calculan las mismas
     partida.statsDe.set(red.tuId, partida.stats);

@@ -271,7 +271,7 @@ function terminar(m) {
     const pagos = calcularPagos(m.ganador);
     // experiencia según el puesto (progreso.js)
     const puesto = (Array.isArray(m.orden) ? m.orden.map(Number) : [m.ganador]).indexOf(red.tuId);
-    setTimeout(() => ganarXP(XP.carrera[puesto] ?? XP.carreraOtros, escena()?.pj?.id), 2600);
+    setTimeout(() => ganarXP(XP.carrera[puesto] ?? XP.carreraOtros, escena()?.pj?.id, { victoria: puesto === 0 }), 2600);
     const premio = pagos.get(red.tuId) || 0;
     if (premio) api.premio(premio);
     informarSaldo(saldo()); // (para la próxima: la sala revisa que alcance para la apuesta)

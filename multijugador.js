@@ -76,6 +76,7 @@ export function iniciarMultijugador(juegoPhaser, g) {
                 break;
             }
             case 'jefe': ganchos.dañarJefe(scene, m.cantidad); break;
+            case 'jefeEstado': ganchos.alterarJefe(scene, m.tipo, Number(m.ms)); break; // (congelado o aturdido por un poder)
             case 'meta': ganchos.completar(scene); break;
             case 'poder': poderRemoto(scene, m); break;
             case 'poderEsp': {

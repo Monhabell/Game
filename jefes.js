@@ -323,6 +323,37 @@ export function dañarJefe(scene, cantidad, api, origenX, remoto = false) {
     return true;
 }
 
+// ---------- Congelar y aturdir (poderes.js) ----------
+// Los poderes que congelan o aturden también le hacen efecto al troll, pero CORTO y con un tiempo
+// inmune después: nadie lo deja quieto toda la pelea. Quieto, la coraza no lo protege.
+// (Empujar y atraer no lo mueven: es enorme. Solo hacen su daño.)
+const QUIETO_JEFE_MAX = 1000;   // ms como mucho congelado o aturdido (detener el tiempo: 2000)
+const INMUNE_ESTADOS = 6000;    // ms sin poder volver a congelarlo o aturdirlo
+// remoto: lo aplicó otra pantalla en línea (ya revisó la inmunidad y avisó a todos)
+export function alterarJefe(scene, tipo, ms, remoto = false) {
+    const j = scene.jefe;
+    if (!j || j.estado !== 'pelea' || !j.sprite?.active) return false;
+    const ahora = scene.time.now;
+    if (!remoto && ahora < (j.inmuneEstadosHasta || 0)) return false;
+    const dura = Math.min(tipo === 'tiempo' ? 2000 : QUIETO_JEFE_MAX, Math.max(300, ms | 0));
+    j.inmuneEstadosHasta = ahora + dura + INMUNE_ESTADOS;
+    j.ocupadoHasta = Math.max(j.ocupadoHasta || 0, ahora + dura);
+    j.aturdidoHasta = Math.max(j.aturdidoHasta || 0, ahora + dura); // (sin coraza mientras está quieto)
+    j.embistiendo = false;
+    j.huidaHasta = 0;
+    const s = j.sprite;
+    s.setVelocityX(0);
+    if (tipo === 'aturdir') mareado(scene, s);
+    else {
+        // congelado (o el tiempo detenido): azul y sin moverse
+        s.setTint(0x9fe8ff);
+        s.anims.pause();
+        scene.time.delayedCall(dura, () => { if (s.active) { s.anims.resume(); restaurarTinte(j); } });
+    }
+    if (!remoto) scene.alAlterarJefe?.(tipo, dura); // en línea: a todos (el anfitrión lo deja quieto de verdad)
+    return true;
+}
+
 // ---------- Coraza y tintes ----------
 function tieneCoraza(j) {
     return j.datos.coraza !== null && j.datos.coraza !== undefined && j.vida > j.vidaMax * j.datos.coraza;

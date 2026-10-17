@@ -23,9 +23,12 @@
 // de los demás desde su fantasma y revisa si te tocaron (alcanzarme). El efecto lo decide
 // carrera.js (empujón, aturdir, congelar, atraer: nunca quita vidas).
 //
+// Contra el Rey Troll, los que congelan o aturden (y Detener el tiempo) lo dejan quieto un momento corto
+// (api.alterarJefe, ver jefes.js: como mucho 1 s y luego 6 s inmune); empujar y atraer no lo mueven.
+//
 // api (la da game.js): { dañar(scene, e, daño, congela), golpearJefe(scene, zona, daño), congelar(scene, e, ms),
 //   habilidadBase(scene, h), recuperarEscudo(scene), curarVida(scene), animarPoder(scene), mensaje(scene, texto),
-//   golpeCarrera(scene, p, de, ox) }
+//   golpeCarrera(scene, p, de, ox), alterarJefe(scene, tipo, ms) }
 // En la ARENA el golpe a un rival lleva el poder (api.dañar(..., p)): además del daño, le hace su
 // efecto (congelar, explotar, ralentizar...: efectos.js), igual que en la carrera.
 
@@ -476,9 +479,19 @@ function golpearZona(scene, p, zona, remoto, daño = p.daño, jefe = 2) {
         if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) golpear(scene, p, e, false, daño);
     });
     if (daño && jefe) api.golpearJefe(scene, zona, Math.min(jefe, daño));
+    alterarAlJefe(scene, p, zona);
 }
 
 const zonaCirculo = (x, y, r) => new Phaser.Geom.Rectangle(x - r, y - r, r * 2, r * 2);
+
+// el poder congela o aturde y la zona toca al troll: lo deja quieto un momento (jefes.js decide cuánto)
+function alterarAlJefe(scene, p, zona) {
+    const s = scene.jefe?.sprite;
+    if (!s?.body || !(p.congela || p.aturde)) return;
+    const b = s.body;
+    if (!Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(b.left, b.top, b.width, b.height))) return;
+    api.alterarJefe?.(scene, p.congela ? 'congelar' : 'aturdir', p.congela || p.aturde);
+}
 
 // carrera: ¿el poder de un rival (remoto = { de }) me alcanzó? toca(rectángulo de mi cuerpo)
 // ox: desde dónde viene (para el lado del empujón)
@@ -496,6 +509,7 @@ function golpearRadio(scene, p, x, y, r, remoto, jefe = 2) {
     if (remoto) { alcanzarme(scene, p, remoto, x, b => Phaser.Math.Distance.Between(x, y, b.centerX, b.centerY) < r + 12); return; }
     vivos(scene).forEach(e => { if (Phaser.Math.Distance.Between(x, y, centro(e).x, centro(e).y) < r) golpear(scene, p, e, false); });
     if (p.daño && jefe) api.golpearJefe(scene, zonaCirculo(x, y, r), Math.min(jefe, p.daño));
+    alterarAlJefe(scene, p, zonaCirculo(x, y, r));
 }
 
 // proyectil (también ola y meteoro): se mueve en update y revisa los choques
@@ -558,7 +572,9 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
             let x = cx + dir * p.distancia;
             if (p.objetivo) {
                 // el enemigo más cercano delante (o el punto fijo si no hay)
-                const blanco = vivos(scene).filter(e => (centro(e).x - cx) * dir > -10 && Math.abs(centro(e).x - cx) < 360)
+                // (el Rey Troll también es blanco)
+                const jefe = scene.jefe?.estado === 'pelea' && scene.jefe.sprite?.body ? [scene.jefe.sprite] : [];
+                const blanco = [...vivos(scene), ...jefe].filter(e => (centro(e).x - cx) * dir > -10 && Math.abs(centro(e).x - cx) < 360)
                     .sort((a, c) => Math.abs(centro(a).x - cx) - Math.abs(centro(c).x - cx))[0];
                 if (blanco) x = centro(blanco).x;
                 rayoVertical(scene, x, pie, tinte);
@@ -692,6 +708,8 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
             efecto(scene, claveEfecto(p), cx, cy, { tinte, escala: p.escala || 1 });
             scene.cameras.main.flash(250, 255, 180, 230);
             if (!remoto) vivos(scene).forEach(e => { if (Math.abs(centro(e).x - cx) < p.alcance) api.congelar(scene, e, p.duracion); });
+            // el Rey Troll también se congela (2 s, ver jefes.js)
+            if (!remoto && scene.jefe?.sprite?.body && Math.abs(scene.jefe.sprite.body.center.x - cx) < p.alcance) api.alterarJefe?.(scene, 'tiempo', p.duracion);
             // carrera: el tiempo también se detiene para el rival que está cerca
             else alcanzarme(scene, p, remoto, cx, b => Math.abs(b.centerX - cx) < p.alcance && Math.abs(b.centerY - cy) < 200);
             break;
@@ -779,6 +797,7 @@ export function actualizarPoderes(scene, time, delta) {
             api.golpearJefe(scene, zona, Math.min(2, q.p.daño));
             if (scene.jefe.vida !== antes) {
                 q.golpeoJefe = true;
+                alterarAlJefe(scene, q.p, zona);
                 impacto(scene, q.p, s.x, s.y);
                 if (!q.p.perfora && q.p.tipo !== 'ola') { s.destroy(); return false; }
             }

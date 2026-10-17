@@ -1,5 +1,6 @@
 // Escudo del personaje: el primer golpe rompe el escudo en vez de quitar una vida.
-// Efecto: CraftPix "Free Animated Explosion Sprite Pack" (Explosion_5, burbuja que se quiebra).
+// Dibujo: un escudo de caballero en PIXEL ART hecho aquí mismo (crearTexturaEscudo: 16 x 18 px
+// dibujados a escala 2, sin suavizar), con su brillo; al romperse salta en pedacitos cuadrados.
 //
 // - Cada vida empieza con escudo: se indica con un ícono junto a los corazones. La burbuja
 //   alrededor del personaje solo se ve un momento (al aparecer, al recuperarlo y al romperse).
@@ -12,25 +13,62 @@
 const INVULNERABLE_MS = 1500;
 const EMPUJON_MS = 250; // el empujón al romperse no se puede anular con las flechas (igual que en game.js)
 const AVANCE_RECARGA = 900; // px que hay que avanzar para que el escudo se recargue solo
-const FRAME_BURBUJA = 3; // frame de la animación donde la burbuja está entera
+const ESCALA_ICONO = 0.75; // el escudo de pixel art en el HUD (32 x 36 -> 24 x 27)
 
 export function cargarEscudo(scene) {
-    scene.load.spritesheet('fx_escudo', 'assets/efectos/escudo.png', { frameWidth: 256, frameHeight: 256 });
     scene.load.audio('escudo_roto', 'assets/sound/aventura/escudo_roto.mp3');
 }
 
 export function crearAnimacionesEscudo(scene) {
-    if (scene.anims.exists('escudo-roto')) return;
-    scene.anims.create({
-        key: 'escudo-roto',
-        frames: scene.anims.generateFrameNumbers('fx_escudo', { start: FRAME_BURBUJA, end: 9 }),
-        frameRate: 16,
-    });
-    scene.anims.create({
-        key: 'escudo-aparece',
-        frames: scene.anims.generateFrameNumbers('fx_escudo', { start: 0, end: FRAME_BURBUJA }),
-        frameRate: 14,
-    });
+    crearTexturaEscudo(scene);
+}
+
+// escudo de caballero en pixel art: borde oscuro, marco plateado, campo azul con brillo y una
+// estrella dorada. Cada letra es un píxel (se dibuja a escala 2 y sin suavizar)
+const PIXELES = [
+    '..OOOOOOOOOOOO..',
+    '.OPPPPPPPPPPPPO.',
+    'OPSBBBBBBBBBBSPO',
+    'OPBHHBBBBBBBBBPO',
+    'OPBHBBBBGBBBBBPO',
+    'OPBHBBBGGGBBBBPO',
+    'OPBBBGGGGGGGBBPO',
+    'OPBBBBGGGGGBBBPO',
+    'OPBBBBGGBGGBBBPO',
+    'OPBBBGGBBBGGBBPO',
+    'OPBBBBBBBBBBBBPO',
+    '.OPBBBBBBBBBBPO.',
+    '.OPBBBBBBBBBBPO.',
+    '..OPBBBBBBBBPO..',
+    '...OPBBBBBBPO...',
+    '....OPBBBBPO....',
+    '.....OPPPPO.....',
+    '......OOOO......',
+];
+const COLORES_PIXEL = { O: 0x14192e, P: 0xc9d3e6, S: 0x8a96b0, B: 0x3a7bd5, H: 0xbfe3ff, G: 0xffd27a };
+function crearTexturaEscudo(scene) {
+    if (scene.textures.exists('escudo_pixel')) return;
+    const g = scene.make.graphics({ add: false });
+    PIXELES.forEach((fila, y) => [...fila].forEach((c, x) => {
+        if (COLORES_PIXEL[c] !== undefined) g.fillStyle(COLORES_PIXEL[c]).fillRect(x * 2, y * 2, 2, 2);
+    }));
+    g.generateTexture('escudo_pixel', 32, 36);
+    g.destroy();
+    scene.textures.get('escudo_pixel').setFilter(Phaser.Textures.FilterMode.NEAREST);
+}
+
+// pedacitos cuadrados del escudo que saltan (al romperse) o se juntan (al recuperarlo)
+function pedacitos(scene, x, y, juntar) {
+    const colores = [0x3a7bd5, 0xc9d3e6, 0xffd27a, 0xbfe3ff];
+    for (let i = 0; i < 10; i++) {
+        const ang = (i / 10) * Math.PI * 2, lejos = 34 + (i % 3) * 8;
+        const px = x + Math.cos(ang) * lejos, py = y + Math.sin(ang) * lejos;
+        const p = scene.add.rectangle(juntar ? px : x, juntar ? py : y, 4, 4, colores[i % 4]).setDepth(45);
+        scene.tweens.add({
+            targets: p, x: juntar ? x : px, y: juntar ? y : py + 20, angle: 180, alpha: juntar ? 1 : 0,
+            duration: juntar ? 280 : 550, ease: juntar ? 'Quad.easeIn' : 'Quad.easeOut', onComplete: () => p.destroy(),
+        });
+    }
 }
 
 // anillo de energía: transparente en el centro (se ve el personaje) y brillante en el borde
@@ -62,8 +100,9 @@ export function crearEscudo(scene) {
     scene.barraEscudo = scene.add.rectangle(x - 16, 42, 32, 4, 0x5fd0ff).setOrigin(0, 0.5).setScrollFactor(0).setDepth(51);
     scene.textoEscudo = scene.add.text(x + 20, 36, '', { fontSize: '9px', color: '#9fe6ff', stroke: '#000', strokeThickness: 3 })
         .setScrollFactor(0).setDepth(51);
-    scene.iconoEscudo = scene.add.image(x, 24, 'fx_escudo', FRAME_BURBUJA)
-        .setScale(0.16).setScrollFactor(0).setDepth(50);
+    crearTexturaEscudo(scene);
+    scene.iconoEscudo = scene.add.image(x, 24, 'escudo_pixel')
+        .setScale(ESCALA_ICONO).setScrollFactor(0).setDepth(50);
     mostrarEscudo(scene, scene.tieneEscudo);
     if (scene.tieneEscudo) destellarAura(scene);
 }
@@ -118,7 +157,8 @@ export function actualizarEscudo(scene, mostrarMensaje) {
 
 // carga de escudo para recoger (aparece al azar y durante la pelea con el jefe)
 export function soltarEscudo(scene, x, y, dura = 9000) {
-    const c = scene.premios.create(x, y, 'fx_escudo', FRAME_BURBUJA).setScale(0.16).refreshBody();
+    crearTexturaEscudo(scene);
+    const c = scene.premios.create(x, y, 'escudo_pixel').setScale(0.9).refreshBody();
     c.body.setSize(28, 28);
     c.tipoPremio = 'escudo';
     const brillo = scene.add.image(x, y, 'brillo').setDepth(41).setScale(0.9).setTint(0x8fd8ff).setAlpha(0.45).setBlendMode('ADD');
@@ -145,11 +185,10 @@ export function romperEscudo(scene, mostrarMensaje) {
     scene.invulnerableHasta = scene.time.now + INVULNERABLE_MS;
     mostrarEscudo(scene, false);
 
-    // la burbuja estalla en grietas azules
-    const fx = scene.add.sprite(g.body.center.x, g.body.center.y - 4, 'fx_escudo')
-        .setScale(0.6).setBlendMode('ADD').setDepth(45);
-    fx.anims.play('escudo-roto');
-    fx.once('animationcomplete', () => fx.destroy());
+    // el escudo salta en pedacitos
+    const fx = scene.add.image(g.body.center.x, g.body.center.y - 4, 'escudo_pixel').setScale(1.2).setDepth(45);
+    scene.tweens.add({ targets: fx, scale: 1.6, alpha: 0, angle: 20, duration: 300, onComplete: () => fx.destroy() });
+    pedacitos(scene, g.body.center.x, g.body.center.y - 4, false);
     const destello = scene.add.image(g.body.center.x, g.body.center.y, 'brillo')
         .setScale(2.6).setTint(0x8fd8ff).setAlpha(0.7).setBlendMode('ADD').setDepth(45);
     scene.tweens.add({ targets: destello, alpha: 0, scale: 3.6, duration: 450, onComplete: () => destello.destroy() });
@@ -166,7 +205,7 @@ export function romperEscudo(scene, mostrarMensaje) {
     scene.tweens.add({ targets: g, alpha: 0.25, yoyo: true, repeat: Math.floor(INVULNERABLE_MS / 180) - 1, duration: 90, onComplete: () => g.setAlpha(1) });
 
     // el ícono del HUD también se quiebra
-    scene.tweens.add({ targets: scene.iconoEscudo, scale: 0.24, yoyo: true, duration: 140 });
+    scene.tweens.add({ targets: scene.iconoEscudo, scale: ESCALA_ICONO * 1.4, yoyo: true, duration: 140 });
     mostrarMensaje('¡ESCUDO ROTO!');
 }
 
@@ -177,10 +216,12 @@ export function recuperarEscudo(scene, mostrarMensaje, texto = '¡ESCUDO RECUPER
     mostrarEscudo(scene, true);
     destellarAura(scene);
     const g = scene.mascotaGesi;
-    const fx = scene.add.sprite(g.body.center.x, g.body.center.y - 4, 'fx_escudo').setScale(0.42).setBlendMode('ADD').setDepth(45);
-    fx.anims.play('escudo-aparece');
-    fx.once('animationcomplete', () => fx.destroy());
-    scene.tweens.add({ targets: scene.iconoEscudo, scale: 0.24, yoyo: true, duration: 160 });
+    // los pedacitos se juntan y el escudo aparece un momento sobre el personaje
+    pedacitos(scene, g.body.center.x, g.body.center.y - 4, true);
+    const fx = scene.add.image(g.body.center.x, g.body.center.y - 4, 'escudo_pixel').setScale(0.4).setAlpha(0).setDepth(45);
+    scene.tweens.add({ targets: fx, scale: 1.2, alpha: 1, delay: 260, duration: 200, ease: 'Back.out' });
+    scene.tweens.add({ targets: fx, alpha: 0, y: fx.y - 16, delay: 900, duration: 400, onComplete: () => fx.destroy() });
+    scene.tweens.add({ targets: scene.iconoEscudo, scale: ESCALA_ICONO * 1.4, yoyo: true, duration: 160 });
     scene.sound.play('punto_control', { volume: 0.5, rate: 1.3 });
     mostrarMensaje(texto);
     return true;

@@ -18,7 +18,7 @@ import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
 import { ganarXP, XP, progresoJugador, maestria, tituloHeroe, factorRecarga, tieneRunaMaestria, MAESTRIA_MAX, textoNivel } from "./progreso.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
-import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
+import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
 import {
     iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
     llegarMetaCarrera, recibirPoderCarrera,
@@ -51,7 +51,7 @@ import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
 import { aleatorizarNivel, prepararNivelFijo, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
 import {
-    cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe,
+    cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe, alterarJefe,
     datosJefe, recibirJefe, efectoJefe
 } from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
@@ -73,6 +73,7 @@ const apiJefe = {
 iniciarPoderes({
     dañar: (scene, e, daño, congela, empuje, p) => (e.rivalId != null ? golpearRival(scene, e, daño, congela, empuje, p) : dañarEnemigo(scene, e, daño, congela)),
     golpearJefe: (scene, zona, daño) => golpearJefeEnZona(scene, zona, daño, apiJefe),
+    alterarJefe: (scene, tipo, ms) => alterarJefe(scene, tipo, ms),
     congelar: (scene, e, ms) => congelarEnemigo(scene, e, ms),
     // carrera: el poder de un rival me alcanzó (carrera.js decide el efecto)
     golpeCarrera: (scene, p, de, ox) => recibirPoderCarrera(scene, p, de, ox),
@@ -412,6 +413,7 @@ iniciarMultijugador(juego, {
     activarCheckpoint: (scene, cp) => activarCheckpoint(scene, cp, true),
     matarEnemigo: (scene, e) => { e.muerteRemota = true; matarEnemigo(scene, e); },
     dañarJefe: (scene, cantidad) => dañarJefe(scene, cantidad, apiJefe, undefined, true),
+    alterarJefe: (scene, tipo, ms) => alterarJefe(scene, tipo, ms, true),
     completar: scene => { scene.metaRemota = true; completarNivel.call(scene, scene.mascotaGesi); },
     crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo),
     dañarEnemigo: (scene, e, cantidad, congela) => dañarEnemigo(scene, e, cantidad, congela),
@@ -901,6 +903,7 @@ function create() {
     if (arena) prepararArena(this, (rival, daño, congela) => golpearRival(this, rival, daño, congela));
     if (enCarrera() && carreraActiva()) prepararCarrera(this, nivel, inicioX);
     this.alDañarJefe = avisarJefe;
+    this.alAlterarJefe = (tipo, ms) => { if (mundoCompartido()) enviarEvento('jefeEstado', { tipo, ms, nivel: nivelActual }); };
     // el troll en línea: lo maneja el anfitrión (jefes.js)
     this.redJefe = mundoCompartido() ? {
         replica: soyReplica,
@@ -2708,7 +2711,7 @@ function completarNivel(mascotaGesi) {
     const premio = premioDeNivel(primeraVez);
     registrarNivel(nivelActual + 1);
     // experiencia para el jugador y la maestría del héroe (progreso.js)
-    this.time.delayedCall(900, () => ganarXP(XP.nivel + (primeraVez ? XP.nivelPrimera : 0), this.pj.id));
+    this.time.delayedCall(900, () => ganarXP(XP.nivel + (primeraVez ? XP.nivelPrimera : 0), this.pj.id, { victoria: true }));
     if (premio) this.time.delayedCall(1700, () => mostrarMensaje(this, `¡NUEVO PODER!\n${premio.nombre}\n(equípalo en la Tienda › Poderes)`, 2200));
 
     const ultimo = nivelActual === NIVELES.length - 1;

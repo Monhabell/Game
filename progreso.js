@@ -7,7 +7,9 @@
 // NIVEL DEL JUGADOR (la cuenta): sube con experiencia (XP) de todo lo que se juega.
 //   terminar un nivel de la historia +180 (+50 la primera vez) · carrera: 1º +120, 2º +80, 3º +60,
 //   los demás +30 · arena: ganar +100, perder +30 · eliminar a un rival con un poder +15
-//   XP para subir: crece hasta el nivel 50 y después queda fija (5100): se sigue subiendo siempre.
+//   XP para subir: +100 por nivel hasta el 50 (5100) y después +20 por nivel (100: 6100 · 300: 10100 ·
+//   500: 14100): cada nivel cuesta un poco más, pero los altísimos se pueden alcanzar.
+//   PRIMERA VICTORIA DEL DÍA (terminar un nivel, ganar una carrera o una arena): +150 XP extra.
 //   Premios: cada nivel, monedas (20 × nivel, hasta 1000) · cada 5 niveles, un poder nuevo (o una
 //   mejora ★ gratis si ya los tienes todos) · cada 25 niveles, uno legendario (o su mejora) ·
 //   rangos: 🥉 25 · 🥈 50 · 🥇 100 · 💎 200 · 👑 300 · 🔥 500 (se ven junto al nivel para todos).
@@ -29,9 +31,11 @@ const CLAVE = 'monhabell-progreso';
 export const MAESTRIA_MAX = 100;
 const MAESTRO = 10; // maestría con la que se gana el título de maestro
 export const XP = { nivel: 180, nivelPrimera: 50, carrera: [120, 80, 60], carreraOtros: 30, arenaGana: 100, arenaPierde: 30, eliminar: 15 };
-// XP para pasar del nivel n al n+1: crece hasta el 50 y después queda fija (se sigue subiendo siempre)
-const xpCuenta = n => 200 + 100 * (Math.min(n, 50) - 1);
-const xpHeroe = n => 150 + 75 * (Math.min(n, 40) - 1);
+// XP para pasar del nivel n al n+1: sube rápido hasta el 50 y después despacio (siempre un poco más)
+const xpCuenta = n => (n <= 50 ? 200 + 100 * (n - 1) : 5100 + 20 * (n - 50));
+const xpHeroe = n => (n <= 40 ? 150 + 75 * (n - 1) : 3075 + 15 * (n - 40));
+const XP_PRIMERA_DEL_DIA = 150;
+const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
 // rango: la insignia que acompaña al nivel (la ven todos)
 const RANGOS = [[500, '🔥'], [300, '👑'], [200, '💎'], [100, '🥇'], [50, '🥈'], [25, '🥉']];
 export const rangoDe = nv => RANGOS.find(([desde]) => nv >= desde)?.[1] || '';
@@ -49,8 +53,9 @@ const TITULOS = { arquera: 'Maestra arquera', espadachin: 'Maestro espadachín',
 function leer() {
     try {
         const e = JSON.parse(localStorage.getItem(CLAVE)) || {};
-        return { nivel: Math.max(1, e.nivel | 0), xp: Math.max(0, e.xp | 0), heroes: typeof e.heroes === 'object' && e.heroes ? e.heroes : {} };
-    } catch (_e) { return { nivel: 1, xp: 0, heroes: {} }; }
+        return { nivel: Math.max(1, e.nivel | 0), xp: Math.max(0, e.xp | 0), heroes: typeof e.heroes === 'object' && e.heroes ? e.heroes : {},
+            victoriaDia: typeof e.victoriaDia === 'string' ? e.victoriaDia : '' };
+    } catch (_e) { return { nivel: 1, xp: 0, heroes: {}, victoriaDia: '' }; }
 }
 const estado = leer();
 function guardar() {
@@ -74,10 +79,17 @@ export const tieneRunaMaestria = id => maestria(id) >= 2;
 
 // ---------- ganar experiencia ----------
 // pjId: el héroe con el que se jugó (también gana maestría)
-export function ganarXP(cantidad, pjId) {
+// victoria: terminó un nivel o ganó una carrera o una arena (la primera del día da XP extra)
+export function ganarXP(cantidad, pjId, { victoria = false } = {}) {
     cantidad = Math.max(0, Math.round(cantidad));
     if (!cantidad) return;
-    const avisos = [`+${cantidad} XP`];
+    let extra = '';
+    if (victoria && estado.victoriaDia !== hoy()) {
+        estado.victoriaDia = hoy();
+        cantidad += XP_PRIMERA_DEL_DIA;
+        extra = `🌅 Primera victoria del día +${XP_PRIMERA_DEL_DIA}`;
+    }
+    const avisos = [`+${cantidad} XP`, ...(extra ? [extra] : [])];
     estado.xp += cantidad;
     while (estado.xp >= xpCuenta(estado.nivel)) {
         estado.xp -= xpCuenta(estado.nivel);
