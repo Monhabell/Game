@@ -49,6 +49,7 @@ import {
     colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
     tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
     zonaSalida, zonaPuente, zonaTunel, zonaAtajo, zonaSueloMentiroso, zonaPersecucion, zonaLlegada,
+    tramoSalidaEnganosa, tramoRamasTraicioneras, tramoPuenteMadera, tramoArbolGuardian,
 } from "./tramos.js"
 
 export const SUELO_Y = 332;
@@ -324,14 +325,20 @@ export const NIVELES = [
 // Los niveles hechos a mano se alargan con piezas (tramos.js) colocadas justo antes de la arena
 // del jefe: cada nivel suma lo nuevo que enseña (túneles, ascensores, doble camino, torres).
 // En x hay suelo firme; todo lo que estaba a la derecha (arena, meta) se corre.
-// Bosque: primer túnel, primer ascensor (corto y opcional), una cornisa secreta, ramas que se
-// doblan sobre la lava y, antes del jefe, el momento ¡wow!: el Árbol Anciano
+// Bosque: aprender a moverse juntos sin que nadie lo explique (sirve solo, en la carrera y en cadena;
+// la lógica está en bosque.js):
+//   1. La salida engañosa: el cartel señala un atajo por un suelo de raíces que aguanta a UNO
+//   2. Las ramas traicioneras: con dos encima se rompen; en la punta se inclinan: por turnos
+//   3. El puente de madera: se cae detrás del grupo; abajo, un atajo saltando troncos que flotan
+//   4. El Árbol Anciano despierta: golpea el suelo, tira ramas y solo se le daña en sus raíces
+// (el cristal de lo alto del puente es el secreto del nivel)
 extender(NIVELES[0], 3850, [
-    tramoLlano(300), // (antes de un túnel siempre hay llano: saltar un foso hacia su techo sería injusto)
-    tramoTunel(700, { enemigos: 1 }), tramoLlano(300), tramoAscensorMirador(), tramoLlano(250, { enemigos: 1 }),
-    tramoCornisaSecreta(), tramoRamas(), tramoArbolAnciano(),
+    tramoLlano(300, { enemigos: 1 }), tramoRamasTraicioneras(), tramoLlano(200),
+    tramoPuenteMadera(), tramoArbolGuardian(),
 ]);
+extender(NIVELES[0], 2310, [tramoSalidaEnganosa()]); // (justo después del comienzo hecho a mano)
 extender(NIVELES[1], 4660, [ // Cueva: doble camino sobre la lava y un túnel largo
+    tramoLlano(300), // (más larga que el nivel 1, que ahora trae sus cuatro zonas)
     tramoLlano(200), tramoDobleCamino(), tramoLlano(400, { enemigos: 1 }), tramoTunel(900),
     tramoLlano(300), tramoCornisaSecreta(),
 ]);

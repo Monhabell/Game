@@ -17,7 +17,7 @@ import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala } from "./sala.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
-import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
+import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
 import {
     iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
     llegarMetaCarrera, recibirPoderCarrera,
@@ -36,7 +36,7 @@ import {
 } from "./multijugador.js"
 import { ajustes, BOTONES, CAMARAS, vidasMaximas, factorEnemigos, zoomCamara, RESOLUCION } from "./ajustes.js"
 import { engañoDeRuna } from "./locuras.js"
-import { crearRama } from "./bosque.js"
+import { crearRama, crearTabla, texturasBosque, golpeRemotoGuardian } from "./bosque.js"
 import { animDe, prepararVariante, iniciarVestidor } from "./vestidor.js"
 import {
     iniciarTienda, sumarMonedas, saldo, tiene, llevaEscudo, usarConsumible, registrarNivel, crearEstela, actualizarEstela, usarHeroeActual,
@@ -363,6 +363,8 @@ iniciarCarrera(juego, {
     revancha: pista => empezarPartida(pista),
     volverASala: () => volverASala(),
 });
+// el Árbol Anciano del nivel 1: otro jugador (en el mismo mundo) le pegó a una raíz
+alRecibir('evento', m => { if (m.tipo === 'arbolGolpe' && mundoCompartido()) golpeRemotoGuardian(Number(m.x), m.n); });
 // mecanismos de las Ruinas del Abismo (abismo.js)
 iniciarAbismo({
     killgesi: scene => killgesi(scene),
@@ -687,6 +689,10 @@ function create() {
 
     // corazones que aparecen al azar cuando te faltan vidas
     this.mostrarMensajeCorto = texto => mostrarMensaje(this, texto, 900);
+    // lo que necesita el bosque del nivel 1 (bosque.js): quiénes más hay, cuántos son y avisar en línea
+    this.fantasmasBosque = () => fantasmas(this);
+    this.cuantosJugadores = () => (mundoCompartido() ? red.jugadores.length : this.compa ? 2 : 1);
+    this.avisarBosque = (tipo, datos) => { if (mundoCompartido()) enviarEvento(tipo, datos); };
     // nadie lo rescató a tiempo (cadena.js): ahora sí cuenta la caída
     this.morirPorCaida = () => killgesi(this, 'caida');
     iniciarCorazonesAlAzar(this, () => !arena && vidas < VIDAS_INICIALES, nivel.ancho);
@@ -1604,6 +1610,7 @@ function construirNivel(scene, nivel) {
     scene.ramas = [];
     (nivel.plataformas || []).forEach(([x, arriba, ancho, tipo]) => {
         if (tipo === 'rama') crearRama(scene, x, arriba, ancho);
+        else if (tipo === 'tabla') crearTabla(scene, x, arriba, ancho); // (puente de madera del nivel 1, bosque.js)
         else crearPlataforma(scene, x, arriba, ancho).esPlataforma = true;
     });
     // piedras rúnicas doradas: al golpearlas desde abajo aparecen sus losas sobre el abismo.
@@ -1649,8 +1656,10 @@ function construirNivel(scene, nivel) {
         }
     });
 
-    (nivel.moviles || []).forEach(([x, y, eje, recorrido, vel]) => {
+    (nivel.moviles || []).forEach(([x, y, eje, recorrido, vel, tipo]) => {
         const plataforma = scene.moviles.create(x, y, 'mz_plataforma');
+        // tronco que flota en la lava (nivel 1): mismo tamaño, otra textura
+        if (tipo === 'tronco') { texturasBosque(scene); plataforma.setTexture('tronco_rio'); }
         plataforma.eje = eje;
         plataforma.vel = vel;
         if (eje === 'x') {

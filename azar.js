@@ -130,6 +130,8 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     const falsos = (nivel.falsos || []).map(([a, b]) => [a - 60, b + 60]);
     // atajos de las pistas de carrera: traen sus propias trampas (pistas.js), aquí no se reparte nada
     const atajos = (nivel.atajos || []).map(([a, b]) => [a - 150, b + 150]);
+    // zonas que ya traen su lección (nivel 1: suelo de raíces, ramas, puente, Árbol guardián)
+    const tranquilas = nivel.zonasTranquilas || [];
     const dentro = (x, rangos) => rangos.some(([a, b]) => x >= a && x <= b);
 
     // tramos de descanso: uno cada ~DESCANSO_CADA px, en una posición distinta en cada intento
@@ -147,7 +149,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
         for (let x = a + BORDE_HUECO; x <= b - BORDE_HUECO; x += 50) {
             if (x < ZONA_INICIO || x > inicioArena - ANTESALA_JEFE) continue;
             if (checkpoints.some(cp => x > cp - ANTES_CHECKPOINT && x < cp + DESPUES_CHECKPOINT)) continue;
-            if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos) || dentro(x, mecanismos) || dentro(x, atajos)) continue;
+            if (dentro(x, escaleras) || dentro(x, falsos) || dentro(x, descansos) || dentro(x, mecanismos) || dentro(x, atajos) || dentro(x, tranquilas)) continue;
             if (dentro(x, ascensores) || dentro(x, muros) || dentro(x, tuneles)) continue;
             candidatos.push(x);
         }
@@ -295,7 +297,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     const cerca = (x, a, b) => x > a - 60 && x < b + 60;
     const encima = (a, b) => [...(nivel.plataformas || []), ...(nivel.moviles || []), ...(nivel.bloques || [])].some(([x]) => cerca(x, a, b)) ||
         (nivel.runas || []).some(([, , losas]) => losas.some(([x]) => cerca(x, a, b)));
-    const fosos = mezclar((nivel.lava || []).filter(([a, b]) => b - a >= 90 && b - a <= 300 && enJuego(a) && !encima(a, b)));
+    const fosos = mezclar((nivel.lava || []).filter(([a, b]) => b - a >= 90 && b - a <= 300 && enJuego(a) && !encima(a, b) && !dentro(a, tranquilas)));
     if (indice >= 1) fosos.splice(0, indice >= 3 ? 2 : 1).forEach(([a, b]) => n.locuras.push([a, 'ola', b]));
     if (indice >= 4) fosos.splice(0, 2).forEach(([a, b]) => n.locuras.push([a, 'geiser', b]));
 
@@ -350,7 +352,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     const maxInvisibles = 1 + Math.floor(indice / 2);
     const contarH = () => n.bloques.reduce((a, [, , p]) => a + [...p].filter(c => c === 'H').length, 0);
     const pH = 0.2 + 0.07 * indice;
-    mezclar([...(nivel.lava || [])]).forEach(([x0]) => {
+    mezclar([...(nivel.lava || [])].filter(([x0]) => !dentro(x0, tranquilas))).forEach(([x0]) => {
         const yaHay = n.bloques.some(([x, , p]) => p === 'H' && Math.abs(x - x0) < 40);
         if (!yaHay && contarH() < maxInvisibles && moneda(pH)) n.bloques.push([x0 - 12, 232, 'H']);
     });

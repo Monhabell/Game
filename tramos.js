@@ -274,6 +274,79 @@ export function zonaLlegada() {
     };
 }
 
+// ---------- Bosque (nivel 1): aprender a moverse juntos ----------
+// Cuatro zonas que enseñan el modo en cadena sin explicarlo (y que solo, o en la carrera, también
+// tienen gracia). La lógica está en bosque.js. zonasTranquilas: azar.js no reparte trampas ahí
+// (cada zona ya trae su lección y una trampa al azar la taparía).
+
+// Zona 1 · La salida engañosa: el cartel señala el atajo por un suelo de raíces sobre la lava que
+// AGUANTA A UNO (suelosPeso: [x, ancho, cuántos aguanta]). Con dos encima cruje y se hunde; solo,
+// aguanta... si no te quedas quieto. El camino largo va por tres piedras altas (escalones de 96 px).
+export function tramoSalidaEnganosa() {
+    return {
+        ancho: 700,
+        suelo: [[0, 220], [480, 700]],
+        lava: [[220, 480]],
+        suelosPeso: [[220, 260, 1]],
+        plataformas: [[200, 236, 70], [320, 150, 90], [450, 236, 70]],
+        carteles: [[110, 165, 'ATAJO →']],
+        monedas: [[335, 115], [365, 115], [395, 115]],
+        zonasTranquilas: [[0, 700]],
+    };
+}
+
+// Zona 2 · Las ramas traicioneras: cuatro ramas sobre la lava (bosque.js). Con dos encima cruje y se
+// rompe enseguida; si te paras en la punta, se inclina y te resbala hacia el borde. Hay que cruzar por
+// turnos (en cadena: el de adelante espera en la orilla mientras los demás pasan). Huecos de 70 px
+export function tramoRamasTraicioneras() {
+    const l = 150;
+    return {
+        ancho: 950,
+        suelo: [[0, l], [880, 950]],
+        lava: [[l, 880]],
+        plataformas: [[190, 270, 110, 'rama'], [370, 250, 110, 'rama'], [550, 265, 110, 'rama'], [730, 255, 110, 'rama']],
+        carteles: [[60, 170, 'RAMAS: DE A UNO']],
+        monedas: [...fila(220, 235, 2), ...fila(400, 215, 2), ...fila(580, 230, 2), ...fila(760, 220, 2)],
+        zonasTranquilas: [[0, 950]],
+    };
+}
+
+// Zona 3 · El puente de madera: arriba (y = 60) un puente de tablas que se desmorona DETRÁS del grupo
+// (puentesMadera: el derrumbe empieza 0,9 s después de que alguien lo pisa y avanza a 120 px/s; el
+// más lento corre a 209). Abajo, el atajo: tres troncos que flotan a distintas velocidades sobre la
+// lava (huecos de 0 a 212 px: hay que esperar el momento). Las tablas están tan altas que los saltos
+// de abajo no chocan con ellas (la cabeza llega a y = 103). Arriba hay un cristal (el secreto).
+export function tramoPuenteMadera() {
+    const tablas = [];
+    for (let x = 360; x < 1042; x += 62) tablas.push([x, 60, 62, 'tabla']);
+    return {
+        ancho: 1200, alto: 160,
+        suelo: [[0, 300], [1000, 1200]],
+        lava: [[300, 1000]],
+        plataformas: [[120, 236, 100], [250, 140, 100], ...tablas],
+        puentesMadera: [[360, 1042]],
+        moviles: [[380, 316, 'x', 100, 60, 'tronco'], [600, 316, 'x', 120, 90, 'tronco'], [840, 316, 'x', 80, 70, 'tronco']],
+        cristales: [[700, 0]],
+        carteles: [[60, 150, '↑ PUENTE'], [270, 210, 'TRONCOS →']],
+        monedas: [...fila(420, 25, 4, 60), ...fila(860, 25, 3, 60)],
+        zonasTranquilas: [[0, 1200]],
+    };
+}
+
+// Zona 4 · El Árbol Anciano despierta: un guardián (guardianes: [x, ancho]) que cierra el paso hasta
+// calmarlo. Ciclo fijo (el mismo en todas las pantallas): golpea el suelo (onda que se salta), hace
+// caer ramas (su sombra avisa 0,8 s antes) y deja sus RAÍCES al aire: solo ahí se le hace daño
+// (flechas, espada, poderes). Su vida crece con los jugadores. Después del árbol, la antesala del jefe.
+export function tramoArbolGuardian() {
+    return {
+        ancho: 1100,
+        suelo: [[0, 1100]],
+        guardianes: [[820, 110]],
+        corazones: [[300, 250]],
+        zonasTranquilas: [[0, 1100]],
+    };
+}
+
 // ---------- Bosque (nivel 1) ----------
 
 // ramas sobre la lava: tres ramas de madera que se doblan al pisarlas y se rompen si te quedas
@@ -336,9 +409,9 @@ export function tramoArgollas() {
 // campos con x en la primera posición ([x, ...]) y campos que son solo x
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
     'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas',
-    'escudos', 'aplastadores', 'portales', 'zonas'];
+    'escudos', 'aplastadores', 'portales', 'zonas', 'suelosPeso', 'guardianes'];
 const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints', 'losasDudosas', 'grietasFalsas'];
-const RANGOS = ['suelo', 'lava', 'falsos', 'atajos', 'cuevas', 'murosAbismo'];
+const RANGOS = ['suelo', 'lava', 'falsos', 'atajos', 'cuevas', 'murosAbismo', 'puentesMadera', 'zonasTranquilas'];
 // locuras: [x, tipo, extra]; en las de lava y el túnel, extra es la x del final (también se corre)
 const LOCURAS_CON_FIN = ['ola', 'geiser', 'techoBaja'];
 const moverLocura = ([lx, tipo, extra], d) => [lx + d, tipo, LOCURAS_CON_FIN.includes(tipo) ? extra + d : extra];

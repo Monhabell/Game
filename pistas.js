@@ -57,7 +57,13 @@ export const PISTAS = [
         fija: true,
         piezas: () => [zonaSalida(), zonaPuente(), zonaTunel(), zonaAtajo(), zonaSueloMentiroso(), zonaPersecucion(), zonaLlegada()],
     },
+    // los mapas de la historia también se corren (nivel: su índice en NIVELES): con sus trampas de
+    // siempre (la misma semilla para todos) y sin jefe; la meta queda donde empezaría su arena
+    ...NIVELES.map((n, i) => ({ nombre: `${n.nombre} · mapa ${i + 1}`, region: i, nivel: i })),
 ];
+
+// la arena del jefe ocupa los últimos ~950 px antes de la meta: en la carrera se llega antes
+const SIN_ARENA = 900;
 
 // cuántas trampas comunes reparte azar.js fuera de los atajos (las de los primeros niveles: pocas)
 const INDICE_TRAMPAS = 0;
@@ -67,6 +73,7 @@ export const pistaDe = i => PISTAS[Math.min(Math.max(0, i | 0), PISTAS.length - 
 // arma la pista con sus trampas para esta semilla (la misma en todas las pantallas)
 export function armarPista(i, semilla) {
     const pista = pistaDe(i);
+    if (pista.nivel != null) return armarDeNivel(pista.nivel, semilla);
     const region = NIVELES[pista.region];
     const base = {
         nombre: pista.nombre, ancho: 0, meta: 0,
@@ -95,6 +102,15 @@ export function armarPista(i, semilla) {
     const r = crearAzar((semilla ^ 0x9e3779b9) >>> 0);
     base.atajos.forEach(([a, b]) => ponerAtajo(n, a, b, r));
     return n;
+}
+
+// un mapa de la historia como pista: el mismo reparto de trampas que en el nivel (fijo o al azar con
+// la semilla de la sala) y la meta antes de la arena del jefe (en la carrera no hay jefe)
+function armarDeNivel(i, semilla) {
+    const nivel = NIVELES[i];
+    const n = nivel.fija ? prepararNivelFijo(nivel, semilla)
+        : aleatorizarNivel(nivel, i, i === 0 ? [[600, 1106]] : [], semilla); // (el comienzo del nivel 1 está hecho a mano)
+    return { ...n, meta: nivel.meta - SIN_ARENA };
 }
 
 // trampas ocultas del atajo: una cada 240-380 px (más que la separación mínima: da tiempo a ver la

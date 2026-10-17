@@ -20,6 +20,7 @@
 // api: { killgesi(scene, daño, origenX), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
 
 import { zoomCamara, RESOLUCION } from "./ajustes.js"
+import { golpearGuardian } from "./bosque.js"
 
 // En línea (scene.redJefe, ver multijugador.js): el troll lo maneja el ANFITRIÓN. Su pantalla decide
 // a quién persigue (al jugador más cercano de la sala) y qué ataque usa, y avisa cada ataque
@@ -767,6 +768,7 @@ function ondaExpansiva(scene, x, api) {
 
 // el jefe también recibe los golpes cuerpo a cuerpo y el rayo
 export function golpearJefeEnZona(scene, zona, cantidad, api) {
+    golpearGuardian(scene, zona, cantidad); // (las raíces del Árbol Anciano del nivel 1, ver bosque.js)
     const j = scene.jefe;
     if (!j || j.estado !== 'pelea') return;
     const b = j.sprite.body;
