@@ -54,7 +54,9 @@ export const RAREZAS = {
     comun: { nombre: 'Común', color: '#a7b0c4', precio: 50, peso: 60 },
     raro: { nombre: 'Raro', color: '#5aa9ff', precio: 100, peso: 28 },
     epico: { nombre: 'Épico', color: '#b77bff', precio: 180, peso: 10 },
-    legendario: { nombre: 'Legendario', color: '#ffb347', precio: 300, peso: 2 },
+    // legendario: caro en la tienda y solo desde el nivel 20 del jugador (progreso.js); como premio de
+    // nivel sigue saliendo cada 25 niveles. Subirlo de nivel ★ cuesta como antes (precioMejora)
+    legendario: { nombre: 'Legendario', color: '#ffb347', precio: 1800, precioMejora: 300, nivelMinimo: 20, peso: 2 },
 };
 
 const C = { fuego: 0xff7a3a, hielo: 0x9fe8ff, rayo: 0xfff06a, cian: 0x6fe8ff, verde: 0x7fe06a, arcano: 0xc77dff,
@@ -175,7 +177,8 @@ export const nivelPoder = id => estado.niveles[id] || 1;
 // monedas para subir al siguiente nivel (null si ya está al máximo)
 export const costoSubir = p => {
     const n = nivelPoder(p.id);
-    return n >= NIVEL_MAX ? null : Math.round(RAREZAS[p.rareza].precio * [0, 0.8, 1.5, 2.2, 3][n]);
+    const r = RAREZAS[p.rareza];
+    return n >= NIVEL_MAX ? null : Math.round((r.precioMejora ?? r.precio) * [0, 0.8, 1.5, 2.2, 3][n]);
 };
 // por nivel (1 a 5): recarga, duración de los efectos y alcance (multiplicadores)
 const RECARGA = [1, 1, 0.85, 0.7, 0.62, 0.55];

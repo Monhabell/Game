@@ -31,7 +31,8 @@ export const ANCHO_ARENA = 900;   // ancho de la arena (la cámara se aleja para
 const ZOOM_ARENA = 1.3;           // zoom de la cámara durante la pelea (~1200 px de ancho: se ve todo el troll y sus rocas)
 const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
 const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
-const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 10, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
+// (cuadros de cada hoja: Walk tiene 9; la cuadrícula es de 5 x 2 y su último lugar está vacío)
+const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 9, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
 
 // un encuentro por nivel con el mismo Rey Troll (se repite el último si hay más niveles)
 //   ataques: especiales que ya sabe usar ('terremoto' solo cuando está furioso)
@@ -65,9 +66,18 @@ const ATURDIDO_MS = 1100; // ventana para atacarlo tras chocar contra el muro (l
 // solo se cargan los trolls que usan los encuentros (cada uno ocupa ~73 MB en la tarjeta de video)
 const TROLLS = [...new Set(JEFES.map(j => j.troll))];
 
+// Las hojas del troll son cuadrículas de 5 x 2 cuadros de 600 x 440 (3000 x 880): antes eran tiras de
+// 6000 px y muchos celulares no cargan imágenes de más de 4096 px (el troll quedaba invisible).
+// Con gráficos bajos (resolución 1,25 o menos) se usan las "_ligero" (cuadros de 300 x 220, 4 veces
+// menos memoria de video) y el troll se dibuja al doble: se ve igual de grande.
+export const TROLL_LIGERO = RESOLUCION <= 1.25;
+const K_TROLL = TROLL_LIGERO ? 2 : 1; // cuánto más chico es cada cuadro de la hoja
+// escala para dibujar al troll en otros lados (portada, historia, arena): igual de grande con las dos hojas
+export const escalaTroll = e => e * K_TROLL;
 export function cargarJefes(scene) {
     TROLLS.forEach(k => Object.values(ANIMS).forEach(([archivo]) => {
-        scene.load.spritesheet(`troll${k}_${archivo}`, `assets/jefes/troll${k}_${archivo}.png`, { frameWidth: 600, frameHeight: 440 });
+        scene.load.spritesheet(`troll${k}_${archivo}`, `assets/jefes/troll${k}_${archivo}${TROLL_LIGERO ? '_ligero' : ''}.png`,
+            { frameWidth: 600 / K_TROLL, frameHeight: 440 / K_TROLL });
     }));
 }
 
@@ -166,8 +176,9 @@ function empezarPelea(scene, api) {
     j.encimaDesde = 0;
 
     // el troll cae del cielo
-    const s = scene.physics.add.sprite(j.arenaFin - 150, -80, `troll${d.troll}_Idle`).setOrigin(0.5, 1).setScale(d.escala).setDepth(20);
-    s.body.setSize(110, 210).setOffset(235, 440 - 214);
+    const s = scene.physics.add.sprite(j.arenaFin - 150, -80, `troll${d.troll}_Idle`).setOrigin(0.5, 1).setScale(d.escala * K_TROLL).setDepth(20);
+    // (el cuerpo se mide en píxeles de la hoja: con la ligera, todo a la mitad)
+    s.body.setSize(110 / K_TROLL, 210 / K_TROLL).setOffset(235 / K_TROLL, (440 - 214) / K_TROLL);
     s.setGravityY(300);
     s.body.pushable = false;
     s.flipX = true;

@@ -36,6 +36,7 @@ import { SUELO_Y } from "./niveles.js"
 import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 import { ganarXP, XP } from "./progreso.js"
+import { escalaTroll } from "./jefes.js"
 
 const VIDAS = 3;
 const RONDAS_PARA_GANAR = 2;
@@ -616,7 +617,7 @@ function travesura(scene, m) {
 function asomarTroll(scene) {
     if (!scene.textures.exists('troll3_Idle')) return;
     const arriba = scene.cameras.main.worldView.y;
-    const t = scene.add.sprite(450, arriba - 70, 'troll3_Idle').setOrigin(0.5, 0).setScale(0.3).setDepth(48).setFlipY(true);
+    const t = scene.add.sprite(450, arriba - 70, 'troll3_Idle').setOrigin(0.5, 0).setScale(escalaTroll(0.3)).setDepth(48).setFlipY(true);
     if (scene.anims.exists('troll3-idle')) t.anims.play('troll3-idle');
     scene.sound.play('rugido', { volume: 0.35, rate: 1.2 });
     scene.tweens.add({ targets: t, y: arriba - 10, duration: 350, yoyo: true, hold: 900, ease: 'Back.out', onComplete: () => t.destroy() });

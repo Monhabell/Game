@@ -29,6 +29,7 @@
 // Guardado: localStorage con su propia clave y versión (no toca el guardado de la partida).
 
 import { PERSONAJES } from "./personajes.js"
+import { nivelJugador } from "./progreso.js"
 import {
     PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, filtroIcono, colorDe,
     nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX,
@@ -182,10 +183,13 @@ export const nivelMaximo = () => estado.nivelMaximo;
 
 // ---------- poderes especiales (los datos y el uso están en poderes.js) ----------
 export const precioPoder = p => RAREZAS[p.rareza].precio;
+// los legendarios se compran desde cierto nivel del jugador (progreso.js)
+const faltaNivel = p => Math.max(0, (RAREZAS[p.rareza].nivelMinimo || 0) - nivelJugador());
 export function comprarPoder(id) {
     const p = PODERES.find(q => q.id === id);
     if (!p) return { ok: false, mensaje: 'Ese poder no existe' };
     if (tienePoder(id)) return { ok: false, mensaje: 'Ya es tuyo' };
+    if (faltaNivel(p)) return { ok: false, mensaje: `Se desbloquea en el nivel ${RAREZAS[p.rareza].nivelMinimo}` };
     if (estado.monedas < precioPoder(p)) return { ok: false, mensaje: `Te faltan ${precioPoder(p) - estado.monedas} monedas` };
     estado.monedas -= precioPoder(p);
     guardar();
@@ -377,6 +381,7 @@ export function iniciarTienda() {
                 const botones = mio
                     ? [0, 1].map(i => `<button type="button" class="menu-boton tienda-btn ${eq[i] === p.id ? 'tienda-equipado' : ''}" data-poder="${p.id}"
                         data-ranura="${i}" aria-pressed="${eq[i] === p.id}">${eq[i] === p.id ? `✓ En ${i ? 'B' : 'V'}` : `Poner en ${i ? 'B' : 'V'}`}</button>`).join('') + subir
+                    : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${RAREZAS[p.rareza].nivelMinimo} · ◉ ${precio}</button>`
                     : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ◉ ${precio}`}</button>`;
                 // ventajas con los valores de su nivel actual (y qué gana al subir)
                 const chips = ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');

@@ -9,6 +9,7 @@
 import { crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
 import { PERSONAJES, resDe } from "./personajes.js"
 import { animDe, prepararVariante } from "./vestidor.js"
+import { escalaTroll } from "./jefes.js"
 
 const ANCHO = 790;
 const ALTO = 380;
@@ -97,7 +98,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
 
     resplandor(scene);
     // el Rey Troll: una sombra gigante que se asoma detrás de las montañas
-    const rey = scene.add.sprite(660, ALTO + 30, 'troll3_Idle').setOrigin(0.5, 1).setScale(0.85)
+    const rey = scene.add.sprite(660, ALTO + 30, 'troll3_Idle').setOrigin(0.5, 1).setScale(escalaTroll(0.85))
         .setFlipX(true).setTint(0x1d2546).setDepth(3);
     rey.anims.play('troll3-idle');
     capas.push([rey, 0.4]);
@@ -315,7 +316,7 @@ const PAGINAS = [
     {
         texto: 'Una noche, el REY TROLL lo robó... y desde entonces el sol nunca volvió a salir.',
         dibujo(scene) {
-            const t = scene.add.sprite(ANCHO / 2, 196, 'troll3_Idle').setOrigin(0.5, 1).setScale(0.42).anims.play('troll3-idle');
+            const t = scene.add.sprite(ANCHO / 2, 196, 'troll3_Idle').setOrigin(0.5, 1).setScale(escalaTroll(0.42)).anims.play('troll3-idle');
             t.setTint(0x9fb0c8);
             scene.cameras.main.shake(300, 0.004);
             scene.sound.play('trampa', { volume: 0.5 });
