@@ -9,7 +9,7 @@
 //
 // Nivel 1, "aprender a moverse juntos" (ver el bloque de abajo): suelo de raíces que aguanta a uno,
 //   ramas que se rompen con dos encima y se inclinan en la punta, puente de madera que se cae detrás
-//   del grupo, troncos que flotan en la lava y el Árbol Anciano como guardián (golpear sus raíces).
+//   del grupo y troncos que flotan en la lava.
 //
 // api: { mostrarMensaje(scene, texto, ms), killgesi(scene) }
 
@@ -45,11 +45,10 @@ export function crearRama(scene, x, arriba, ancho) {
     return p;
 }
 
-// inicioX: dónde aparece el jugador (0 = empieza el nivel: el Árbol guardián vuelve a estar entero)
-export function crearBosque(scene, nivel, inicioX = 0) {
+export function crearBosque(scene, nivel) {
     texturas(scene);
     scene.arboles = (nivel.arbolesGigantes || []).map(([x, arriba, ancho]) => crearArbol(scene, x, arriba, ancho));
-    crearNivel1Juntos(scene, nivel, inicioX);
+    crearNivel1Juntos(scene, nivel);
 }
 
 function crearArbol(scene, x, arriba, ancho) {
@@ -75,7 +74,7 @@ function crearArbol(scene, x, arriba, ancho) {
         const pupila = scene.add.circle(centro + dx, yOjos + 1, 3, 0x1a0e06).setDepth(5).setVisible(false);
         return { blanco, pupila };
     });
-    return { x, arriba, ancho, centro, ojos, copa, tronco, despierto: false };
+    return { x, arriba, ancho, centro, ojos, copa, despierto: false };
 }
 
 export function actualizarBosque(scene, api) {
@@ -162,7 +161,7 @@ export function actualizarBosque(scene, api) {
 
 // =====================================================================================
 // Nivel 1: aprender a moverse juntos (tramos.js: tramoSalidaEnganosa, tramoRamasTraicioneras,
-// tramoPuenteMadera, tramoArbolGuardian). Todo funciona solo, en la carrera y en cadena: "cuántos
+// tramoPuenteMadera). Todo funciona solo, en la carrera y en cadena: "cuántos
 // hay encima" cuenta al jugador, al compañero del mismo teclado y a los demás jugadores en línea
 // (en la carrera los rivales son fantasmas: no pesan).
 // =====================================================================================
@@ -175,16 +174,6 @@ const PUNTA = 0.2;          // fracción de la rama que es "la punta" (ahí se i
 const RESBALA = 55;         // px/s que resbala en la punta
 const PUENTE_ESPERA = 900;  // ms desde que alguien pisa el puente hasta que empieza a caerse
 const PUENTE_VEL = 120;     // px/s del derrumbe (el más lento corre a 209)
-// Árbol guardián: ciclo fijo de 8 s con el reloj del nivel (en línea, el del anfitrión)
-const CICLO = 8000;
-const FASES = { avisoGolpe: 1500, onda: 2200, avisoRamas: 3600, ramas: 4400, raices: 4900, ocultas: 7600 };
-const ONDA_VEL = 280;       // px/s de la onda del golpe (se salta)
-const RAMAS_X = [[150, 330, 510], [240, 420, 600]]; // px a la izquierda del tronco donde caen (se alternan)
-const ARBOL_VIDA = (n) => Math.min(10, 4 + 2 * (n - 1));
-
-// lo que dura entre intentos (morir no cura al árbol ni vuelve a cerrarlo)
-const guardado = new Map();
-let escenaBosque = null;
 
 // lo de este bosque que hay que dibujar con texturas propias
 export function texturasBosque(scene) {
@@ -237,8 +226,7 @@ function cuantosEncima(scene, izq, der, arriba) {
     return n;
 }
 
-function crearNivel1Juntos(scene, nivel, inicioX) {
-    escenaBosque = scene;
+function crearNivel1Juntos(scene, nivel) {
     texturasBosque(scene);
     // suelo de raíces que aguanta a uno (sobre la lava)
     scene.suelosPeso = (nivel.suelosPeso || []).map(([x, ancho, aguanta]) => {
@@ -250,197 +238,6 @@ function crearNivel1Juntos(scene, nivel, inicioX) {
         a, b, empieza: 0, frente: a,
         tablas: scene.floor.getChildren().filter(t => t.esTabla && t.body.left >= a - 2 && t.body.right <= b + 2).sort((t, u) => t.body.left - u.body.left),
     }));
-    // el Árbol guardián (la escena se reutiliza: el grupo de raíces se crea de nuevo cada vez)
-    scene.raicesGrupo = null;
-    const clave = x => `${nivel.nombre}|${x}`;
-    if (!inicioX) (nivel.guardianes || []).forEach(([x]) => guardado.delete(clave(x))); // (nivel nuevo: árbol entero)
-    scene.guardianes = (nivel.guardianes || []).map(([x, ancho]) => crearGuardian(scene, x, ancho, clave(x)));
-}
-
-// ---------- Árbol guardián ----------
-function crearGuardian(scene, x, ancho, clave) {
-    const arriba = 30;
-    const arbol = crearArbol(scene, x, arriba, ancho);
-    const previo = guardado.get(clave);
-    // el tronco cierra el paso hasta calmarlo (no se puede saltar por encima)
-    const muro = scene.floor.create(x, -600, 'suelo').setOrigin(0, 0).setScale(ancho / 128, (SUELO_Y + 600) / 32).refreshBody().setVisible(false);
-    // raíces: asoman del suelo cuando se puede golpear (solo ahí le haces daño)
-    if (!scene.raicesGrupo) {
-        scene.raicesGrupo = scene.physics.add.staticGroup();
-        if (scene.flechasGrupo) {
-            scene.physics.add.overlap(scene.flechasGrupo, scene.raicesGrupo, (flecha, raiz) => {
-                if (!raiz.guardian.expuestas) return;
-                if (!flecha.perfora) flecha.destroy();
-                golpearRaiz(scene, raiz.guardian, 1);
-            });
-        }
-    }
-    const raices = [90, 240].map(dx => {
-        const rx = x - dx;
-        const vis = scene.add.graphics().setDepth(4);
-        vis.fillStyle(0x6b4423).fillEllipse(0, 0, 70, 26).fillStyle(0x8a5a30).fillEllipse(-10, -4, 30, 10);
-        vis.setPosition(rx, SUELO_Y + 14);
-        const brillo = scene.add.image(rx, SUELO_Y - 4, 'brillo').setDepth(41).setScale(0.9, 0.5).setTint(0xffd27a).setAlpha(0).setBlendMode('ADD');
-        const cuerpo = scene.raicesGrupo.create(rx, SUELO_Y - 14, 'suelo').setDisplaySize(70, 30).setVisible(false).refreshBody();
-        return { rx, vis, brillo, cuerpo };
-    });
-    // barra de vida sobre el árbol (aparece al empezar)
-    const barraFondo = scene.add.rectangle(x + ancho / 2, arriba - 30, 120, 8, 0x000000, 0.7).setStrokeStyle(1, 0xffd27a).setDepth(42).setVisible(false);
-    const barra = scene.add.rectangle(x + ancho / 2 - 59, arriba - 30, 118, 6, 0x7fe06a).setOrigin(0, 0.5).setDepth(43).setVisible(false);
-    const nombre = scene.add.text(x + ancho / 2, arriba - 44, 'ÁRBOL ANCIANO', {
-        fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#ffe9a8', stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(43).setVisible(false);
-    const ga = {
-        x, ancho, clave, arbol, muro, raices, barraFondo, barra, nombre,
-        vida: previo?.vida ?? null, vidaMax: null, calmado: !!previo?.calmado,
-        activo: false, desde: 0, expuestas: false, golpeHasta: 0, onda: null, ramas: [], fase: '', ciclo: -1,
-    };
-    raices.forEach(r => { r.cuerpo.guardian = ga; });
-    if (ga.calmado) calmarArbol(scene, ga, true);
-    return ga;
-}
-
-function golpearRaiz(scene, ga, cantidad, remoto = false) {
-    if (ga.calmado || !ga.activo) return;
-    if (!remoto) {
-        if (!ga.expuestas || scene.time.now < ga.golpeHasta) return;
-        ga.golpeHasta = scene.time.now + 350; // (un mismo ataque no cuenta varias veces)
-        scene.avisarBosque?.('arbolGolpe', { x: ga.x, n: cantidad });
-    }
-    ga.vida = Math.max(0, ga.vida - Math.max(1, Math.min(2, cantidad)));
-    guardado.set(ga.clave, { vida: ga.vida, calmado: false });
-    ga.raices.forEach(r => { r.vis.setAlpha(0.4); scene.time.delayedCall(90, () => r.vis.setAlpha(1)); });
-    scene.cameras.main.shake(90, 0.003);
-    scene.sound.play('bump', { volume: 0.5, rate: 0.8 });
-    soltarHojas(scene, ga.x + ga.ancho / 2, ga.arbol.arriba - 40, 5);
-    pintarVida(ga);
-    if (ga.vida <= 0) calmarArbol(scene, ga);
-}
-
-// golpe de un ataque o un poder (jefes.js: golpearJefeEnZona): ¿le dio a una raíz expuesta?
-export function golpearGuardian(scene, zona, cantidad) {
-    (scene.guardianes || []).forEach(ga => {
-        if (!ga.expuestas) return;
-        const toca = ga.raices.some(r => Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(r.rx - 35, SUELO_Y - 30, 70, 30)));
-        if (toca) golpearRaiz(scene, ga, cantidad);
-    });
-}
-
-// otro jugador en línea le pegó a una raíz
-export function golpeRemotoGuardian(x, n) {
-    const scene = escenaBosque;
-    if (!scene?.sys?.isActive()) return;
-    const ga = (scene.guardianes || []).find(g => g.x === x);
-    if (ga) golpearRaiz(scene, ga, Number(n) || 1, true);
-}
-
-function pintarVida(ga) {
-    if (ga.vidaMax) ga.barra.setSize(118 * ga.vida / ga.vidaMax, 6);
-}
-
-function calmarArbol(scene, ga, yaEstaba = false) {
-    ga.calmado = true;
-    ga.activo = false;
-    ga.expuestas = false;
-    guardado.set(ga.clave, { vida: 0, calmado: true });
-    ga.muro.body.enable = false;
-    [ga.barra, ga.barraFondo, ga.nombre].forEach(o => o.setVisible(false));
-    ga.raices.forEach(r => { r.brillo.setAlpha(0); r.vis.setAlpha(0.5); });
-    ga.onda?.destroy();
-    ga.onda = null;
-    ga.ramas.forEach(r => { r.sombra.destroy(); r.rama?.destroy(); });
-    ga.ramas = [];
-    // el árbol se aparta: ojos cerrados y un arco entre sus raíces para pasar
-    ga.arbol.ojos.forEach(o => { o.blanco.setScale(1, 0.1); o.pupila.setVisible(false); });
-    ga.arbol.tronco.setAlpha(0.45);
-    if (yaEstaba) return;
-    soltarHojas(scene, ga.x + ga.ancho / 2, ga.arbol.arriba - 60, 18);
-    scene.sound.play('victoria', { volume: 0.4 });
-    scene.mostrarMensajeCorto?.('¡EL ÁRBOL ANCIANO SE CALMA!\nPUEDEN PASAR');
-}
-
-// reloj del nivel (en línea, el del anfitrión: game.js lo ajusta con desfaseReloj)
-const relojNivel = scene => scene.time.now - (scene.inicioNivel ?? 0) + (scene.desfaseReloj || 0);
-
-function actualizarGuardian(scene, ga, g, api) {
-    if (ga.calmado) return;
-    if (!ga.activo) {
-        // despierta cuando llegas cerca (en línea, cuando llega cualquiera: el ciclo es el mismo para todos)
-        const cerca = [g, scene.compa, ...(scene.fantasmasBosque?.() || [])].some(s => s?.body && s.body.center.x > ga.x - 650 && s.body.center.x < ga.x);
-        if (!cerca) return;
-        ga.activo = true;
-        ga.desde = Math.ceil((relojNivel(scene) + 1200) / CICLO) * CICLO; // (el primer ataque, al empezar un ciclo)
-        const n = scene.cuantosJugadores?.() || 1;
-        ga.vidaMax = ARBOL_VIDA(n);
-        ga.vida = ga.vida == null ? ga.vidaMax : Math.min(ga.vida, ga.vidaMax);
-        [ga.barra, ga.barraFondo, ga.nombre].forEach(o => o.setVisible(true));
-        pintarVida(ga);
-        ga.arbol.ojos.forEach(o => { scene.tweens.add({ targets: o.blanco, scaleY: 1, duration: 200 }); o.pupila.setVisible(true); });
-        scene.sound.play('rugido', { volume: 0.45, rate: 1.2 });
-        api.mostrarMensaje(scene, '¡EL ÁRBOL ANCIANO DESPIERTA!\nGOLPEA SUS RAÍCES', 1800);
-        return;
-    }
-    const t = relojNivel(scene);
-    if (t < ga.desde) return;
-    const ciclo = Math.floor((t - ga.desde) / CICLO), m = (t - ga.desde) % CICLO;
-    const fase = m < FASES.avisoGolpe ? 'calma' : m < FASES.onda ? 'avisoGolpe' : m < FASES.avisoRamas ? 'onda'
-        : m < FASES.ramas ? 'avisoRamas' : m < FASES.raices ? 'ramas' : m < FASES.ocultas ? 'raices' : 'ocultas';
-    if (fase !== ga.fase || ciclo !== ga.ciclo) cambiarFase(scene, ga, fase, ciclo);
-    // la onda del golpe recorre el suelo hacia la izquierda: hay que saltarla
-    if (ga.onda) {
-        ga.onda.x = ga.x - (m - FASES.onda) / 1000 * ONDA_VEL;
-        if (ga.onda.x < ga.x - 900) { ga.onda.destroy(); ga.onda = null; }
-        else if (!g.isDead && Math.abs(g.body.center.x - ga.onda.x) < 20 && g.body.bottom > SUELO_Y - 26) api.killgesi(scene);
-    }
-    // las ramas que caen: matan solo en el momento de tocar el suelo
-    ga.ramas.forEach(r => {
-        if (!r.cayendo || r.golpeo || m < FASES.ramas + 250) return;
-        r.golpeo = true;
-        if (!g.isDead && Math.abs(g.body.center.x - r.x) < 34) api.killgesi(scene);
-    });
-}
-
-function cambiarFase(scene, ga, fase, ciclo) {
-    ga.fase = fase;
-    ga.ciclo = ciclo;
-    const copa = ga.arbol.copa;
-    ga.expuestas = fase === 'raices';
-    ga.raices.forEach(r => {
-        scene.tweens.add({ targets: r.vis, y: SUELO_Y + (ga.expuestas ? 0 : 14), duration: 250 });
-        r.brillo.setAlpha(ga.expuestas ? 0.7 : 0);
-    });
-    if (fase === 'avisoGolpe') {
-        // la señal: la copa se sacude y cae polvo al pie del tronco
-        scene.tweens.add({ targets: copa, y: -12, yoyo: true, duration: 350 });
-        soltarHojas(scene, ga.x, SUELO_Y - 10, 6);
-        scene.sound.play('rugido', { volume: 0.25, rate: 1.6 });
-    } else if (fase === 'onda') {
-        scene.cameras.main.shake(200, 0.006);
-        scene.sound.play('romper', { volume: 0.5, rate: 0.7 });
-        ga.onda?.destroy();
-        ga.onda = scene.add.rectangle(ga.x, SUELO_Y - 10, 22, 22, 0xb08a4a).setDepth(36);
-        scene.tweens.add({ targets: ga.onda, scaleY: 1.4, yoyo: true, repeat: -1, duration: 120 });
-    } else if (fase === 'avisoRamas') {
-        // sombras en el suelo: ahí caen las ramas
-        ga.ramas.forEach(r => { r.sombra.destroy(); r.rama?.destroy(); });
-        ga.ramas = RAMAS_X[ciclo % 2].map(dx => {
-            const x = ga.x - dx;
-            const sombra = scene.add.ellipse(x, SUELO_Y - 2, 60, 10, 0x000000, 0.25).setDepth(5);
-            scene.tweens.add({ targets: sombra, alpha: 0.6, scaleX: 1.3, duration: 800 });
-            return { x, sombra, rama: null, cayendo: false, golpeo: false };
-        });
-        scene.sound.play('romper', { volume: 0.2, rate: 1.9 });
-    } else if (fase === 'ramas') {
-        ga.ramas.forEach(r => {
-            r.cayendo = true;
-            r.rama = scene.add.image(r.x, -60, 'rama_bosque').setDisplaySize(70, 16).setAngle(20).setDepth(36);
-            scene.tweens.add({ targets: r.rama, y: SUELO_Y - 8, angle: 0, duration: 260, ease: 'Quad.easeIn' });
-            scene.tweens.add({ targets: [r.rama, r.sombra], alpha: 0, delay: 700, duration: 300 });
-        });
-    } else if (fase === 'raices') {
-        scene.sound.play('aparece', { volume: 0.35, rate: 0.8 });
-        if (!ga.avisoRaices) { ga.avisoRaices = true; scene.mostrarMensajeCorto?.('¡SUS RAÍCES!\n¡AHORA!'); }
-    }
 }
 
 function actualizarNivel1Juntos(scene, api) {
@@ -501,7 +298,6 @@ function actualizarNivel1Juntos(scene, api) {
             if (Math.random() < 0.4) scene.sound.play('romper', { volume: 0.2, rate: 1.8 });
         });
     });
-    (scene.guardianes || []).forEach(ga => actualizarGuardian(scene, ga, g, api));
 }
 
 function romperRama(scene, p) {

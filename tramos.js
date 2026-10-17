@@ -275,7 +275,7 @@ export function zonaLlegada() {
 }
 
 // ---------- Bosque (nivel 1): aprender a moverse juntos ----------
-// Cuatro zonas que enseñan el modo en cadena sin explicarlo (y que solo, o en la carrera, también
+// Tres zonas que enseñan el modo en cadena sin explicarlo (y que solo, o en la carrera, también
 // tienen gracia). La lógica está en bosque.js. zonasTranquilas: azar.js no reparte trampas ahí
 // (cada zona ya trae su lección y una trampa al azar la taparía).
 
@@ -330,20 +330,6 @@ export function tramoPuenteMadera() {
         carteles: [[60, 150, '↑ PUENTE'], [270, 210, 'TRONCOS →']],
         monedas: [...fila(420, 25, 4, 60), ...fila(860, 25, 3, 60)],
         zonasTranquilas: [[0, 1200]],
-    };
-}
-
-// Zona 4 · El Árbol Anciano despierta: un guardián (guardianes: [x, ancho]) que cierra el paso hasta
-// calmarlo. Ciclo fijo (el mismo en todas las pantallas): golpea el suelo (onda que se salta), hace
-// caer ramas (su sombra avisa 0,8 s antes) y deja sus RAÍCES al aire: solo ahí se le hace daño
-// (flechas, espada, poderes). Su vida crece con los jugadores. Después del árbol, la antesala del jefe.
-export function tramoArbolGuardian() {
-    return {
-        ancho: 1100,
-        suelo: [[0, 1100]],
-        guardianes: [[820, 110]],
-        corazones: [[300, 250]],
-        zonasTranquilas: [[0, 1100]],
     };
 }
 
@@ -409,7 +395,7 @@ export function tramoArgollas() {
 // campos con x en la primera posición ([x, ...]) y campos que son solo x
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
     'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas',
-    'escudos', 'aplastadores', 'portales', 'zonas', 'suelosPeso', 'guardianes'];
+    'escudos', 'aplastadores', 'portales', 'zonas', 'suelosPeso'];
 const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints', 'losasDudosas', 'grietasFalsas'];
 const RANGOS = ['suelo', 'lava', 'falsos', 'atajos', 'cuevas', 'murosAbismo', 'puentesMadera', 'zonasTranquilas'];
 // locuras: [x, tipo, extra]; en las de lava y el túnel, extra es la x del final (también se corre)

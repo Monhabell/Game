@@ -72,7 +72,7 @@ export function crearSorpresas(scene, nivel, inicioX = 0) {
     // trampas nuevas de cada nivel (locuras.js)
     crearLocuras(scene, nivel, inicioX);
     // piezas propias de cada región (bosque.js)
-    crearBosque(scene, nivel, inicioX);
+    crearBosque(scene, nivel);
 }
 
 // roca colgando del techo; cae cuando el jugador se acerca (ver actualizarSorpresas)

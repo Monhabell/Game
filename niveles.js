@@ -49,7 +49,7 @@ import {
     colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
     tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
     zonaSalida, zonaPuente, zonaTunel, zonaAtajo, zonaSueloMentiroso, zonaPersecucion, zonaLlegada,
-    tramoSalidaEnganosa, tramoRamasTraicioneras, tramoPuenteMadera, tramoArbolGuardian,
+    tramoSalidaEnganosa, tramoRamasTraicioneras, tramoPuenteMadera,
 } from "./tramos.js"
 
 export const SUELO_Y = 332;
@@ -330,11 +330,10 @@ export const NIVELES = [
 //   1. La salida engañosa: el cartel señala un atajo por un suelo de raíces que aguanta a UNO
 //   2. Las ramas traicioneras: con dos encima se rompen; en la punta se inclinan: por turnos
 //   3. El puente de madera: se cae detrás del grupo; abajo, un atajo saltando troncos que flotan
-//   4. El Árbol Anciano despierta: golpea el suelo, tira ramas y solo se le daña en sus raíces
-// (el cristal de lo alto del puente es el secreto del nivel)
+// (el cristal de lo alto del puente es el secreto del nivel). Después, la antesala y el Rey Troll.
 extender(NIVELES[0], 3850, [
     tramoLlano(300, { enemigos: 1 }), tramoRamasTraicioneras(), tramoLlano(200),
-    tramoPuenteMadera(), tramoArbolGuardian(),
+    tramoPuenteMadera(), tramoLlano(500), // (la antesala tranquila antes del Rey Troll)
 ]);
 extender(NIVELES[0], 2310, [tramoSalidaEnganosa()]); // (justo después del comienzo hecho a mano)
 extender(NIVELES[1], 4660, [ // Cueva: doble camino sobre la lava y un túnel largo

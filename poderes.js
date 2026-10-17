@@ -774,11 +774,10 @@ export function actualizarPoderes(scene, time, delta) {
             impacto(scene, q.p, s.x, s.y);
             if (!q.p.perfora && q.p.tipo !== 'ola') { s.destroy(); return false; }
         }
-        if (!q.remoto && !q.golpeoJefe && (scene.jefe || scene.guardianes?.length)) { // (también las raíces del Árbol Anciano)
-            const vidas = () => (scene.jefe?.vida ?? 0) + (scene.guardianes || []).reduce((t, ga) => t + (ga.vida || 0), 0);
-            const antes = vidas();
+        if (!q.remoto && !q.golpeoJefe && scene.jefe) {
+            const antes = scene.jefe.vida;
             api.golpearJefe(scene, zona, Math.min(2, q.p.daño));
-            if (vidas() !== antes) {
+            if (scene.jefe.vida !== antes) {
                 q.golpeoJefe = true;
                 impacto(scene, q.p, s.x, s.y);
                 if (!q.p.perfora && q.p.tipo !== 'ola') { s.destroy(); return false; }
