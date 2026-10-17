@@ -35,6 +35,7 @@ import { crearLava } from "./mazmorra.js"
 import { SUELO_Y } from "./niveles.js"
 import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
+import { ganarXP, XP } from "./progreso.js"
 
 const VIDAS = 3;
 const RONDAS_PARA_GANAR = 2;
@@ -159,7 +160,7 @@ export function iniciarArena(ganchos) {
         switch (m.tipo) {
             case 'pvp': if (scene && m.ronda === partida.ronda) recibirGolpe(scene, m); break;
             // eliminé a un rival con un poder
-            case 'arenaDerribo': if (scene && m.para === red.tuId) api.mensaje(scene, `💀 ¡ELIMINASTE A ${nombreDe(m.de).toUpperCase()}!`, 1100); break;
+            case 'arenaDerribo': if (scene && m.para === red.tuId) { api.mensaje(scene, `💀 ¡ELIMINASTE A ${nombreDe(m.de).toUpperCase()}!`, 1100); ganarXP(XP.eliminar, scene.pj?.id); } break;
             case 'arenaCae':
                 if (m.ronda !== partida.ronda) break;
                 partida.vidas.set(m.de, Math.max(0, m.vidas | 0));
@@ -507,6 +508,7 @@ function terminarPartida(ganador) {
     const mio = ganador === equipoDe(red.tuId);
     partida.terminada = { ganador };
     const liga = anotarResultado(mio);
+    setTimeout(() => ganarXP(mio ? XP.arenaGana : XP.arenaPierde, scene?.pj?.id), 2000); // (progreso.js)
     if (liga.subio) api.premio(50); // premio por subir de liga
     // medallas: cada uno manda sus números y todos calculan las mismas
     partida.statsDe.set(red.tuId, partida.stats);

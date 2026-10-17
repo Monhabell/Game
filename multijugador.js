@@ -31,6 +31,7 @@ import { estaHablando } from "./voz.js"
 import { red, alRecibir, enviarEstado, enviarEvento, enLinea, enCarrera, mundoCompartido, esAnfitrion } from "./red.js"
 import { poderRemoto as poderEspecialRemoto } from "./poderes.js"
 import { esRival, colorDe as colorEnArena } from "./arena.js"
+import { nivelDe, textoNivel } from "./progreso.js"
 
 const ENVIO_MS = 66;          // ~15 estados por segundo
 const OLVIDO_MS = 3000;       // sin noticias de un jugador: se oculta (se fue a otro nivel o se cortó)
@@ -212,9 +213,10 @@ export function actualizarEnLinea(scene, time, delta) {
         if (e.anim && r.s.anims.currentAnim?.key !== e.anim && scene.anims.exists(e.anim)) r.s.anims.play(e.anim, true);
         if (!scene.arena) r.s.setTint(e.anclado ? 0x9fd8ff : 0xffffff);
         r.etiqueta.setPosition(r.s.x, r.s.y - 8);
-        // chat de voz: 🔊 sobre el nombre de quien está hablando
-        const habla = estaHablando(r.id);
-        if (habla !== r.habla) { r.habla = habla; r.etiqueta.setText(habla ? `🔊 ${r.nombre}` : r.nombre); }
+        // sobre la cabeza: su nivel (progreso.js), su nombre y 🔊 si está hablando por el chat de voz
+        const habla = estaHablando(r.id), nv = nivelDe(r.id);
+        const texto = `${habla ? '🔊 ' : ''}${nv ? `${textoNivel(nv)} · ` : ''}${r.nombre}`;
+        if (texto !== r.texto) { r.texto = texto; r.habla = habla; r.etiqueta.setText(texto); }
     });
 }
 

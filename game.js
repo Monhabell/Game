@@ -15,7 +15,8 @@ import { nivelEnEquipo } from "./equipo.js"
 import { iniciarVoz } from "./voz.js"
 import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
-import { iniciarSala } from "./sala.js"
+import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
+import { ganarXP, XP, progresoJugador, maestria, tituloHeroe, factorRecarga, tieneRunaMaestria, MAESTRIA_MAX, textoNivel } from "./progreso.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
 import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala } from "./red.js"
 import {
@@ -121,6 +122,7 @@ const SALTAR_ESPERA_MS = 400; // desde aquí, cualquier tecla o toque reaparece 
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
+let runaMaestriaNivel = -1; // nivel en que ya se usó la runa de maestría (progreso.js)
 let vidaJefeGuardada = null; // { nivel, vida }: el daño hecho al jefe se mantiene si mueres con vidas
 const SALUD_MAXIMA = 100; // barra de vida del jugador durante la pelea con el jefe
 // carrera: antes se sumaban 2 px por fotograma (120 px/s a 60 Hz) + 100 px/s de velocidad
@@ -344,7 +346,7 @@ iniciarArena({
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
     },
-    revancha: () => empezarPartida(0), // (el modo y la arena los guarda la sala)
+    revancha: () => { arenaParaRevancha(); empezarPartida(0); }, // (el modo y la arena los guarda la sala; si era al azar, otra arena)
     volverASala: () => volverASala(),
 });
 usarJuego(juego);
@@ -360,7 +362,7 @@ iniciarCarrera(juego, {
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
     },
-    revancha: pista => empezarPartida(pista),
+    revancha: pista => empezarPartida(pistaParaRevancha(pista)), // (si la pista era al azar, se sortea otra)
     volverASala: () => volverASala(),
     // un rival te dejó sin vida con sus poderes: mueres (ni el escudo ni las defensas lo evitan)
     morir: scene => killgesi(scene, 'rival'),
@@ -1041,6 +1043,9 @@ function crearSeleccion() {
     this.nieblaBaja.setTint(0x8b9cff).setAlpha(0.22);
 
     this.add.text(VISTA.width / 2, 22, 'Elige tu héroe', { fontSize: '20px', fill: '#fff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
+    // nivel del jugador (progreso.js) con su barra de experiencia
+    const pr = progresoJugador();
+    this.add.text(VISTA.width / 2, 40, `${textoNivel(pr.nivel)} · ${pr.xp}/${pr.falta} XP`, { fontSize: '10px', color: '#ffd27a', fontStyle: '600' }).setOrigin(0.5).setDepth(5);
 
     // si hay partida guardada, se elige el personaje con el que se venía jugando
     this.partida = leerPartida();
@@ -1264,7 +1269,9 @@ function marcarSeleccion(scene, inicio = false) {
         scene.tweens.add({ targets: e.marca, alpha: 0.05, duration: 400 });
     }
     d.nombre.setText(pj.nombre).setColor(colorTexto(pj));
-    d.titulo.setText(pj.titulo);
+    // maestría del héroe (progreso.js): estrellas y, al máximo, su título
+    const m = maestria(pj.id);
+    d.titulo.setText(`${tituloHeroe(pj.id) || pj.titulo} · ⭐ Maestría ${m}${m >= MAESTRIA_MAX ? ' (máx.)' : ''}`);
     d.pasiva.setText(`★ ${pj.pasiva}`);
     d.frase.setText(`"${pj.frase}"`);
     const mejorado = personajeConMejoras(pj).habilidades;
@@ -2347,7 +2354,7 @@ function usarHabilidad(scene, tecla) {
     const h = scene.pj.habilidades[tecla];
     if (!h || scene.atacando || scene.time.now < (scene.enfriamientos[tecla] || 0)) return;
     if (!pagarCosto(scene, h.costo)) return;
-    scene.enfriamientos[tecla] = scene.time.now + h.enfriamiento;
+    scene.enfriamientos[tecla] = scene.time.now + h.enfriamiento * factorRecarga(scene.pj.id); // (maestría 5: más rápido)
     avisarPoder(scene, tecla);
 
     const g = scene.mascotaGesi;
@@ -2697,8 +2704,11 @@ function completarNivel(mascotaGesi) {
     addToScore(1000, mascotaGesi, this);
     guardarBolsa(this);
     // premio: un poder especial (seguro la primera vez que se termina este nivel)
-    const premio = premioDeNivel(nivelActual + 1 > nivelMaximo());
+    const primeraVez = nivelActual + 1 > nivelMaximo();
+    const premio = premioDeNivel(primeraVez);
     registrarNivel(nivelActual + 1);
+    // experiencia para el jugador y la maestría del héroe (progreso.js)
+    this.time.delayedCall(900, () => ganarXP(XP.nivel + (primeraVez ? XP.nivelPrimera : 0), this.pj.id));
     if (premio) this.time.delayedCall(1700, () => mostrarMensaje(this, `¡NUEVO PODER!\n${premio.nombre}\n(equípalo en la Tienda › Poderes)`, 2200));
 
     const ultimo = nivelActual === NIVELES.length - 1;
@@ -3044,6 +3054,14 @@ function mostrarDolor(game) {
 
 // Runa de reserva (tienda.js): la primera vez que se rompe el escudo en un nivel, se recarga
 function usarRunaDeReserva(game) {
+    // maestría 2 del héroe (progreso.js): la runa de maestría, gratis, una vez por nivel
+    if (tieneRunaMaestria(game.pj.id) && runaMaestriaNivel !== nivelActual && !game.arena) {
+        runaMaestriaNivel = nivelActual;
+        game.time.delayedCall(700, () => {
+            if (!game.mascotaGesi.isDead) recuperarEscudo(game, texto => mostrarMensaje(game, texto, 900), '¡RUNA DE MAESTRÍA!');
+        });
+        return;
+    }
     if (!llevaEscudo() || runaNivel === nivelActual) return;
     runaNivel = nivelActual;
     usarConsumible('escudo');

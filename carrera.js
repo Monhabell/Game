@@ -45,6 +45,7 @@ import { SUELO_Y } from "./niveles.js"
 import { pistaDe } from "./pistas.js"
 import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
+import { ganarXP, XP, nivelDe, textoNivel } from "./progreso.js"
 
 const CUENTA_MS = 4000;      // de 'empezar' a la salida
 const ESPERA_LLEGADAS = 400; // el anfitrión espera este rato por si otro llegó casi a la vez
@@ -224,6 +225,7 @@ function avisarGolpe(m) {
     if (!scene || carrera.fin) return;
     const quien = nombreDe(m.de).toUpperCase();
     const e = EFECTOS_CARRERA[m.efecto];
+    if (m.mato) ganarXP(XP.eliminar, scene.pj?.id);
     api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : m.mato ? `💀 ¡ELIMINASTE A ${quien}!` : `${e ? `${e.icono} ` : ''}¡LE DISTE A ${quien}!`, m.mato ? 1200 : 800);
 }
 
@@ -267,6 +269,9 @@ function terminar(m) {
     carrera.fin = m;
     const mio = m.ganador === red.tuId;
     const pagos = calcularPagos(m.ganador);
+    // experiencia según el puesto (progreso.js)
+    const puesto = (Array.isArray(m.orden) ? m.orden.map(Number) : [m.ganador]).indexOf(red.tuId);
+    setTimeout(() => ganarXP(XP.carrera[puesto] ?? XP.carreraOtros, escena()?.pj?.id), 2600);
     const premio = pagos.get(red.tuId) || 0;
     if (premio) api.premio(premio);
     informarSaldo(saldo()); // (para la próxima: la sala revisa que alcance para la apuesta)
@@ -402,7 +407,7 @@ function pintarHud(scene) {
         const i = orden.indexOf(id);
         const llego = id === carrera.fin?.ganador || (id === red.tuId && carrera.llegue);
         return `<li class="${id === red.tuId ? 'yo' : ''}" style="--c:${colorDe(id)}"><span class="carrera-n">${i + 1}</span>
-            <span class="carrera-nombre">${escapar(nombreDe(id))}</span>${llego ? ' 🏁' : ''}</li>`;
+            <span class="carrera-nombre">${escapar(nombreDe(id))}</span>${nivelDe(id) ? ` <small class="carrera-nv">${textoNivel(nivelDe(id))}</small>` : ''}${llego ? ' 🏁' : ''}</li>`;
     }).join('');
     // cronómetro: corre desde la salida; se detiene al llegar (tú) o al terminar (el del ganador)
     const ms = carrera.fin && Number(carrera.fin.ms) >= 0 ? Number(carrera.fin.ms)
