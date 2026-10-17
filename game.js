@@ -362,6 +362,8 @@ iniciarCarrera(juego, {
     },
     revancha: pista => empezarPartida(pista),
     volverASala: () => volverASala(),
+    // un rival te dejó sin vida con sus poderes: mueres (ni el escudo ni las defensas lo evitan)
+    morir: scene => killgesi(scene, 'rival'),
 });
 // el Árbol Anciano del nivel 1: otro jugador (en el mismo mundo) le pegó a una raíz
 alRecibir('evento', m => { if (m.tipo === 'arbolGolpe' && mundoCompartido()) golpeRemotoGuardian(Number(m.x), m.n); });
@@ -3080,11 +3082,12 @@ function killgesi(game, causa, daño = 20, origenX) {
         return;
     }
     // las defensas de cada personaje protegen de todo menos de caer a la lava
-    if (causa !== 'caida') {
+    // (ni de quedarte sin vida en la carrera: 'rival', ver carrera.js)
+    if (causa !== 'caida' && causa !== 'rival') {
         const d = defensa(game, origenX);
         if (d) { aplicarDefensa(game, d); return; }
     }
-    if (causa !== 'caida') {
+    if (causa !== 'caida' && causa !== 'rival') {
         // recién roto el escudo: unos instantes sin recibir daño
         if (estaInvulnerable(game)) return;
         // el primer golpe solo rompe el escudo

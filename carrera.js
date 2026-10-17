@@ -10,6 +10,9 @@
 //     ralentizar, explotar, empujar, confundir, bloquear poderes o atraer: EFECTOS_CARRERA en
 //     poderes.js) con su señal sobre el personaje. Nunca quitan vidas. Después de un golpe hay 1,5 s
 //     de protección (nada de encadenar golpes) y un escudo activo lo para. Quien te alcanzó se entera.
+//   - VIDA: además del efecto, cada poder quita vida (barra sobre la cabeza, 100 por vida). Uno de daño
+//     3 o más elimina en 2 golpes. Sin vida, el rival muere y vuelve a su último punto de control (pierde
+//     tiempo, no la carrera); reaparece con la vida llena. El que lo eliminó se entera.
 //   - Pistas con zonas (las Ruinas del Abismo): al entrar a cada zona se anuncia su nombre y el aviso
 //     de "lo que viene" muestra la zona siguiente.
 //   - HUD: arriba a la izquierda las posiciones, al centro el cronómetro y el avance de cada uno (para
@@ -32,7 +35,7 @@
 //   - Si todos los rivales se van de la sala, el que queda gana.
 //
 // api (la da game.js): { mensaje(scene, texto, ms), premio(monedas), pagar(monedas), salir(),
-//   volverASala(), revancha(nivel) }
+//   volverASala(), revancha(nivel), morir(scene) }
 
 import { red, alRecibir, enviarEvento, esAnfitrion, informarSaldo } from "./red.js"
 import { PERSONAJES } from "./personajes.js"
@@ -99,6 +102,8 @@ export const terminarCarrera = () => { carrera = null; cerrarFin(); quitarHud();
 // al crear la escena (también al reaparecer después de morir)
 export function prepararCarrera(scene, nivel, inicioX) {
     scene.carrera = carrera;
+    scene.vidaCarrera = VIDA_CARRERA; // (cada vez que aparece: después de morir, con la vida llena)
+    scene.barraCarrera = null;
     carrera.meta = nivel.meta;
     carrera.inicioX ??= inicioX;
     carrera.peligros ??= peligrosDe(nivel);
@@ -173,8 +178,44 @@ export function recibirPoderCarrera(scene, p, de, ox) {
     // en la carrera los golpes siempre RETRASAN (hacia atrás en el recorrido, aunque le pegues por
     // detrás) y dejan un momento de recuperación: nunca se ayuda al rival a avanzar
     aplicarEfecto(scene, tipo, { rareza: p.rareza, nivel: p.nivel, lado: -1, empuje: p.empuje, recuperacion: 450 });
+    // y le quita vida: sin vida, muere y vuelve a su último punto de control
+    scene.vidaCarrera = Math.max(0, (scene.vidaCarrera ?? VIDA_CARRERA) - QUITA_PODER[Math.min(7, Math.ceil(p.daño || 1))]);
+    pintarVidaCarrera(scene);
+    if (scene.vidaCarrera <= 0) {
+        api.mensaje(scene, `💀 ¡${quien} TE ELIMINÓ!`, 1300);
+        enviarEvento('carreraGolpe', { para: de, efecto: tipo, mato: 1 });
+        // (un instante para que se vea el golpe antes de caer)
+        scene.time.delayedCall(250, () => { if (!g.isDead) api.morir(scene); });
+        return;
+    }
     api.mensaje(scene, textoEfecto(tipo, quien), 1000);
     enviarEvento('carreraGolpe', { para: de, efecto: tipo });
+}
+
+// ---------- vida en la carrera (solo la quitan los poderes de los rivales) ----------
+const VIDA_CARRERA = 100;
+// daño del poder (ya con su nivel) -> vida que quita: uno de daño 3 o más elimina en 2 golpes
+const QUITA_PODER = [0, 25, 35, 50, 65, 80, 90, 100];
+// barra chica sobre la cabeza: aparece al primer golpe y sigue al personaje
+function pintarVidaCarrera(scene) {
+    const g = scene.mascotaGesi;
+    if (!scene.barraCarrera) {
+        const fondo = scene.add.rectangle(0, 0, 40, 6, 0x000000, 0.75).setStrokeStyle(1, 0xffffff, 0.6).setDepth(43);
+        const barra = scene.add.rectangle(0, 0, 38, 4, 0x4ade80).setOrigin(0, 0.5).setDepth(44);
+        scene.barraCarrera = { fondo, barra };
+        const seguir = scene.time.addEvent({
+            delay: 16, loop: true, callback: () => {
+                if (!g.active || !fondo.active) { seguir.remove(); return; }
+                const b = g.body;
+                fondo.setPosition(b.center.x, b.top - 26);
+                barra.setPosition(b.center.x - 19, b.top - 26);
+                fondo.setVisible(!g.isDead);
+                barra.setVisible(!g.isDead);
+            },
+        });
+    }
+    const f = scene.vidaCarrera / VIDA_CARRERA;
+    scene.barraCarrera.barra.setSize(38 * f, 4).setFillStyle(f > 0.5 ? 0x4ade80 : f > 0.25 ? 0xfacc15 : 0xef4444);
 }
 
 // yo alcancé a un rival con un poder (me avisa él)
@@ -183,7 +224,7 @@ function avisarGolpe(m) {
     if (!scene || carrera.fin) return;
     const quien = nombreDe(m.de).toUpperCase();
     const e = EFECTOS_CARRERA[m.efecto];
-    api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : `${e ? `${e.icono} ` : ''}¡LE DISTE A ${quien}!`, 800);
+    api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : m.mato ? `💀 ¡ELIMINASTE A ${quien}!` : `${e ? `${e.icono} ` : ''}¡LE DISTE A ${quien}!`, m.mato ? 1200 : 800);
 }
 
 // llegué a la meta (game.js ya hizo la fiesta del faro)
