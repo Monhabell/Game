@@ -299,34 +299,60 @@ export function actualizarEstela(scene) {
     scene.estela.emitting = !g.isDead && Math.abs(g.body.velocity.x) > 30;
 }
 
-// ---------- la tienda (capa HTML, como los menús de pausa y configuración) ----------
-const TEXTO_TIPO = { heroe: 'Mejoras de héroe', permanente: 'Mejoras permanentes', consumible: 'Consumibles', cosmetico: 'Apariencias' };
+// ---------- la tienda (capa HTML a pantalla completa) ----------
+// Como en los juegos de celular: a la izquierda las categorías y a la derecha una vitrina de cartas que
+// se pasa de lado (deslizando, con las flechas ‹ ›, la rueda del mouse o las teclas ← →), sin desplazarse
+// hacia abajo. Los puntitos de abajo dicen en qué página estás.
+const moneda = n => `<i class="moneda" aria-hidden="true"></i>${n}`;
+// [id, ícono, nombre en la barra, título arriba de la vitrina]
+const CATEGORIAS = [
+    ['heroe', '⚔', 'Héroes', 'Mejoras de héroe · cada una solo para su héroe'],
+    ['permanente', '⭐', 'Mejoras', 'Mejoras permanentes · para todos los héroes'],
+    ['consumible', '🧪', 'Consumibles', 'Consumibles · para todos los héroes'],
+    ['cosmetico', '🎨', 'Apariencias', 'Apariencias'],
+    ['poderes', '✨', 'Poderes', ''],
+];
+// alto mínimo de una carta: si caben dos, la vitrina muestra dos filas (las de poderes traen más datos)
+const ALTO_CARTA = { poderes: 330, otras: 240 };
 
 // devuelve abrir(alCerrar): abre la tienda; alCerrar() se llama al cerrarla
 export function iniciarTienda() {
-    const contenedor = document.getElementById('game');
     const capa = document.createElement('div');
-    capa.className = 'menu-capa';
+    // (ocupa toda la pantalla, no solo el recuadro del juego, como la sala)
+    capa.className = 'menu-capa tienda-capa';
     capa.hidden = true;
     capa.innerHTML = `
-        <div class="menu-panel menu-panel-ancho tienda-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-tienda">
+        <div class="menu-panel tienda-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-tienda">
             <div class="tienda-cabecera">
                 <h2 id="titulo-tienda">Tienda de la Noche</h2>
-                <span class="tienda-saldo" aria-live="polite"><span aria-hidden="true">◉</span> <b data-saldo>0</b> monedas</span>
+                <span class="tienda-saldo" aria-live="polite"><i class="moneda" aria-hidden="true"></i><b data-saldo>0</b> monedas</span>
+                <button type="button" class="tienda-cerrar" data-accion="cerrar" aria-label="Cerrar la tienda">✕</button>
             </div>
-            <div class="tienda-pestanas" role="tablist">
-                <button type="button" class="tienda-pestana" role="tab" data-pestana="tienda">Tienda</button>
-                <button type="button" class="tienda-pestana" role="tab" data-pestana="poderes">Poderes <b data-cuantos></b></button>
+            <div class="tienda-cuerpo">
+                <nav class="tienda-pestanas" role="tablist" aria-label="Categorías">${CATEGORIAS.map(([id, icono, nombre]) => `
+                    <button type="button" class="tienda-pestana" role="tab" data-pestana="${id}">
+                        <span class="tienda-pestana-icono" aria-hidden="true">${icono}</span><span>${nombre}</span>${id === 'poderes' ? '<b data-cuantos></b>' : ''}
+                    </button>`).join('')}
+                    <p class="tienda-nota">Las monedas se guardan al tocar un punto de control o al terminar el nivel. Lo que compres en medio de un nivel se aplica desde tu próximo intento (el imán y el ojo, al momento).</p>
+                </nav>
+                <section class="tienda-zona">
+                    <div class="tienda-arriba" data-arriba></div>
+                    <div class="tienda-vitrina-marco">
+                        <button type="button" class="tienda-flecha" data-pagina="-1" aria-label="Página anterior">‹</button>
+                        <div class="tienda-lista" data-lista tabindex="-1"></div>
+                        <button type="button" class="tienda-flecha" data-pagina="1" aria-label="Página siguiente">›</button>
+                    </div>
+                    <div class="tienda-puntos" data-puntos aria-hidden="true"></div>
+                </section>
             </div>
-            <div class="tienda-lista" data-lista></div>
             <p class="tienda-aviso" data-aviso role="status" aria-live="polite"></p>
-            <button type="button" class="menu-boton" data-accion="cerrar">← Volver</button>
-            <p class="menu-nota">Las monedas se guardan al tocar un punto de control o al terminar el nivel. Al morir solo pierdes las que no alcanzaste a guardar. Lo que compres en medio de un nivel se aplica desde tu próximo intento (el imán y el ojo, al momento).</p>
         </div>`;
-    contenedor.appendChild(capa);
+    document.getElementById('game').appendChild(capa);
     const lista = capa.querySelector('[data-lista]');
+    const arriba = capa.querySelector('[data-arriba]');
+    const puntos = capa.querySelector('[data-puntos]');
     const aviso = capa.querySelector('[data-aviso]');
-    let alCerrar = null, temporizador = null, pestana = 'tienda', filtro = 'todos';
+    let alCerrar = null, temporizador = null, pestana = 'heroe', filtro = 'todos';
 
     function avisar(texto, ok) {
         aviso.textContent = texto;
@@ -343,7 +369,7 @@ export function iniciarTienda() {
             const llevar = `<button type="button" class="menu-boton tienda-btn" data-equipar="${o.id}" aria-pressed="${estado.equipados.escudo}">${estado.equipados.escudo ? '✓ La llevo' : 'No la llevo'}</button>`;
             const compra = s === 'lleno'
                 ? `<button type="button" class="menu-boton tienda-btn" disabled>Máximo (${o.max})</button>`
-                : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar="${o.id}" ${s === 'caro' ? 'disabled' : ''}>${s === 'caro' ? `Faltan ${faltan}` : `Comprar · ◉ ${o.precio}`}</button>`;
+                : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar="${o.id}" ${s === 'caro' ? 'disabled' : ''}>${s === 'caro' ? `Faltan ${faltan}` : `Comprar · ${moneda(o.precio)}`}</button>`;
             return compra + (cantidad(o.id) > 0 ? llevar : '');
         }
         if (s === 'equipado') return `<button type="button" class="menu-boton tienda-btn tienda-equipado" data-equipar="${o.id}" aria-pressed="true">✓ Equipado · quitar</button>`;
@@ -352,95 +378,145 @@ export function iniciarTienda() {
                 ? `<button type="button" class="menu-boton tienda-btn" data-equipar="${o.id}" aria-pressed="false">Equipar</button>`
                 : `<button type="button" class="menu-boton tienda-btn" disabled>✓ Comprado</button>`;
         }
-        return `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar="${o.id}" ${s === 'caro' ? 'disabled' : ''}>${s === 'caro' ? `Faltan ${faltan}` : `Comprar · ◉ ${o.precio}`}</button>`;
+        return `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar="${o.id}" ${s === 'caro' ? 'disabled' : ''}>${s === 'caro' ? `Faltan ${faltan}` : `Comprar · ${moneda(o.precio)}`}</button>`;
     }
 
-    // pestaña de poderes: los 2 equipados del héroe actual arriba y los 50 abajo (filtrables por rareza)
+    // la carta: arriba la etiqueta (rareza o dueño) y las estrellas, el ícono grande, el nombre, el texto y los botones al pie
+    const carta = ({ clases, estilo, etiqueta, esquina = '', media, nombre, desc, extra = '', botones }) => `
+        <article class="tienda-item ${clases}" style="${estilo}">
+            <div class="carta-cima">${etiqueta}${esquina}</div>
+            <div class="tienda-media">${media}</div>
+            <div class="tienda-info">
+                <b class="carta-nombre">${nombre}</b>
+                <p class="tienda-desc">${desc}</p>
+                ${extra}
+            </div>
+            <div class="tienda-acciones">${botones}</div>
+        </article>`;
+
+    // poderes: arriba los 2 equipados del héroe actual y los filtros por rareza
     function pintarPoderes() {
         const h = heroe(), colorHeroe = '#' + h.color.toString(16).padStart(6, '0');
         const eq = equipados(h.id);
         const ranura = (id, i) => {
             const p = PODERES.find(q => q.id === id);
             return `<div class="poder-ranura"><kbd>${i ? 'B' : 'V'}</kbd>${p
-                ? `<img src="${urlIcono(p)}" alt="" width="34" height="34" style="filter:${filtroIcono(p)}"><span>${p.nombre}</span>`
+                ? `<img src="${urlIcono(p)}" alt="" width="30" height="30" style="filter:${filtroIcono(p)}"><span>${p.nombre}</span>`
                 : '<span class="vacia">Vacía</span>'}</div>`;
         };
         const filtros = ['todos', 'mios', ...Object.keys(RAREZAS)].map(f => `<button type="button" class="poder-filtro ${filtro === f ? 'activo' : ''}"
             data-filtro="${f}" aria-pressed="${filtro === f}">${f === 'todos' ? 'Todos' : f === 'mios' ? 'Míos' : RAREZAS[f].nombre}</button>`).join('');
+        arriba.innerHTML = `
+            <div class="poder-equipo"><b>En <span style="color:${colorHeroe}">${h.nombre}</span></b>${eq.map(ranura).join('')}</div>
+            <div class="poder-filtros" role="group" aria-label="Filtrar poderes">${filtros}</div>`;
         const visibles = PODERES.filter(p => filtro === 'todos' || (filtro === 'mios' ? tienePoder(p.id) : p.rareza === filtro));
-        lista.innerHTML = `
-            <div class="poder-equipo"><b>Equipados en <span style="color:${colorHeroe}">${h.nombre}</span></b>${eq.map(ranura).join('')}</div>
-            <p class="menu-nota">Ganas un poder al terminar cada nivel por primera vez (y a veces al rejugarlo). En el nivel se usan con V y B. Súbelos hasta ★★★★★ con monedas.</p>
-            <div class="poder-filtros" role="group" aria-label="Filtrar poderes">${filtros}</div>
-            ${visibles.map(p => {
-                const mio = tienePoder(p.id), r = RAREZAS[p.rareza], precio = precioPoder(p);
-                const nv = nivelPoder(p.id), costo = mio ? costoSubir(p) : null;
-                const subir = costo === null ? ''
-                    : `<button type="button" class="menu-boton tienda-btn poder-subir" data-subir-poder="${p.id}" ${estado.monedas < costo ? 'disabled' : ''}
-                        title="Nivel ${nv + 1}: ${queGana(nv + 1)}">${estado.monedas < costo ? `⬆ Nv ${nv + 1} · faltan ${costo - estado.monedas}` : `⬆ Nv ${nv + 1} · ◉ ${costo}`}</button>`;
-                const botones = mio
-                    ? [0, 1].map(i => `<button type="button" class="menu-boton tienda-btn ${eq[i] === p.id ? 'tienda-equipado' : ''}" data-poder="${p.id}"
-                        data-ranura="${i}" aria-pressed="${eq[i] === p.id}">${eq[i] === p.id ? `✓ En ${i ? 'B' : 'V'}` : `Poner en ${i ? 'B' : 'V'}`}</button>`).join('') + subir
-                    : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${RAREZAS[p.rareza].nivelMinimo} · ◉ ${precio}</button>`
-                    : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ◉ ${precio}`}</button>`;
-                // ventajas con los valores de su nivel actual (y qué gana al subir)
-                const chips = ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');
-                const siguiente = costo === null ? (mio ? '<small class="poder-max">★ Nivel máximo</small>' : '')
-                    : `<small>Nivel ${nv + 1}: ${queGana(nv + 1)}</small>`;
-                const nivelChip = mio ? `<em class="poder-nivel" aria-label="Nivel ${nv} de ${NIVEL_MAX}">${'★'.repeat(nv)}${'☆'.repeat(NIVEL_MAX - nv)}</em>` : '';
-                return `
-                <div class="tienda-item poder-item ${mio ? 'comprado' : ''} ${eq.includes(p.id) ? 'equipado' : ''}" style="--tienda-color:${colorDe(p)}">
-                    <img class="poder-icono" src="${urlIcono(p)}" alt="" width="44" height="44" loading="lazy" style="border-color:${r.color};filter:${filtroIcono(p)}">
-                    <div class="tienda-info">
-                        <b>${p.nombre} <em class="tienda-heroe" style="--pj:${r.color}">${r.nombre}</em> ${nivelChip}</b>
-                        <span>${p.descripcion}</span>
-                        <span class="poder-ventajas">${chips}</span>
-                        ${siguiente}
-                    </div>
-                    <div class="tienda-acciones">${botones}</div>
-                </div>`;
-            }).join('')}`;
+        lista.innerHTML = visibles.map(p => {
+            const mio = tienePoder(p.id), r = RAREZAS[p.rareza], precio = precioPoder(p);
+            const nv = nivelPoder(p.id), costo = mio ? costoSubir(p) : null;
+            const subir = costo === null ? ''
+                : `<button type="button" class="menu-boton tienda-btn poder-subir" data-subir-poder="${p.id}" ${estado.monedas < costo ? 'disabled' : ''}
+                    title="Nivel ${nv + 1}: ${queGana(nv + 1)}">${estado.monedas < costo ? `⬆ Nv ${nv + 1} · faltan ${costo - estado.monedas}` : `⬆ Nivel ${nv + 1} · ${moneda(costo)}`}</button>`;
+            const botones = mio
+                ? `<div class="poder-ranuras" role="group" aria-label="Tecla para usarlo">${[0, 1].map(i => `<button type="button"
+                    class="poder-tecla ${eq[i] === p.id ? 'activa' : ''}" data-poder="${p.id}" data-ranura="${i}" aria-pressed="${eq[i] === p.id}"
+                    aria-label="${eq[i] === p.id ? `Equipado en ${i ? 'B' : 'V'}` : `Poner en ${i ? 'B' : 'V'}`}">${eq[i] === p.id ? '✓ ' : ''}${i ? 'B' : 'V'}</button>`).join('')}</div>` + subir
+                : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${RAREZAS[p.rareza].nivelMinimo} · ${moneda(precio)}</button>`
+                : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ${moneda(precio)}`}</button>`;
+            // ventajas con los valores de su nivel actual (y qué gana al subir)
+            const chips = ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');
+            const siguiente = costo === null ? (mio ? '<small class="poder-max">★ Nivel máximo</small>' : '')
+                : `<small class="poder-siguiente"><b>Nivel ${nv + 1}:</b> ${queGana(nv + 1)}</small>`;
+            return carta({
+                clases: `poder-item ${mio ? 'comprado' : 'nuevo'} ${eq.includes(p.id) ? 'equipado' : ''}`,
+                estilo: `--tienda-color:${colorDe(p)};--rareza:${r.color}`,
+                etiqueta: `<em class="tienda-heroe" style="--pj:${r.color}">${r.nombre}</em>`,
+                esquina: mio ? `<em class="poder-nivel" aria-label="Nivel ${nv} de ${NIVEL_MAX}">${'★'.repeat(nv)}<span>${'★'.repeat(NIVEL_MAX - nv)}</span></em>` : '',
+                media: `<img class="poder-icono" src="${urlIcono(p)}" alt="" width="96" height="96" loading="lazy" style="filter:${filtroIcono(p)}">`,
+                nombre: p.nombre, desc: p.descripcion,
+                extra: `<div class="poder-ventajas">${chips}</div>${siguiente}`,
+                botones,
+            });
+        }).join('');
     }
 
-    function pintar() {
+    function pintarCatalogo() {
+        const h = heroe(), colorHeroe = '#' + h.color.toString(16).padStart(6, '0');
+        const titulo = CATEGORIAS.find(c => c[0] === pestana)[3];
+        arriba.innerHTML = `<h3 class="tienda-seccion">${pestana === 'cosmetico' ? `${titulo} · <span style="color:${colorHeroe}">para ${h.nombre}</span>` : titulo}</h3>`;
+        lista.innerHTML = CATALOGO.filter(o => o.tipo === pestana)
+            // mejoras de héroe: primero la del héroe actual
+            .sort((a, b) => (b.heroe === h.id) - (a.heroe === h.id)).map(o => {
+                const s = situacion(o);
+                const dueño = o.tipo === 'heroe' ? PERSONAJES.find(pj => pj.id === o.heroe) : null;
+                const colorDueño = dueño ? '#' + dueño.color.toString(16).padStart(6, '0') : null;
+                const color = o.color ? '#' + o.color.toString(16).padStart(6, '0') : colorDueño;
+                return carta({
+                    clases: s,
+                    estilo: color ? `--tienda-color:${color}` : '',
+                    etiqueta: dueño ? `<em class="tienda-heroe" style="--pj:${colorDueño}">Solo ${dueño.nombre}</em>`
+                        : `<em class="tienda-heroe" style="--pj:var(--texto-2)">${CATEGORIAS.find(c => c[0] === pestana)[2]}</em>`,
+                    esquina: o.tipo === 'consumible' ? `<em class="tienda-tienes">Tienes ${cantidad(o.id)}</em>` : '',
+                    media: `<span class="tienda-icono" aria-hidden="true">${s === 'bloqueado' ? '🔒' : o.icono}</span>`,
+                    nombre: o.nombre, desc: o.descripcion,
+                    botones: botonDe(o, s),
+                });
+            }).join('');
+    }
+
+    // repinta sin perder la página en la que estabas (salvo al cambiar de categoría o de filtro)
+    function pintar(alPrincipio = false) {
+        const x = alPrincipio ? 0 : lista.scrollLeft;
         capa.querySelector('[data-saldo]').textContent = estado.monedas;
         capa.querySelector('[data-cuantos]').textContent = `${cuantosPoderes()}/${PODERES.length}`;
         capa.querySelectorAll('[data-pestana]').forEach(b => {
             b.classList.toggle('activa', b.dataset.pestana === pestana);
             b.setAttribute('aria-selected', b.dataset.pestana === pestana);
         });
-        if (pestana === 'poderes') { pintarPoderes(); return; }
-        const h = heroe(), colorHeroe = '#' + h.color.toString(16).padStart(6, '0');
-        lista.innerHTML = Object.entries(TEXTO_TIPO).map(([tipo, titulo]) => `
-            <h3 class="tienda-seccion">${titulo}${tipo === 'cosmetico'
-                ? ` · <span style="color:${colorHeroe}">para ${h.nombre}</span>`
-                : tipo === 'heroe' ? ' · cada una solo para su héroe' : ' · para todos los héroes'}</h3>
-            ${CATALOGO.filter(o => o.tipo === tipo)
-                // mejoras de héroe: primero la del héroe actual
-                .sort((a, b) => (b.heroe === h.id) - (a.heroe === h.id)).map(o => {
-                const s = situacion(o);
-                const color = o.color ? `--tienda-color:#${o.color.toString(16).padStart(6, '0')}` : '';
-                const extra = o.tipo === 'consumible' ? ` · tienes ${cantidad(o.id)}` : '';
-                const dueño = o.tipo === 'heroe' ? PERSONAJES.find(pj => pj.id === o.heroe) : null;
-                const chip = dueño ? `<em class="tienda-heroe" style="--pj:#${dueño.color.toString(16).padStart(6, '0')}">Solo ${dueño.nombre}</em>` : '';
-                return `
-                <div class="tienda-item ${s}" style="${color}">
-                    <span class="tienda-icono" aria-hidden="true">${s === 'bloqueado' ? '🔒' : o.icono}</span>
-                    <div class="tienda-info">
-                        <b>${o.nombre} ${chip}</b>
-                        <span>${o.descripcion}${extra}</span>
-                    </div>
-                    <div class="tienda-acciones">${botonDe(o, s)}</div>
-                </div>`;
-            }).join('')}`).join('');
+        if (pestana === 'poderes') pintarPoderes(); else pintarCatalogo();
+        acomodarFilas();
+        lista.scrollLeft = x;
+        marcarPagina();
     }
+
+    // ---------- la vitrina por páginas ----------
+    // una fila de cartas altas (dos si la pantalla es muy alta) y tantas cartas por página como quepan:
+    // así cada página muestra cartas enteras y pasar de página avanza justo una página
+    const hueco = () => parseFloat(getComputedStyle(lista).getPropertyValue('--hueco')) || 14;
+    const anchoPagina = () => lista.clientWidth + hueco();
+    function acomodarFilas() {
+        const filas = Math.max(1, Math.min(2, Math.floor(lista.clientHeight / (pestana === 'poderes' ? ALTO_CARTA.poderes : ALTO_CARTA.otras))));
+        const minimo = lista.clientHeight < 300 ? 150 : 210; // (en el celular las cartas son más angostas)
+        lista.dataset.filas = String(filas);
+        lista.style.setProperty('--filas', String(filas));
+        lista.style.setProperty('--por-pagina', String(Math.max(1, Math.floor(anchoPagina() / (minimo + hueco())))));
+    }
+    const paginas = () => Math.max(1, Math.round((lista.scrollWidth + hueco()) / Math.max(1, anchoPagina())));
+    const paginaActual = () => Math.round(lista.scrollLeft / Math.max(1, anchoPagina()));
+    function marcarPagina() {
+        const n = paginas(), actual = Math.min(n - 1, paginaActual());
+        const fin = lista.scrollLeft + lista.clientWidth >= lista.scrollWidth - 4;
+        puntos.innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<i class="${i === actual || (fin && i === n - 1) ? 'activo' : ''}"></i>`).join('') : '';
+        capa.querySelector('[data-pagina="-1"]').disabled = lista.scrollLeft <= 4;
+        capa.querySelector('[data-pagina="1"]').disabled = fin;
+    }
+    const pasarPagina = dir => lista.scrollBy({ left: dir * anchoPagina(), behavior: 'smooth' });
+    let marcando = 0;
+    lista.addEventListener('scroll', () => { if (!marcando) marcando = requestAnimationFrame(() => { marcando = 0; marcarPagina(); }); });
+    // la rueda del mouse pasa las cartas de lado
+    lista.addEventListener('wheel', e => {
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        e.preventDefault();
+        lista.scrollLeft += e.deltaY;
+    }, { passive: false });
+    window.addEventListener('resize', () => { if (!capa.hidden) { acomodarFilas(); marcarPagina(); } });
 
     capa.addEventListener('click', e => {
         const b = e.target.closest('button');
         if (!b || b.disabled) return;
         if (b.dataset.accion === 'cerrar') { cerrar(); return; }
-        if (b.dataset.pestana) { pestana = b.dataset.pestana; pintar(); lista.scrollTop = 0; return; }
-        if (b.dataset.filtro) { filtro = b.dataset.filtro; pintar(); capa.querySelector(`[data-filtro="${filtro}"]`)?.focus(); return; }
+        if (b.dataset.pagina) { pasarPagina(Number(b.dataset.pagina)); return; }
+        if (b.dataset.pestana) { pestana = b.dataset.pestana; pintar(true); return; }
+        if (b.dataset.filtro) { filtro = b.dataset.filtro; pintar(true); capa.querySelector(`[data-filtro="${filtro}"]`)?.focus(); return; }
         if (b.dataset.poder) {
             equiparPoder(heroe().id, b.dataset.poder, Number(b.dataset.ranura));
             pintar();
@@ -477,6 +553,11 @@ export function iniciarTienda() {
     capa.addEventListener('keydown', e => {
         e.stopPropagation(); // las teclas no llegan al juego mientras la tienda está abierta
         if (e.key === 'Escape') cerrar();
+        // ← → pasan de página (si no se está eligiendo algo con las flechas en otro lado)
+        else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.target.closest('[role="tablist"], [role="group"]')) {
+            e.preventDefault();
+            pasarPagina(e.key === 'ArrowLeft' ? -1 : 1);
+        }
     });
 
     function cerrar() {
@@ -486,14 +567,14 @@ export function iniciarTienda() {
         f?.();
     }
 
-    // abrir(alCerrar, 'poderes'): abre directo en la pestaña de poderes
+    // abrir(alCerrar, 'poderes'): abre directo en una categoría ('tienda' = la primera)
     return function abrir(cuandoCierre, enPestana) {
         if (!capa.hidden) return;
         alCerrar = cuandoCierre;
-        if (enPestana) pestana = enPestana;
+        if (enPestana) pestana = CATEGORIAS.some(c => c[0] === enPestana) ? enPestana : 'heroe';
         aviso.className = 'tienda-aviso';
-        pintar();
-        capa.hidden = false;
+        capa.hidden = false; // (primero se muestra: la vitrina necesita su tamaño para armar las páginas)
+        pintar(true);
         capa.querySelector('[data-accion="cerrar"]').focus();
     };
 }

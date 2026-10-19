@@ -10,6 +10,7 @@
 // 4. Modo fluido automático en el celular (ver cuidarRendimiento, al final).
 
 import { ajustes, guardarAjustes, RESOLUCION, esMovil } from "./ajustes.js"
+import { red, enLinea, leerHueco } from "./red.js"
 
 const RECORTE_MS = 120;   // cada cuánto se revisa qué está en la vista
 const MARGEN = 180;       // px fuera de la vista que se siguen dibujando (lo que entra no "aparece" de golpe)
@@ -59,6 +60,8 @@ export function fijosEnPantalla(scene) {
 }
 
 // ---------- contador de FPS ----------
+// en línea también muestra la red: "ping" = ida y vuelta al servidor; "red" = el mayor silencio entre
+// mensajes de los demás (lo normal es ~70 ms). FPS bajos = el celular; ping o red altos = la conexión.
 export function crearContadorFps(scene) {
     scene.textoFps = scene.add.text(8, 366, '', {
         fontFamily: 'monospace', fontSize: '10px', color: '#7dffc8', stroke: '#000', strokeThickness: 3,
@@ -70,7 +73,17 @@ export function actualizarContadorFps(scene, time) {
     if (!scene.textoFps || time < scene.proxFps) return;
     scene.proxFps = time + 500;
     const fps = Math.round(scene.game.loop.actualFps);
-    scene.textoFps.setText(`${fps} FPS`).setColor(fps >= 50 ? '#7dffc8' : fps >= 30 ? '#ffe066' : '#ff8a8a');
+    let texto = `${fps} FPS`, nota = fps >= 50 ? 0 : fps >= 30 ? 1 : 2;
+    if (enLinea()) {
+        texto += ` · ping ${red.ping ?? '?'} ms`;
+        if (red.ping != null) nota = Math.max(nota, red.ping < 150 ? 0 : red.ping < 300 ? 1 : 2);
+        if (red.jugadores.length > 1) { // (solo, no llega nada de nadie)
+            const hueco = leerHueco();
+            texto += ` · red ${hueco} ms`;
+            nota = Math.max(nota, hueco < 250 ? 0 : hueco < 600 ? 1 : 2);
+        }
+    }
+    scene.textoFps.setText(texto).setColor(['#7dffc8', '#ffe066', '#ff8a8a'][nota]);
 }
 
 // 4. Modo fluido automático (solo en el celular): si el juego va a menos de FPS_BAJO durante

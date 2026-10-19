@@ -9,7 +9,7 @@ import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, vestirTecho, crearLava, moverLava,
     decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero
 } from "./mazmorra.js"
-import { iniciarTactil } from "./tactil.js"
+import { iniciarTactil, esTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
 import { nivelEnEquipo } from "./equipo.js"
 import { iniciarVoz } from "./voz.js"
@@ -1025,10 +1025,33 @@ function prepararAnimaciones(scene) {
 }
 
 // ---------- Pantalla de selección de personaje ----------
-// El héroe marcado se muestra GRANDE en el escenario (con su color de fondo y su nombre gigante
-// detrás); a la derecha, sus datos; abajo, los 6 héroes en miniatura para cambiar.
-const HEROE = { x: 230, pie: 318, escala: 3.1 };
-const MINI = { y: 338, w: 58, h: 46, paso: 66 };
+// Como en los juegos de celular:
+//   arriba: ⌂ inicio y tu perfil (nivel y barra de XP) a la izquierda, el título al medio, Amigos y la
+//           Tienda (con tus monedas) a la derecha
+//   izquierda: el héroe marcado GRANDE (con su color de fondo y su nombre gigante detrás) y una flecha
+//              a cada lado para cambiarlo
+//   derecha: sus datos y, al pie, 🎨 personalizar junto a "Jugar con ..."
+//   abajo: todos los héroes en miniatura
+// Botones de al menos 34 px de alto (se tocan con el dedo); en el celular no se muestran las teclas.
+const HEROE = { x: 225, pie: 298, escala: 3.1 };
+const MINI = { y: 338, w: 60, h: 44, paso: 68 };
+const PANEL = { x: 440, y: 54, w: 336, h: 252 };
+// símbolos de las habilidades en el celular (los mismos de los botones táctiles: tactil.js)
+const SIMBOLO_HAB = { espacio: '⚔', x: '✦', c: '❖' };
+
+// botón redondeado de esta pantalla: fondo, texto y zona para tocar; se ilumina con el mouse encima
+function botonSel(scene, { x, y, w, h, texto, tam = 12, color = '#eef1f7', fondo = 0xffffff, alfa = 0.1, borde = 0xffffff, alfaBorde = 0.16, alTocar }) {
+    const g = scene.add.graphics().setDepth(5);
+    const pintar = encima => g.clear().fillStyle(fondo, encima ? Math.min(1, alfa + 0.12) : alfa).fillRoundedRect(x, y, w, h, 11)
+        .lineStyle(1, borde, alfaBorde).strokeRoundedRect(x, y, w, h, 11);
+    pintar(false);
+    const t = scene.add.text(x + w / 2, y + h / 2, texto, { fontSize: `${tam}px`, fontStyle: '700', color }).setOrigin(0.5).setDepth(6);
+    const z = scene.add.zone(x + w / 2, y + h / 2, w, h).setDepth(7).setInteractive({ useHandCursor: true });
+    z.on('pointerover', () => pintar(true));
+    z.on('pointerout', () => pintar(false));
+    z.on('pointerdown', () => { if (!scene.tiendaAbierta) alTocar(); });
+    return { texto: t };
+}
 
 function crearSeleccion() {
     prepararAnimaciones(this);
@@ -1045,10 +1068,19 @@ function crearSeleccion() {
     this.nieblaAlta.setDepth(1).setTint(0x8b9cff).setAlpha(0.15); // niebla lavanda (antes verde)
     this.nieblaBaja.setTint(0x8b9cff).setAlpha(0.22);
 
-    this.add.text(VISTA.width / 2, 22, 'Elige tu héroe', { fontSize: '20px', fill: '#fff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
-    // nivel del jugador (progreso.js) con su barra de experiencia
+    // ---- barra de arriba ----
+    this.add.text(VISTA.width / 2, 27, 'Elige tu héroe', { fontSize: '18px', fill: '#fff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
+    botonSel(this, { x: 14, y: 10, w: 36, h: 34, texto: '⌂', tam: 16, alTocar: () => this.scene.start('titulo') });
+    // tu perfil: nivel (progreso.js) y barra de experiencia
     const pr = progresoJugador();
-    this.add.text(VISTA.width / 2, 40, `${textoNivel(pr.nivel)} · ${pr.xp}/${pr.falta} XP`, { fontSize: '10px', color: '#ffd27a', fontStyle: '600' }).setOrigin(0.5).setDepth(5);
+    this.add.graphics().setDepth(5).fillStyle(0x0d1220, 0.75).fillRoundedRect(58, 10, 170, 34, 17)
+        .lineStyle(1, 0xffffff, 0.12).strokeRoundedRect(58, 10, 170, 34, 17)
+        .fillStyle(0x6f82ff, 1).fillCircle(75, 27, 13)
+        .fillStyle(0xffffff, 0.12).fillRoundedRect(96, 30, 120, 6, 3)
+        .fillStyle(0xffd27a, 1).fillRoundedRect(96, 30, Math.max(6, 120 * Math.min(1, pr.xp / Math.max(1, pr.falta))), 6, 3);
+    this.add.text(75, 27, String(pr.nivel), { fontSize: pr.nivel > 99 ? '9px' : '11px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(6);
+    this.add.text(96, 20, textoNivel(pr.nivel), { fontSize: '10px', fontStyle: '700', color: '#ffd27a' }).setOrigin(0, 0.5).setDepth(6);
+    this.add.text(216, 20, `${pr.xp}/${pr.falta} XP`, { fontSize: '8px', color: '#9aa3bf' }).setOrigin(1, 0.5).setDepth(6);
 
     // si hay partida guardada, se elige el personaje con el que se venía jugando
     this.partida = leerPartida();
@@ -1078,72 +1110,66 @@ function crearSeleccion() {
             if (lucirse) e.sprite.anims.play(`${animSel(this, pj)}-${lucirse}`, true);
         },
     });
-    // flechas para cambiar de héroe
+    // flechas a los lados del héroe para cambiarlo (la tira de abajo no lleva otras: una sola forma, sin repetir)
     const cambiar = paso => {
         this.indiceSel = (this.indiceSel + paso + PERSONAJES.length) % PERSONAJES.length;
         marcarSeleccion(this);
         this.sound.play('menu_mover', { volume: 0.5 });
     };
     [-1, 1].forEach(lado => {
-        const x = HEROE.x + lado * 150;
-        const boton = this.add.circle(x, HEROE.pie - 100, 19, 0xffffff, 0.1).setStrokeStyle(1, 0xffffff, 0.3).setDepth(5)
+        const x = HEROE.x + lado * 168;
+        const boton = this.add.circle(x, HEROE.pie - 120, 22, 0x0d1220, 0.55).setStrokeStyle(1.5, 0xffffff, 0.3).setDepth(5)
             .setInteractive({ useHandCursor: true });
-        this.add.text(x, HEROE.pie - 102, lado < 0 ? '‹' : '›', { fontSize: '28px', color: '#ffffff', fontStyle: '600' }).setOrigin(0.5).setDepth(5);
-        boton.on('pointerover', () => boton.setFillStyle(0xffffff, 0.22));
-        boton.on('pointerout', () => boton.setFillStyle(0xffffff, 0.1));
-        boton.on('pointerdown', () => cambiar(lado));
+        this.add.text(x + lado, HEROE.pie - 122, lado < 0 ? '‹' : '›', { fontSize: '30px', color: '#ffffff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
+        boton.on('pointerover', () => boton.setFillStyle(0xffffff, 0.2));
+        boton.on('pointerout', () => boton.setFillStyle(0x0d1220, 0.55));
+        boton.on('pointerdown', () => { if (!this.tiendaAbierta) cambiar(lado); });
     });
 
-    // datos del héroe (derecha), sobre un panel de vidrio
-    const P = { x: 440, y: 62, w: 330, h: 240 };
-    this.add.graphics().setDepth(4).fillStyle(0x0d1220, 0.72).fillRoundedRect(P.x, P.y, P.w, P.h, 18)
-        .lineStyle(1, 0xffffff, 0.09).strokeRoundedRect(P.x, P.y, P.w, P.h, 18);
+    // ---- datos del héroe (derecha), sobre un panel de vidrio ----
+    const P = PANEL, tactil = esTactil();
+    this.add.graphics().setDepth(4).fillStyle(0x0d1220, 0.78).fillRoundedRect(P.x, P.y, P.w, P.h, 18)
+        .lineStyle(1, 0xffffff, 0.1).strokeRoundedRect(P.x, P.y, P.w, P.h, 18);
     const X = P.x + 22;
     this.detalle = {
-        nombre: this.add.text(X, P.y + 32, '', { fontSize: '30px', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5),
-        titulo: this.add.text(X, P.y + 60, '', { fontSize: '12px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5),
-        pasiva: this.add.text(X, P.y + 86, '', { fontSize: '11px', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: { x: 8, y: 4 } })
+        nombre: this.add.text(X, P.y + 30, '', { fontSize: '28px', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5),
+        titulo: this.add.text(X, P.y + 57, '', { fontSize: '12px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5),
+        pasiva: this.add.text(X, P.y + 81, '', { fontSize: '11px', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: { x: 8, y: 4 } })
             .setOrigin(0, 0.5).setDepth(5),
-        frase: this.add.text(X, P.y + 114, '', { fontSize: '11px', color: '#7f88a6', fontStyle: 'italic', wordWrap: { width: P.w - 44 } })
+        frase: this.add.text(X, P.y + 106, '', { fontSize: '11px', color: '#7f88a6', fontStyle: 'italic', wordWrap: { width: P.w - 44 } })
             .setOrigin(0, 0.5).setDepth(5),
-        // poderes: tecla en una pastilla y el nombre al lado
-        teclas: ['ESPACIO', 'X', 'C'].map((t, i) => this.add.text(X, P.y + 142 + i * 22, t, {
-            fontSize: '9px', fontStyle: '600', color: '#c9d0e6', backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: { x: 6, y: 3 },
+        // habilidades: en la PC su tecla; en el celular el símbolo de su botón
+        teclas: ['espacio', 'x', 'c'].map((k, i) => this.add.text(X, P.y + 132 + i * 23, tactil ? SIMBOLO_HAB[k] : k === 'espacio' ? 'ESPACIO' : k.toUpperCase(), {
+            fontSize: tactil ? '12px' : '9px', fontStyle: '700', color: '#c9d0e6', backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: { x: tactil ? 7 : 6, y: 3 },
         }).setOrigin(0, 0.5).setDepth(5)),
-        poderes: [0, 1, 2].map(i => this.add.text(X + 74, P.y + 142 + i * 22, '', { fontSize: '12px', color: '#eef1f7' })
+        poderes: [0, 1, 2].map(i => this.add.text(X + (tactil ? 36 : 74), P.y + 132 + i * 23, '', { fontSize: '12px', color: '#eef1f7' })
             .setOrigin(0, 0.5).setDepth(5)),
     };
 
-    // botón para elegir al héroe marcado (se pinta con su color en marcarSeleccion)
-    const B = { x: X, y: P.y + P.h - 40, w: P.w - 44, h: 30 };
+    // al pie del panel: 🎨 personalizar (vestidor) y el botón para jugar, del color del héroe (marcarSeleccion)
+    const pie = P.y + P.h - 50;
+    botonSel(this, { x: X, y: pie, w: 40, h: 38, texto: '🎨', tam: 16, alTocar: () => this.abrirVestidorSel() });
+    const B = { x: X + 48, y: pie, w: P.w - 44 - 48, h: 38 };
     this.botonElegir = {
         ...B,
         fondo: this.add.graphics().setDepth(5),
-        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2, '', { fontSize: '13px', fontStyle: '600', color: '#ffffff' }).setOrigin(0.5).setDepth(6),
+        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2, '', { fontSize: '14px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(6),
         encima: false,
     };
     const zonaElegir = this.add.zone(B.x + B.w / 2, B.y + B.h / 2, B.w, B.h).setDepth(7).setInteractive({ useHandCursor: true });
     zonaElegir.on('pointerover', () => { this.botonElegir.encima = true; pintarBotonElegir(this); });
     zonaElegir.on('pointerout', () => { this.botonElegir.encima = false; pintarBotonElegir(this); });
-    zonaElegir.on('pointerdown', () => empezarJuego(this, true));
+    zonaElegir.on('pointerdown', () => { if (!this.tiendaAbierta) empezarJuego(this, true); });
 
-    // los 6 héroes en miniatura (abajo), con flechas a los lados para ver el anterior y el siguiente
+    // ---- todos los héroes en miniatura (abajo) ----
     const x0 = VISTA.width / 2 - ((PERSONAJES.length - 1) * MINI.paso) / 2;
-    [-1, 1].forEach(lado => {
-        const x = lado < 0 ? x0 - MINI.w / 2 - 22 : x0 + (PERSONAJES.length - 1) * MINI.paso + MINI.w / 2 + 22;
-        const boton = this.add.circle(x, MINI.y, 14, 0xffffff, 0.1).setStrokeStyle(1, 0xffffff, 0.3).setDepth(5)
-            .setInteractive({ useHandCursor: true });
-        this.add.text(x, MINI.y - 2, lado < 0 ? '‹' : '›', { fontSize: '22px', color: '#ffffff', fontStyle: '600' }).setOrigin(0.5).setDepth(5);
-        boton.on('pointerover', () => boton.setFillStyle(0xffffff, 0.22));
-        boton.on('pointerout', () => boton.setFillStyle(0xffffff, 0.1));
-        boton.on('pointerdown', () => cambiar(lado));
-    });
     this.tarjetas = PERSONAJES.map((pj, i) => {
         const x = x0 + i * MINI.paso;
         const fondo = this.add.graphics().setDepth(5);
         const sprite = this.add.sprite(x, MINI.y + MINI.h / 2 + 2, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.62 / resDe(pj)).setDepth(6);
         const zona = this.add.zone(x, MINI.y, MINI.w, MINI.h).setDepth(7).setInteractive({ useHandCursor: true });
         zona.on('pointerdown', () => {
+            if (this.tiendaAbierta) return;
             if (this.indiceSel === i) empezarJuego(this, true);
             else { this.indiceSel = i; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
         });
@@ -1151,48 +1177,43 @@ function crearSeleccion() {
     });
 
     if (this.partida) {
-        // botón para empezar desde cero (pide un segundo clic para confirmar)
-        const boton = this.add.text(16, 14, '↺ Desde el nivel 1', {
-            fontSize: '11px', color: '#ff8a94', backgroundColor: 'rgba(255, 107, 120, 0.14)', padding: { x: 10, y: 6 },
-        }).setDepth(5).setInteractive({ useHandCursor: true });
+        // partida guardada: dónde sigue y, a la derecha, empezar de cero (pide un segundo toque para confirmar)
+        const n = this.partida.nivel;
+        this.add.text(X, pie - 14, `💾 Nivel ${n + 1}: ${NIVELES[n].nombre}`, { fontSize: '10px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5);
+        const boton = this.add.text(P.x + P.w - 22, pie - 14, '↺ Empezar de cero', {
+            fontSize: '10px', fontStyle: '600', color: '#ff8a94', backgroundColor: 'rgba(255, 107, 120, 0.14)', padding: { x: 8, y: 4 },
+        }).setOrigin(1, 0.5).setDepth(5).setInteractive({ useHandCursor: true });
         let confirmar = false;
         boton.on('pointerdown', () => {
+            if (this.tiendaAbierta) return;
             if (!confirmar) {
                 confirmar = true;
-                boton.setText('¿Seguro? Clic otra vez').setBackgroundColor('rgba(255, 107, 120, 0.32)');
+                boton.setText('¿Seguro? Toca otra vez').setBackgroundColor('rgba(255, 107, 120, 0.32)');
                 this.sound.play('vacio', { volume: 0.5 });
                 this.time.delayedCall(3000, () => {
-                    if (boton.active) { confirmar = false; boton.setText('↺ Desde el nivel 1').setBackgroundColor('rgba(255, 107, 120, 0.14)'); }
+                    if (boton.active) { confirmar = false; boton.setText('↺ Empezar de cero').setBackgroundColor('rgba(255, 107, 120, 0.14)'); }
                 });
             } else {
                 empezarJuego(this, false);
             }
         });
-        const n = this.partida.nivel;
-        this.add.text(VISTA.width / 2, 44, `Partida guardada · Nivel ${n + 1}: ${NIVELES[n].nombre}`, { fontSize: '11px', color: '#9aa3bf' }).setOrigin(0.5).setDepth(5);
-        this.add.text(VISTA.width / 2, 372, `← → elegir  ·  Enter: continuar en el nivel ${n + 1}  ·  N: nueva partida`, { fontSize: '9px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
-    } else {
-        this.add.text(VISTA.width / 2, 372, '← → elegir  ·  Enter o Espacio: jugar  ·  F: pantalla completa', { fontSize: '9px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
     }
-    // volver al inicio y jugar con amigos (arriba, junto a la tienda: ver acomodarPastillas)
-    const pastilla = (x, texto, alTocar) => {
-        const b = this.add.text(x, 14, texto, {
-            fontSize: '11px', fontStyle: '600', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: { x: 10, y: 6 },
-        }).setOrigin(1, 0).setDepth(5).setInteractive({ useHandCursor: true });
-        b.on('pointerover', () => b.setBackgroundColor('rgba(255, 255, 255, 0.2)'));
-        b.on('pointerout', () => b.setBackgroundColor('rgba(255, 255, 255, 0.1)'));
-        b.on('pointerdown', () => { if (!this.tiendaAbierta) alTocar(); });
-        return b;
-    };
-    this.botonAmigos = pastilla(VISTA.width - 150, '👥 Amigos', () => abrirSala());
-    this.botonInicio = pastilla(VISTA.width - 236, '⌂ Inicio', () => this.scene.start('titulo'));
+    // ayuda de teclado (solo en la PC)
+    if (!tactil) {
+        const ayuda = this.partida
+            ? `← → elegir  ·  Enter: continuar en el nivel ${this.partida.nivel + 1}  ·  N: nueva partida  ·  V: personalizar  ·  T: tienda`
+            : '← → elegir  ·  Enter o Espacio: jugar  ·  V: personalizar  ·  T: tienda  ·  F: pantalla completa';
+        this.add.text(VISTA.width / 2, 371, ayuda, { fontSize: '8px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
+    }
 
-    // vestidor: colores de la ropa, el pelo y los ojos del héroe marcado (botón sobre el héroe o tecla V)
-    const botonVestir = this.add.text(HEROE.x, 70, '🎨  Personalizar', {
-        fontSize: '11px', fontStyle: '600', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.1)', padding: { x: 12, y: 6 },
-    }).setOrigin(0.5).setDepth(6).setInteractive({ useHandCursor: true });
-    botonVestir.on('pointerover', () => botonVestir.setBackgroundColor('rgba(255, 255, 255, 0.2)'));
-    botonVestir.on('pointerout', () => botonVestir.setBackgroundColor('rgba(255, 255, 255, 0.1)'));
+    // ---- amigos y tienda (arriba a la derecha) ----
+    const tienda = botonSel(this, {
+        x: VISTA.width - 14 - 124, y: 10, w: 124, h: 34, texto: `◉ ${saldo()}  Tienda`, color: '#ffd27a',
+        fondo: 0xffd27a, alfa: 0.14, borde: 0xffd27a, alfaBorde: 0.45, alTocar: () => this.abrirTiendaSel(),
+    });
+    botonSel(this, { x: VISTA.width - 14 - 124 - 8 - 104, y: 10, w: 104, h: 34, texto: '👥 Amigos', alTocar: () => abrirSala() });
+
+    // vestidor: colores de la ropa, el pelo y los ojos del héroe marcado (botón 🎨 o tecla V)
     this.abrirVestidorSel = () => {
         if (this.tiendaAbierta) return;
         this.tiendaAbierta = true; // (bloquea las teclas igual que la tienda)
@@ -1202,29 +1223,16 @@ function crearSeleccion() {
             marcarSeleccion(this, true);
         });
     };
-    botonVestir.on('pointerdown', this.abrirVestidorSel);
-
-    // tienda (arriba a la derecha, o tecla T)
-    const botonTienda = this.add.text(VISTA.width - 16, 14, `◉ ${saldo()}  ·  Tienda`, {
-        fontSize: '11px', fontStyle: '600', color: '#ffd27a', backgroundColor: 'rgba(255, 210, 122, 0.14)', padding: { x: 10, y: 6 },
-    }).setOrigin(1, 0).setDepth(5).setInteractive({ useHandCursor: true });
+    // tienda (botón de arriba a la derecha o tecla T)
     this.abrirTiendaSel = () => {
         if (this.tiendaAbierta) return;
         this.tiendaAbierta = true;
         abrirTienda(() => {
             this.tiendaAbierta = false;
-            botonTienda.setText(`◉ ${saldo()}  ·  Tienda`);
-            this.acomodarPastillas();
+            tienda.texto.setText(`◉ ${saldo()}  Tienda`);
             marcarSeleccion(this, true); // (la cantidad de corazones puede haber cambiado)
         });
     };
-    botonTienda.on('pointerdown', this.abrirTiendaSel);
-    // "Inicio" y "Amigos" quedan a la izquierda de la tienda (su ancho cambia con el saldo)
-    this.acomodarPastillas = () => {
-        this.botonAmigos.x = botonTienda.x - botonTienda.width - 8;
-        this.botonInicio.x = this.botonAmigos.x - this.botonAmigos.width - 8;
-    };
-    this.acomodarPastillas();
     this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N', tienda: 'T', vestir: 'V' });
     marcarSeleccion(this, true);
 }

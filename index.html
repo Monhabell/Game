@@ -554,15 +554,6 @@
         /* la sala: título y botones fijos, el medio se desplaza (con 8 jugadores no cabe todo) */
         .sala-capa .sala-panel { overflow: hidden; width: min(1280px, 100%); height: 100%; padding: 18px 22px; }
         .sala-panel > h2 { margin: 0; }
-        /* primer paso: quién eres (izquierda) · crear o unirse (derecha) */
-        .sala-entrar:not([hidden]) {
-            width: min(980px, 100%);
-            margin: auto;
-            display: grid;
-            grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-            gap: 24px;
-            align-items: start;
-        }
         .sala-tarjeta {
             display: flex; flex-direction: column; gap: 8px; text-align: left;
             padding: 14px; border-radius: var(--radio);
@@ -578,8 +569,7 @@
         .sala-publica { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--texto-2, #c9cfe0); cursor: pointer; }
         .sala-publica[hidden] { display: none; }
         .sala-publica input { width: 16px; height: 16px; accent-color: var(--acento, #8b9cff); }
-        @media (max-width: 640px) { .sala-entrar:not([hidden]) { grid-template-columns: 1fr; gap: 12px; } }
-        @media (max-height: 520px) { .sala-entrar:not([hidden]) { gap: 14px; } .sala-tarjeta { padding: 8px 10px; gap: 4px; } .sala-tarjeta > b { font-size: 13px; } }
+        @media (max-height: 520px) { .sala-tarjeta { padding: 8px 10px; gap: 4px; } .sala-tarjeta > b { font-size: 13px; } }
         .sala-cuerpo {
             flex: 1 1 auto;
             min-height: 0;
@@ -791,6 +781,262 @@
 
         .sala-aviso { margin: 0; min-height: 1em; font-size: 12px; text-align: center; color: var(--texto-2); }
         .sala-aviso.error { color: var(--peligro); }
+
+        /* ---------- la sala por dentro, como en Among Us (sala.js) ----------
+           el escenario (una nave) ocupa todo el panel; encima: la partida arriba a la izquierda, salir arriba a
+           la derecha, el código y cuántos son abajo, Personalizar y Empezar abajo a la derecha. Las opciones
+           se abren en un cajón a la derecha */
+        .sala-capa.en-sala .sala-panel { padding: 0; gap: 0; position: relative; }
+        .sala-capa.en-sala .sala-cabeza { display: none; }
+        .sala-capa.en-sala .sala-cuerpo { padding: 0; overflow: hidden; }
+        .sala-capa.en-sala .sala-aviso {
+            position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 4000;
+            max-width: min(520px, 80%); padding: 0; border-radius: 999px; font-size: 13px; font-weight: 600;
+            background: rgba(5, 7, 15, 0.85);
+        }
+        .sala-capa.en-sala .sala-aviso:not(:empty) { padding: 6px 14px; }
+        .sala-lobby:not([hidden]) { position: relative; flex: 1 1 auto; min-height: 0; display: block; border-radius: var(--radio); overflow: hidden; }
+        .sala-lobby .sala-escenario {
+            position: absolute; inset: 0; height: auto; border: 0; border-radius: 0; cursor: pointer;
+            background:
+                radial-gradient(70% 55% at 50% 100%, rgba(139, 156, 255, 0.16), transparent 70%),
+                linear-gradient(180deg, #0c1124 0%, #18203f 58%, #0b0f1e 58.2%);
+        }
+        /* la pared de la nave: paneles y tres ventanas con estrellas */
+        .sala-nave {
+            position: absolute; left: 0; right: 0; top: 0; height: 58%;
+            display: flex; align-items: center; justify-content: space-evenly; padding: 0 6%;
+            background:
+                repeating-linear-gradient(90deg, transparent 0 159px, rgba(255, 255, 255, 0.05) 159px 161px),
+                linear-gradient(180deg, transparent 0 82%, rgba(255, 255, 255, 0.05) 82% 83%, transparent 83%);
+            pointer-events: none;
+        }
+        .sala-ventana {
+            width: clamp(70px, 14vw, 190px); aspect-ratio: 16 / 10; border-radius: 22px;
+            border: 6px solid #2a3358; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(139, 156, 255, 0.18), 0 10px 30px rgba(0, 0, 0, 0.45);
+            background:
+                radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),
+                radial-gradient(1px 1px at 70% 20%, #cfd8ff, transparent),
+                radial-gradient(1.5px 1.5px at 45% 70%, #fff, transparent),
+                radial-gradient(1px 1px at 85% 60%, #fff, transparent),
+                radial-gradient(1px 1px at 10% 80%, #cfd8ff, transparent),
+                radial-gradient(120% 90% at 80% 110%, rgba(120, 90, 255, 0.35), transparent 60%),
+                #050816;
+            animation: sala-estrellas 30s linear infinite;
+        }
+        @keyframes sala-estrellas { to { background-position: -200px 0, -140px 0, -260px 0, -120px 0, -180px 0, 0 0, 0 0; } }
+        /* el piso: baldosas que se pierden hacia la pared */
+        .sala-lobby .sala-piso {
+            top: 58%; height: auto; border-top: 2px solid rgba(139, 156, 255, 0.35);
+            background:
+                repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 96px),
+                repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 48px),
+                linear-gradient(180deg, #1d2547, #121830);
+        }
+        .sala-lobby .sala-heroe { --tam: clamp(96px, 19vh, 150px); bottom: 6%; transform-origin: 50% 100%; }
+        .sala-lobby .sala-etiqueta { top: -4px; font-size: 12px; padding: 2px 9px; background: rgba(5, 7, 15, 0.75); text-shadow: 0 1px 0 #000; }
+        .sala-lobby .sala-heroe.yo .sala-etiqueta { box-shadow: 0 0 0 1px var(--pj, #8b9cff); }
+
+        /* arriba a la izquierda: la partida (como el cartel de ajustes de Among Us) */
+        .lobby-partida {
+            position: absolute; left: 14px; top: 14px; z-index: 2000; max-width: min(380px, 46%);
+            padding: 10px 14px; border-radius: 14px; text-align: left; pointer-events: none;
+            background: rgba(5, 7, 15, 0.62); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(4px);
+        }
+        .lobby-partida b { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--acento); margin-bottom: 4px; }
+        .lobby-partida p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--texto); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+        .lobby-partida .lobby-espera { margin-top: 6px; font-size: 12px; color: var(--texto-2); font-style: italic; }
+        .lobby-salir {
+            position: absolute; right: 14px; top: 14px; z-index: 2000; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+            font: inherit; font-size: 18px; font-weight: 700; color: #ffb4b4; background: rgba(5, 7, 15, 0.7); border: 1px solid rgba(255, 120, 120, 0.4);
+        }
+        .lobby-salir:hover { background: rgba(120, 20, 30, 0.6); color: #fff; }
+
+        /* abajo: código · cuántos · Personalizar · Empezar */
+        .lobby-abajo {
+            position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2000;
+            display: flex; align-items: center; gap: 10px; pointer-events: none;
+        }
+        .lobby-abajo > * { pointer-events: auto; }
+        .lobby-hueco { flex: 1; pointer-events: none; }
+        .lobby-codigo { background: rgba(5, 7, 15, 0.75); border-color: rgba(255, 255, 255, 0.14); padding: 6px 8px 6px 14px; border-radius: 14px; }
+        .lobby-codigo > span { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+        .lobby-codigo b { flex: none; font-size: 24px; letter-spacing: 6px; }
+        .lobby-cuenta {
+            display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; border-radius: 14px;
+            font-size: 15px; font-weight: 700; color: var(--texto); background: rgba(5, 7, 15, 0.75); border: 1px solid rgba(255, 255, 255, 0.14);
+            font-variant-numeric: tabular-nums;
+        }
+        .lobby-boton {
+            min-height: 52px; padding: 0 22px; border-radius: 16px; cursor: pointer; white-space: nowrap;
+            font: inherit; font-size: 15px; font-weight: 800; letter-spacing: 0.02em; color: var(--texto);
+            background: linear-gradient(180deg, #2a3358, #1b2240); border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 4px 0 #0d1226, 0 10px 22px rgba(0, 0, 0, 0.4);
+            transition: filter 0.15s, transform 0.1s;
+        }
+        .lobby-boton:hover { filter: brightness(1.15); }
+        .lobby-boton:active { transform: translateY(3px); box-shadow: 0 1px 0 #0d1226; }
+        .lobby-boton[aria-expanded="true"] { border-color: var(--acento); }
+        .lobby-empezar {
+            min-width: 170px; font-size: 18px; text-transform: uppercase; color: #fff; border-color: transparent;
+            background: linear-gradient(180deg, #5eea9a, #1fb565); box-shadow: 0 5px 0 #127a43, 0 12px 26px rgba(31, 181, 101, 0.35);
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+        }
+        .lobby-empezar:active { box-shadow: 0 1px 0 #127a43; }
+        .lobby-boton.atencion { border-color: #ffc94a; animation: lobby-latido 1.2s ease-in-out infinite; }
+        @keyframes lobby-latido { 50% { box-shadow: 0 4px 0 #0d1226, 0 0 0 6px rgba(255, 201, 74, 0.25); } }
+        .lobby-salir:focus-visible, .lobby-boton:focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; }
+
+        /* el cajón de opciones (Personalizar) */
+        .lobby-cajon {
+            position: absolute; top: 0; right: 0; bottom: 0; z-index: 3000; width: min(440px, 100%);
+            display: flex; flex-direction: column;
+            background: rgba(14, 18, 34, 0.97); border-left: 1px solid var(--borde-fuerte); box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+            animation: lobby-cajon 0.22s ease-out;
+        }
+        .lobby-cajon[hidden] { display: none; }
+        @keyframes lobby-cajon { from { transform: translateX(40px); opacity: 0; } }
+        .lobby-cajon-cabeza { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--borde); }
+        .lobby-cajon-cabeza b { font-size: 16px; font-weight: 800; letter-spacing: 0.04em; }
+        .lobby-cerrar-cajon {
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font: inherit; font-size: 16px;
+            color: var(--texto); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--borde);
+        }
+        .lobby-cajon-cuerpo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 18px; display: flex; flex-direction: column; gap: 18px; }
+        .lobby-cajon .sala-lista { max-height: none; }
+        /* cabecera de la sala: título y ✕ (en la sala por dentro se esconde: ahí está el ✕ del escenario) */
+        .sala-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
+        .sala-cabeza h2 { margin: 0; }
+        .sala-x {
+            flex: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+            font: inherit; font-size: 17px; font-weight: 700; color: var(--texto); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--borde-fuerte);
+        }
+        .sala-x:hover { background: rgba(255, 255, 255, 0.12); }
+        .sala-x:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        /* primer paso, sin desplazarse hacia abajo: arriba nombre + tira de personajes; abajo, las 3 tarjetas lado a lado */
+        .sala-entrar:not([hidden]) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 18px; width: min(1100px, 100%); margin: 0 auto; }
+        .entrar-quien { flex: none; display: flex; align-items: stretch; gap: 14px; min-width: 0; }
+        .entrar-nombre { flex: 0 0 240px; justify-content: center; }
+        .entrar-personajes { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 2px; }
+        .entrar-personajes .pj-boton { flex: 0 0 auto; width: 86px; }
+        .entrar-acciones { flex: 0 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .entrar-acciones .sala-tarjeta { min-height: 230px; }
+        .entrar-acciones .sala-tarjeta { min-height: 0; align-items: flex-start; gap: 6px; padding: 16px; border-radius: 18px; }
+        .tarjeta-icono {
+            display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; font-size: 24px; flex: none;
+            background: radial-gradient(circle at 50% 35%, rgba(139, 156, 255, 0.35), rgba(139, 156, 255, 0.08)); border: 1px solid rgba(139, 156, 255, 0.35);
+        }
+        .entrar-acciones .sala-tarjeta > b { font-size: 17px; }
+        .tarjeta-pie { margin-top: auto; width: 100%; display: flex; flex-direction: column; gap: 8px; }
+        .tarjeta-pie.menu-fila { flex-direction: row; }
+        .tarjeta-pie .menu-boton { margin-top: 0; min-height: 46px; font-size: 15px; font-weight: 700; }
+        .tarjeta-pie #sala-buscar-modo { width: 100%; }
+        /* botón de personaje con el personaje animado (el héroe ocupa la mitad de abajo de cada cuadro de su hoja) */
+        .pj-boton { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding: 4px 4px 8px; min-height: 0; overflow: hidden; }
+        .pj-mini {
+            --tam: 76px;
+            flex: none; width: var(--tam); height: calc(var(--tam) * 0.56);
+            background-repeat: no-repeat; background-position-y: calc(var(--tam) * -0.42);
+            background-size: calc(var(--tam) * var(--n, 1)) var(--tam);
+            animation: sala-cuadros calc(var(--n, 1) / var(--fps, 8) * 1s) steps(var(--n, 1)) infinite;
+            animation-play-state: paused;
+        }
+        /* se mueve el elegido (y el que señalas) */
+        .pj-boton.elegido .pj-mini, .pj-boton:hover .pj-mini { animation-play-state: running; }
+        .pj-boton > span:last-child { font-size: 12px; font-weight: 700; }
+        @media (prefers-reduced-motion: reduce) { .pj-mini { animation: none; } }
+
+        /* cajón de Personalizar con pestañas: una sección a la vez */
+        .cajon-pestanas { flex: none; display: flex; gap: 4px; margin: 10px 16px 0; padding: 4px; border-radius: 14px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--borde); }
+        .cajon-pestanas button {
+            flex: 1; min-height: 40px; border-radius: 10px; border: 0; cursor: pointer;
+            font: inherit; font-size: 13px; font-weight: 700; color: var(--texto-2); background: transparent;
+        }
+        .cajon-pestanas button:hover { color: var(--texto); }
+        .cajon-pestanas button.activa { color: #fff; background: linear-gradient(180deg, var(--acento), var(--acento-fuerte)); }
+        .cajon-pestanas button:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+        .lobby-cajon [data-cajon-panel][hidden] { display: none; }
+        .cajon-personajes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+        .cajon-personajes .pj-boton { width: auto; }
+
+        @media (max-height: 520px) {
+            .sala-cabeza h2 { font-size: 16px; }
+            .sala-x { width: 36px; height: 36px; font-size: 14px; }
+            .sala-entrar:not([hidden]) { gap: 8px; }
+            .entrar-quien { gap: 8px; }
+            .entrar-nombre { flex-basis: 170px; }
+            .entrar-personajes { gap: 6px; }
+            .entrar-personajes .pj-boton { width: 66px; }
+            .pj-mini { --tam: 60px; }
+            .pj-boton > span:last-child { font-size: 10px; }
+            .entrar-acciones { gap: 8px; }
+            .entrar-acciones .sala-tarjeta { padding: 8px 10px; gap: 3px; border-radius: 14px; }
+            .tarjeta-icono { display: none; }
+            .entrar-acciones .sala-tarjeta { min-height: 0; }
+            .entrar-acciones .sala-tarjeta > b { font-size: 13px; }
+            .entrar-acciones .menu-nota { font-size: 10px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+            .tarjeta-pie { gap: 5px; }
+            .tarjeta-pie .menu-boton { min-height: 34px; font-size: 12px; }
+            .cajon-pestanas { margin: 6px 10px 0; }
+            .cajon-pestanas button { min-height: 32px; font-size: 11px; }
+        }
+        /* celular vertical: el nombre arriba de los personajes y las tarjetas una debajo de otra */
+        @media (max-width: 640px) {
+            .entrar-quien { flex-direction: column; }
+            .entrar-nombre { flex-basis: auto; }
+            .entrar-acciones { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+        }
+        /* mover a tu personaje: botones en el celular (◀ ▶ abajo a la izquierda, ▲ a la derecha),
+           y en la PC un recordatorio de las teclas */
+        .lobby-mando { display: none; }
+        body.movil .lobby-mando { display: flex; }
+        .lobby-cruz { position: absolute; left: 14px; bottom: 82px; z-index: 2000; gap: 10px; }
+        .lobby-cruz button, .lobby-saltar {
+            width: 64px; height: 64px; border-radius: 50%; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none;
+            align-items: center; justify-content: center; font: inherit; font-size: 22px; color: #fff;
+            background: rgba(10, 14, 28, 0.55); border: 2px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+        }
+        .lobby-cruz button { display: flex; }
+        .lobby-saltar { position: absolute; right: 14px; bottom: 82px; z-index: 2000; width: 74px; height: 74px; font-size: 26px; border-color: rgba(139, 156, 255, 0.6); }
+        .lobby-cruz button.apretado, .lobby-saltar:active { background: rgba(139, 156, 255, 0.4); transform: scale(0.94); }
+        .lobby-teclas {
+            position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 2000; margin: 0;
+            padding: 6px 14px; border-radius: 999px; white-space: nowrap; pointer-events: none;
+            font-size: 12px; color: var(--texto-2); background: rgba(5, 7, 15, 0.55);
+        }
+        .lobby-teclas kbd { font: inherit; font-weight: 700; font-size: 11px; padding: 1px 6px; margin-right: 2px; border-radius: 5px; color: #fff; background: rgba(255, 255, 255, 0.14); }
+        body.movil .lobby-teclas { display: none; }
+        @media (max-width: 900px) { .lobby-teclas { bottom: auto; top: 18px; } } /* (sin lugar en la barra: arriba, al medio) */
+        @media (prefers-reduced-motion: reduce) {
+            .sala-ventana, .lobby-boton.atencion, .lobby-cajon { animation: none; }
+        }
+        /* celular horizontal: todo más compacto */
+        @media (max-height: 520px) {
+            .sala-capa.en-sala .sala-panel { padding: 0; }
+            .lobby-partida { left: 10px; top: 10px; padding: 6px 10px; max-width: 44%; }
+            .lobby-partida p { font-size: 11px; -webkit-line-clamp: 3; }
+            .lobby-salir { right: 10px; top: 10px; width: 38px; height: 38px; font-size: 15px; }
+            .lobby-abajo { left: 10px; right: 10px; bottom: 10px; gap: 6px; }
+            .lobby-codigo b { font-size: 18px; letter-spacing: 4px; }
+            .lobby-cuenta { min-height: 38px; font-size: 13px; padding: 0 10px; }
+            .lobby-boton { min-height: 42px; padding: 0 14px; font-size: 13px; }
+            .lobby-empezar { min-width: 120px; font-size: 15px; }
+            .sala-lobby .sala-heroe { --tam: clamp(72px, 24vh, 110px); }
+            .sala-lobby .sala-etiqueta { font-size: 10px; }
+            .lobby-cajon-cuerpo { padding: 10px 12px; gap: 12px; }
+            .lobby-cruz { left: 10px; bottom: 60px; gap: 8px; }
+            .lobby-cruz button { width: 54px; height: 54px; font-size: 18px; }
+            .lobby-saltar { right: 10px; bottom: 60px; width: 62px; height: 62px; font-size: 22px; }
+            .lobby-teclas { font-size: 11px; }
+        }
+        /* pantalla angosta: el código arriba de los botones */
+        @media (max-width: 640px) {
+            .lobby-abajo { flex-wrap: wrap; }
+            .lobby-hueco { flex-basis: 100%; height: 0; }
+            .lobby-boton { flex: 1; }
+            .lobby-partida { max-width: calc(100% - 80px); }
+        }
 
         /* ---------- menús de pausa y configuración (menu.js) ---------- */
         .boton-flotante[hidden] { display: none; }
@@ -1194,96 +1440,264 @@
             .vestidor-partes { gap: 6px; }
         }
 
-        /* ---------- tienda (tienda.js) ---------- */
-        .tienda-panel { width: min(620px, 100%); }
-        .tienda-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-        .tienda-cabecera h2 { margin: 0; }
+        /* ---------- tienda (tienda.js) ----------
+           a pantalla completa, como en los juegos de celular: arriba el título, las monedas y cerrar; a la
+           izquierda las categorías; a la derecha una vitrina de cartas que se pasa de lado por páginas
+           (sin desplazarse hacia abajo). Cada carta: etiqueta y estrellas, ícono grande, nombre, texto y botones al pie */
+        .tienda-capa {
+            position: fixed; inset: 0; z-index: 60;
+            padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+            background: rgba(5, 7, 15, 0.86);
+            grid-template-columns: minmax(0, 1fr); /* (sin esto, la columna crece con el contenido y se sale en pantallas angostas) */
+        }
+        .tienda-capa .tienda-panel {
+            position: relative; width: 100%; height: 100%; max-width: none; box-sizing: border-box;
+            padding: 16px 18px; gap: 12px; overflow: hidden;
+        }
+        .tienda-cabecera { display: flex; align-items: center; gap: 12px; flex: none; }
+        .tienda-cabecera h2 { margin: 0; flex: 1; min-width: 0; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tienda-cerrar {
+            flex: none; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+            font: inherit; font-size: 17px; font-weight: 700; color: var(--texto); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--borde-fuerte);
+        }
+        .tienda-cerrar:hover { background: rgba(255, 255, 255, 0.12); }
+        .tienda-cerrar:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        /* moneda dibujada (en los precios y el saldo) */
+        .moneda {
+            display: inline-block; flex: none; width: 0.95em; height: 0.95em; margin-right: 0.3em; vertical-align: -0.12em;
+            border-radius: 50%; font-style: normal;
+            background: radial-gradient(circle at 35% 30%, #fff3b0 0 18%, #ffd54a 38%, #e09b12 72%, #b06f00 100%);
+            box-shadow: inset 0 0 0 1.5px rgba(120, 70, 0, 0.55), 0 0 6px rgba(255, 196, 60, 0.35);
+        }
         .tienda-saldo {
-            padding: 6px 14px;
-            border-radius: 999px;
-            background: rgba(255, 210, 122, 0.12);
-            border: 1px solid rgba(255, 210, 122, 0.35);
-            color: #ffd27a;
-            font-size: 13px;
-            font-weight: 500;
-            white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 2px; flex: none;
+            padding: 7px 16px 7px 12px; border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255, 210, 122, 0.18), rgba(255, 210, 122, 0.06));
+            border: 1px solid rgba(255, 210, 122, 0.4);
+            color: #ffd27a; font-size: 13px; font-weight: 500; white-space: nowrap;
         }
-        .tienda-saldo b { font-size: 16px; font-weight: 700; }
-        .tienda-lista { display: flex; flex-direction: column; gap: 8px; }
-        .tienda-seccion {
-            margin: 8px 0 0;
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: var(--texto-2);
-            text-align: left;
-        }
-        .tienda-item {
-            display: grid;
-            grid-template-columns: 44px 1fr auto;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            background: var(--superficie-2);
-            border: 1px solid var(--borde);
-            border-radius: var(--radio);
-            text-align: left;
-        }
-        .tienda-item.equipado { border-color: var(--tienda-color, var(--acento)); background: var(--acento-suave); }
-        .tienda-item.bloqueado { opacity: 0.55; }
-        .tienda-icono {
-            width: 44px;
-            height: 44px;
-            display: grid;
-            place-items: center;
-            font-size: 22px;
-            border-radius: 12px;
-            color: var(--tienda-color, var(--texto));
-            background: rgba(255, 255, 255, 0.06);
-        }
-        .tienda-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .tienda-info b { font-size: 14px; font-weight: 600; color: var(--texto); }
-        .tienda-info span { font-size: 12px; line-height: 1.45; color: var(--texto-2); }
-        .tienda-heroe {
-            margin-left: 6px;
-            padding: 1px 7px;
-            border-radius: 999px;
-            border: 1px solid var(--pj);
-            color: var(--pj);
-            font-size: 10px;
-            font-style: normal;
-            font-weight: 600;
-            vertical-align: 1px;
-        }
-        .tienda-acciones { display: flex; flex-direction: column; gap: 6px; }
-        /* pestañas Tienda / Poderes */
-        .tienda-pestanas { display: flex; gap: 6px; }
+        .tienda-saldo .moneda { width: 18px; height: 18px; margin-right: 6px; }
+        .tienda-saldo b { font-size: 18px; font-weight: 700; margin-right: 5px; color: #ffe3a3; font-variant-numeric: tabular-nums; }
+
+        .tienda-cuerpo { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 16px; }
+
+        /* categorías (barra de la izquierda) */
+        .tienda-pestanas { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }
         .tienda-pestana {
-            flex: 1; min-height: 36px; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600;
-            color: var(--texto-2); background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer;
+            display: flex; align-items: center; gap: 10px; flex: none;
+            min-height: 50px; padding: 0 14px; border-radius: 14px; text-align: left; cursor: pointer;
+            font: inherit; font-size: 14px; font-weight: 700; color: var(--texto-2);
+            background: rgba(255, 255, 255, 0.03); border: 1px solid transparent; transition: background 0.15s, color 0.15s;
         }
-        .tienda-pestana.activa { color: #fff; background: var(--acento-fuerte); border-color: transparent; }
-        .tienda-pestana b { font-weight: 500; opacity: 0.8; margin-left: 4px; }
-        /* poderes especiales (poderes.js) */
-        .poder-icono { width: 44px; height: 44px; border-radius: 10px; border: 2px solid; object-fit: cover; }
-        .poder-item small { font-size: 11px; opacity: 0.75; }
-        .poder-item .poder-max { color: #ffc94a; opacity: 1; }
-        .poder-ventajas { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0 1px; }
+        .tienda-pestana-icono { font-size: 20px; width: 26px; text-align: center; }
+        .tienda-pestana:hover { color: var(--texto); background: rgba(255, 255, 255, 0.07); }
+        .tienda-pestana.activa {
+            color: #fff; background: linear-gradient(180deg, var(--acento), var(--acento-fuerte));
+            box-shadow: 0 4px 0 #4a59c9, 0 8px 18px rgba(111, 130, 255, 0.3);
+        }
+        .tienda-pestana b { margin-left: auto; font-weight: 600; font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(0, 0, 0, 0.25); }
+        .tienda-pestana:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        .tienda-nota { margin: auto 0 0; padding-top: 10px; font-size: 11px; line-height: 1.45; color: var(--texto-2); opacity: 0.8; }
+
+        /* la zona de la derecha: lo de arriba (título, o equipados y filtros), la vitrina y los puntitos */
+        .tienda-zona { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+        .tienda-arriba { flex: none; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+        .tienda-seccion {
+            margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--texto-2); text-align: left;
+        }
+        .tienda-vitrina-marco { flex: 1 1 auto; min-height: 0; display: flex; align-items: stretch; gap: 8px; }
+        .tienda-flecha {
+            flex: none; align-self: center; width: 42px; height: 96px; border-radius: 14px; cursor: pointer;
+            font: inherit; font-size: 34px; line-height: 1; color: var(--texto); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--borde);
+            transition: opacity 0.2s, background 0.15s;
+        }
+        .tienda-flecha:hover:not(:disabled) { background: rgba(139, 156, 255, 0.22); border-color: var(--acento); }
+        .tienda-flecha:disabled { opacity: 0.2; cursor: default; }
+        .tienda-flecha:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        .tienda-lista {
+            --por-pagina: 4; --hueco: 14px;
+            flex: 1 1 auto; min-width: 0; min-height: 0;
+            display: grid; grid-auto-flow: column; gap: var(--hueco);
+            grid-template-rows: repeat(var(--filas, 1), minmax(0, 1fr));
+            grid-auto-columns: calc((100% - (var(--por-pagina) - 1) * var(--hueco)) / var(--por-pagina));
+            overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
+            scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x;
+        }
+        .tienda-lista::-webkit-scrollbar { display: none; }
+        .tienda-lista:focus { outline: none; }
+        .tienda-puntos { flex: none; display: flex; justify-content: center; gap: 7px; min-height: 8px; }
+        .tienda-puntos i { width: 8px; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.2); transition: width 0.2s, background 0.2s; }
+        .tienda-puntos i.activo { width: 22px; background: var(--acento); }
+
+        /* la carta */
+        .tienda-item {
+            --rareza: var(--tienda-color, var(--acento));
+            --icono: 96px;
+            position: relative; min-width: 0; min-height: 0; box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            padding: 12px 14px 14px; border-radius: 18px; text-align: center; overflow: hidden;
+            border: 1px solid var(--borde);
+            background:
+                radial-gradient(120% 55% at 50% 0%, color-mix(in srgb, var(--rareza) 26%, transparent), transparent 72%),
+                var(--superficie-2);
+            scroll-snap-align: start;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        /* franja de color arriba */
+        .tienda-item::before { content: ''; position: absolute; left: 18%; right: 18%; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: var(--rareza); box-shadow: 0 0 12px var(--rareza); }
+        .tienda-item:hover { border-color: color-mix(in srgb, var(--rareza) 45%, transparent); }
+        .tienda-item.equipado {
+            border-color: color-mix(in srgb, var(--rareza) 75%, transparent);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rareza) 40%, transparent), 0 0 22px color-mix(in srgb, var(--rareza) 20%, transparent);
+        }
+        .tienda-item.bloqueado { opacity: 0.55; }
+        .carta-cima { width: 100%; min-height: 20px; display: flex; align-items: center; justify-content: space-between; gap: 6px; flex: none; }
+        .tienda-media { flex: none; display: grid; place-items: center; }
+        .poder-icono, .tienda-icono {
+            box-sizing: border-box; width: var(--icono); height: var(--icono); border-radius: 22px;
+            border: 2px solid var(--rareza);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 24px color-mix(in srgb, var(--rareza) 45%, transparent), inset 0 0 14px rgba(0, 0, 0, 0.4);
+        }
+        .poder-icono { object-fit: cover; background: #0b0f1d; }
+        .tienda-icono {
+            display: grid; place-items: center; font-size: calc(var(--icono) * 0.46); color: var(--rareza);
+            background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rareza) 30%, transparent), rgba(10, 13, 24, 0.9) 75%);
+        }
+        .poder-item.nuevo .poder-icono { filter: saturate(0.85); }
+        .poder-nivel { font-style: normal; font-size: 12px; line-height: 1; letter-spacing: 1px; color: #ffc94a; text-shadow: 0 0 6px rgba(255, 201, 74, 0.5); white-space: nowrap; }
+        .poder-nivel span { color: rgba(255, 255, 255, 0.18); text-shadow: none; }
+        /* (si falta lugar se recortan primero las ventajas, nunca el nombre ni la descripción) */
+        .tienda-info { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; }
+        .carta-nombre, .tienda-desc { flex: none; }
+        .tienda-info .poder-ventajas { min-height: 0; overflow: hidden; }
+        .carta-nombre { font-size: 16px; font-weight: 800; color: var(--texto); line-height: 1.2; }
+        .tienda-desc { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--texto-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .tienda-heroe {
+            padding: 2px 9px; border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--pj) 70%, transparent);
+            background: color-mix(in srgb, var(--pj) 14%, transparent);
+            color: var(--pj); font-size: 11px; font-style: normal; font-weight: 700; letter-spacing: 0.03em; white-space: nowrap;
+        }
+        .tienda-tienes { font-style: normal; font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px; color: var(--texto); background: rgba(255, 255, 255, 0.08); white-space: nowrap; }
+        .poder-ventajas { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
         .poder-ventaja {
-            font-style: normal; font-size: 11px; line-height: 1; padding: 4px 7px; border-radius: 999px; white-space: nowrap;
-            color: var(--texto); background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.1);
+            display: inline-flex; align-items: center; gap: 4px;
+            font-style: normal; font-size: 11px; line-height: 1; padding: 5px 7px; border-radius: 8px; white-space: nowrap;
+            color: var(--texto); background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .poder-ventaja span { color: var(--tienda-color, var(--acento)); }
-        .poder-nivel { font-style: normal; font-size: 12px; letter-spacing: 1px; color: #ffc94a; }
-        .poder-subir:not(:disabled) { color: #1a1205; background: #ffc94a; border-color: transparent; }
-        @media (max-height: 500px) { .poder-ventaja { font-size: 9px; padding: 3px 5px; } }
-        .poder-equipo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
-        .poder-equipo > b { font-size: 13px; font-weight: 600; margin-right: auto; }
-        .poder-ranura { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--texto-2); }
+        .poder-siguiente { font-size: 11px; line-height: 1.35; color: var(--texto-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .poder-siguiente b { color: #ffc94a; font-weight: 600; }
+        .poder-max { font-size: 12px; font-weight: 600; color: #ffc94a; }
+
+        /* botones al pie de la carta */
+        .tienda-acciones { flex: none; width: 100%; display: flex; flex-direction: column; gap: 7px; }
+        .tienda-btn { width: 100%; min-height: 42px; padding: 0 10px; font-size: 13px; font-weight: 700; white-space: nowrap; border-radius: 12px; }
+        .tienda-btn .moneda { margin: 0 0.25em 0 0.15em; }
+        .tienda-comprar:not(:disabled) {
+            color: #fff; border-color: transparent;
+            background: linear-gradient(180deg, #8c9bff, var(--acento-fuerte));
+            box-shadow: 0 4px 0 #4a59c9, 0 8px 18px rgba(111, 130, 255, 0.3);
+        }
+        .tienda-comprar:not(:disabled):hover { filter: brightness(1.08); }
+        .tienda-comprar:not(:disabled):active { transform: translateY(2px); box-shadow: 0 2px 0 #4a59c9; }
+        .tienda-equipado { border-color: var(--tienda-color, var(--acento)); color: var(--texto); background: color-mix(in srgb, var(--tienda-color, var(--acento)) 16%, transparent); }
+        .poder-subir:not(:disabled) {
+            color: #2a1a00; border-color: transparent;
+            background: linear-gradient(180deg, #ffe08a, #ffbf2e);
+            box-shadow: 0 4px 0 #c98a00, 0 8px 18px rgba(255, 191, 46, 0.25);
+        }
+        .poder-subir:not(:disabled):hover { filter: brightness(1.06); }
+        .poder-subir:not(:disabled):active { transform: translateY(2px); box-shadow: 0 2px 0 #c98a00; }
+        /* V y B: selector doble */
+        .poder-ranuras { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--borde); }
+        .poder-tecla {
+            min-height: 34px; border-radius: 9px; border: 0; cursor: pointer;
+            font: inherit; font-size: 14px; font-weight: 700; color: var(--texto-2); background: transparent;
+            transition: background 0.15s, color 0.15s;
+        }
+        .poder-tecla:hover { color: var(--texto); background: rgba(255, 255, 255, 0.07); }
+        .poder-tecla.activa { color: #fff; background: color-mix(in srgb, var(--rareza) 55%, #1a2040); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rareza) 80%, transparent); }
+        .poder-tecla:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+
+        /* poderes: los equipados del héroe y los filtros (arriba de la vitrina) */
+        .poder-equipo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .poder-equipo > b { font-size: 13px; font-weight: 600; color: var(--texto-2); }
+        .poder-ranura { display: flex; align-items: center; gap: 7px; padding: 3px 10px 3px 3px; border-radius: 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--borde); font-size: 12px; color: var(--texto); }
         .poder-ranura img { border-radius: 8px; }
-        .poder-ranura kbd { font: inherit; font-weight: 700; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.12); color: #fff; }
+        .poder-ranura kbd { font: inherit; font-weight: 800; font-size: 12px; min-width: 22px; text-align: center; padding: 4px 6px; border-radius: 7px; background: var(--acento-fuerte); color: #fff; }
         .poder-ranura .vacia { opacity: 0.5; font-style: italic; }
+        .poder-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+        .poder-filtro {
+            min-height: 34px; padding: 0 13px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+            color: var(--texto-2); background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); transition: background 0.15s, color 0.15s;
+        }
+        .poder-filtro:hover { color: var(--texto); }
+        .poder-filtro.activo { color: #fff; background: rgba(139, 156, 255, 0.22); border-color: var(--acento); }
+
+        /* avisos (comprado, faltan monedas): flotan abajo al medio */
+        .tienda-aviso {
+            position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; margin: 0;
+            padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; text-align: center; white-space: nowrap;
+            background: rgba(5, 7, 15, 0.92); border: 1px solid var(--borde-fuerte); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .tienda-aviso.visible { opacity: 1; }
+        .tienda-aviso.ok { color: var(--exito); }
+        .tienda-aviso.error { color: var(--peligro); }
+        @media (prefers-reduced-motion: reduce) { .tienda-puntos i, .tienda-item { transition: none; } }
+
+        /* dos filas de cartas (pantallas altas): las cartas más compactas */
+        .tienda-lista[data-filas="2"] .tienda-item { --icono: 64px; gap: 6px; padding: 10px 12px 12px; }
+        .tienda-lista[data-filas="2"] .tienda-desc { -webkit-line-clamp: 2; }
+
+        /* celular horizontal: todo más compacto; la barra de categorías solo con íconos y nombre chico */
+        @media (max-height: 520px) {
+            .tienda-capa .tienda-panel { padding: 8px 10px; gap: 6px; }
+            .tienda-cabecera h2 { font-size: 16px; }
+            .tienda-cerrar { width: 36px; height: 36px; font-size: 14px; }
+            .tienda-saldo { padding: 4px 12px 4px 8px; font-size: 11px; }
+            .tienda-saldo b { font-size: 14px; }
+            .tienda-saldo .moneda { width: 14px; height: 14px; }
+            .tienda-cuerpo { grid-template-columns: 74px minmax(0, 1fr); gap: 8px; }
+            .tienda-pestanas { gap: 4px; }
+            .tienda-pestana { flex-direction: column; justify-content: center; gap: 1px; min-height: 0; flex: 1 1 0; padding: 3px; text-align: center; font-size: 9.5px; border-radius: 12px; }
+            .tienda-pestana-icono { font-size: 16px; width: auto; }
+            .tienda-pestana b { margin: 0; font-size: 8.5px; padding: 0 5px; }
+            .tienda-pestana.activa { box-shadow: 0 3px 0 #4a59c9; }
+            .tienda-nota { display: none; }
+            .tienda-zona { gap: 5px; }
+            .tienda-seccion { font-size: 10px; }
+            .poder-ranura { font-size: 10px; padding: 2px 7px 2px 2px; }
+            .poder-ranura img { width: 22px; height: 22px; }
+            .poder-ranura kbd { font-size: 10px; padding: 2px 5px; }
+            .poder-filtro { min-height: 26px; padding: 0 9px; font-size: 10px; }
+            .tienda-flecha { width: 30px; height: 64px; font-size: 24px; border-radius: 10px; }
+            .tienda-lista { --hueco: 8px; }
+            .tienda-item { --icono: 52px; gap: 4px; padding: 6px 8px 8px; border-radius: 14px; }
+            .carta-cima { min-height: 16px; }
+            .tienda-heroe, .tienda-tienes { font-size: 9px; padding: 1px 6px; }
+            .poder-nivel { font-size: 9px; letter-spacing: 0; }
+            .tienda-info { gap: 3px; }
+            .carta-nombre { font-size: 12.5px; }
+            .tienda-desc { font-size: 10.5px; -webkit-line-clamp: 2; }
+            .poder-ventaja { font-size: 9px; padding: 3px 5px; }
+            .poder-siguiente { font-size: 9.5px; -webkit-line-clamp: 1; }
+            .tienda-btn { min-height: 30px; font-size: 11px; border-radius: 10px; }
+            .poder-tecla { min-height: 24px; font-size: 11px; }
+            .tienda-acciones { gap: 5px; }
+            .tienda-puntos i { width: 6px; height: 6px; }
+            .tienda-puntos i.activo { width: 16px; }
+        }
+        /* pantalla angosta (celular vertical): las categorías pasan arriba, en fila */
+        @media (max-width: 640px) {
+            .tienda-cuerpo { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
+            .tienda-pestanas { flex-direction: row; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+            .tienda-pestana { min-height: 42px; padding: 0 12px; gap: 6px; font-size: 12px; }
+            .tienda-nota { display: none; }
+            .tienda-flecha { display: none; }
+            .tienda-cabecera h2 { font-size: 17px; }
+        }
         /* pantalla final de la Arena (arena.js) */
         .arena-fin-liga { margin: 0; font-size: 12px; color: #b9c3ff; }
         .arena-medallas { list-style: none; margin: 4px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 12px; }
@@ -1418,52 +1832,14 @@
         .arena-fin.gano h2 { color: #ffc94a; }
         .arena-fin-gana { margin: 0; font-size: 15px; font-weight: 600; }
         .arena-fin-monedas { margin: 0 0 6px; font-size: 13px; color: #ffd27a; }
-        .poder-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
-        .poder-filtro {
-            min-height: 30px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 12px; cursor: pointer;
-            color: var(--texto-2); background: transparent; border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-        .poder-filtro.activo { color: #fff; background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); }
         /* botones táctiles de los poderes especiales (V y B): con el ícono del poder */
         .t-esp { background-size: cover; background-position: center; border: 2px solid rgba(199, 125, 255, 0.6); }
         .t-esp b { display: none; } /* (en el celular la tecla no dice nada: se ve el ícono del poder) */
         .t-esp.vacio { visibility: hidden; }
         .t-esp { filter: var(--matiz, hue-rotate(0deg)); } /* (--matiz: el tono de los poderes nuevos) */
         .t-esp.cargando { filter: var(--matiz, hue-rotate(0deg)) grayscale(0.7) brightness(0.7); }
-        .tienda-btn { min-height: 38px; padding: 0 14px; font-size: 13px; white-space: nowrap; }
-        .tienda-comprar:not(:disabled) { color: #fff; background: var(--acento-fuerte); border-color: transparent; }
-        .tienda-comprar:not(:disabled):hover { background: var(--acento); }
-        .tienda-equipado { border-color: var(--tienda-color, var(--acento)); }
         .menu-boton:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
         .menu-boton:disabled:hover { background: var(--superficie-2); border-color: var(--borde); }
-        .tienda-aviso {
-            margin: 0;
-            min-height: 1.4em;
-            font-size: 13px;
-            font-weight: 500;
-            text-align: center;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .tienda-aviso.visible { opacity: 1; }
-        .tienda-aviso.ok { color: var(--exito); }
-        .tienda-aviso.error { color: var(--peligro); }
-
-        /* celular horizontal: la tienda se compacta y se desplaza dentro del panel */
-        @media (max-height: 520px) {
-            .tienda-item { grid-template-columns: 34px 1fr auto; gap: 8px; padding: 6px 8px; }
-            .tienda-icono { width: 34px; height: 34px; font-size: 17px; }
-            .tienda-info b { font-size: 12px; }
-            .tienda-info span { font-size: 10px; }
-            .tienda-btn { min-height: 34px; font-size: 11px; padding: 0 10px; }
-            .tienda-seccion { font-size: 10px; margin-top: 4px; }
-            .tienda-saldo { font-size: 11px; padding: 4px 10px; }
-        }
-        @media (max-width: 480px) {
-            .tienda-item { grid-template-columns: 34px 1fr; }
-            .tienda-acciones { grid-column: 1 / -1; flex-direction: row; }
-            .tienda-acciones .tienda-btn { flex: 1; }
-        }
     </style>
 </head>
 <body>

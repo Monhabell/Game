@@ -25,12 +25,14 @@
 //     apostar  { apuesta }               (carrera) lo que apuesta este jugador; vuelve a 'no listo'
 //     listo    { listo }                 (carrera) ya eligió su apuesta y está listo para correr
 //     estado / evento { ... }            se reenvía a los demás con { de: tuId }
+//     ping     { n }                     se contesta al momento (para medir la demora en el juego)
 //   servidor -> cliente
 //     sala     { codigo, tuId, anfitrion, jugadores, modo, arena, publica }   (cada vez que cambia la lista)
 //     empezar  { nivel, semilla, jugadores, modo, arena }
 //     volver   {}
 //     estado / evento { de, ... }
 //     error    { motivo }
+//     pong     { n }                     respuesta al ping (el mismo n)
 
 import http from 'node:http';
 import { WebSocketServer } from 'ws';
@@ -89,6 +91,7 @@ wss.on('connection', ws => {
 
 function atender(ws, m) {
     switch (m.t) {
+        case 'ping': return enviar(ws, { t: 'pong', n: m.n });
         case 'crear': {
             if (ws.sala) return;
             entrar(ws, nuevaSala(), m);

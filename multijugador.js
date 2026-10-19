@@ -61,6 +61,8 @@ export function iniciarMultijugador(juegoPhaser, g) {
         if (!scene) return;
         if (m.tipo === 'salio') { quitarRemoto(scene, m.de); return; }
         if (!scene.remotos || (m.nivel != null && m.nivel !== ganchos.nivelActual())) return;
+        // de otro intento (alguien todavía no reaparece, o ya reapareció y yo no): otro reparto, no se mezcla
+        if (m.vez != null && scene.intento != null && m.vez !== scene.intento) return;
         // carrera: de los demás solo se ven sus poderes (lo demás pasa en el mundo de cada uno)
         if (enCarrera() && m.tipo !== 'poder' && m.tipo !== 'poderEsp') return;
         switch (m.tipo) {
@@ -118,6 +120,7 @@ export function semillaEnLinea(nivel) {
 // ---------- al crear el nivel ----------
 export function prepararNivelEnLinea(scene) {
     scene.remotos = enLinea() ? new Map() : null;
+    scene.intento = red.intento; // (el mismo con el que se repartieron las trampas de este mapa)
     scene.ultimoEnvio = 0;
     if (!scene.remotos || scene.arena || enCarrera()) { scene.cadenaRed = null; return; } // (en la arena y la carrera no hay cadena)
     // la cadena une a todos en el orden de la sala (yo soy el jugador 1 de mi pantalla)
@@ -237,16 +240,18 @@ function enviarMiEstado(scene, time) {
 
 // ---------- avisos a los demás (los llama game.js) ----------
 const nivel = () => ganchos.nivelActual();
+// nivel e intento de quien lo manda: al reaparecer, lo que quedó de la vida anterior no se mezcla con el mapa nuevo
+const marca = () => ({ nivel: nivel(), vez: escenaNivel()?.intento });
 
 export function avisarMuerte() {
     if (!mundoCompartido()) return;
     red.intento++;
     enviarEvento('muerte', { intento: red.intento, nivel: nivel() });
 }
-export const avisarCheckpoint = x => mundoCompartido() && enviarEvento('checkpoint', { x, nivel: nivel() });
-export const avisarEnemigo = id => mundoCompartido() && enviarEvento('enemigo', { id, nivel: nivel() });
-export const avisarJefe = cantidad => mundoCompartido() && enviarEvento('jefe', { cantidad, nivel: nivel() });
-export const avisarMeta = () => mundoCompartido() && enviarEvento('meta', { nivel: nivel() });
+export const avisarCheckpoint = x => mundoCompartido() && enviarEvento('checkpoint', { x, ...marca() });
+export const avisarEnemigo = id => mundoCompartido() && enviarEvento('enemigo', { id, ...marca() });
+export const avisarJefe = cantidad => mundoCompartido() && enviarEvento('jefe', { cantidad, ...marca() });
+export const avisarMeta = () => mundoCompartido() && enviarEvento('meta', { ...marca() });
 export function avisarPoder(scene, tecla) {
     if (!enLinea()) return;
     const g = scene.mascotaGesi;
@@ -304,7 +309,7 @@ function enviarEnemigos(scene, time) {
             scene.time.now < (e.congeladoHasta || 0) ? 1 : 0]);
     });
     const jefe = ganchos.datosJefe(scene);
-    const datos = { l, reloj: ganchos.reloj(scene), nivel: nivel() };
+    const datos = { l, reloj: ganchos.reloj(scene), ...marca() };
     if (jefe) datos.jefe = jefe;
     enviarEvento('enemigos', datos);
 }
@@ -370,13 +375,13 @@ function soltarReplicas(scene) {
     });
 }
 
-export const avisarGolpeEnemigo = (id, cantidad, congela = 0) => soyReplica() && enviarEvento('golpe', { id, cantidad, congela, para: red.anfitrion, nivel: nivel() });
+export const avisarGolpeEnemigo = (id, cantidad, congela = 0) => soyReplica() && enviarEvento('golpe', { id, cantidad, congela, para: red.anfitrion, ...marca() });
 export const avisarZona = (zona, ox) => soyAnfitrion() && enviarEvento('zona', {
-    x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), ox: Math.round(ox), nivel: nivel(),
+    x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), ox: Math.round(ox), ...marca(),
 });
-export const avisarBala = datos => soyAnfitrion() && enviarEvento('bala', { ...datos, nivel: nivel() });
+export const avisarBala = datos => soyAnfitrion() && enviarEvento('bala', { ...datos, ...marca() });
 // ataques del troll (y 'empieza', que puede mandarlo cualquiera)
-export const avisarJefeFx = (fx, datos = {}) => mundoCompartido() && enviarEvento('jefeFx', { fx, ...datos, nivel: nivel() });
+export const avisarJefeFx = (fx, datos = {}) => mundoCompartido() && enviarEvento('jefeFx', { fx, ...datos, ...marca() });
 
 // ---------- fantasmas: los demás jugadores, para trampas y enemigos ----------
 // Un fantasma tiene lo que el código de trampas y enemigos lee del jugador (posición, cuerpo,

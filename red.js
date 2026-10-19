@@ -27,7 +27,19 @@ export const red = {
     enPartida: false, // true desde que el anfitrión empieza hasta salir de la sala
     semilla: 0,
     intento: 0,       // sube con cada muerte del equipo: las trampas se reparten igual para todos
+    ping: null,       // ms de ida y vuelta al servidor (null: todavía sin medir o servidor viejo)
+    hueco: 0,         // el mayor silencio entre dos mensajes recibidos desde la última lectura (ver leerHueco)
 };
+
+const PING_MS = 1000;
+let ultimoMensaje = 0;
+
+// el mayor silencio de la red desde la última vez que se preguntó (para el contador de FPS)
+export function leerHueco() {
+    const h = Math.max(red.hueco, ultimoMensaje ? performance.now() - ultimoMensaje : 0);
+    red.hueco = 0;
+    return Math.round(h);
+}
 
 const oyentes = {};
 export function alRecibir(tipo, fn) {
@@ -50,12 +62,21 @@ export function conectar() {
         const ws = new WebSocket(direccion());
         red.ws = ws;
         const tiempo = setTimeout(() => { ws.close(); mal(new Error('El servidor no responde')); }, 8000);
-        ws.addEventListener('open', () => { clearTimeout(tiempo); red.conectado = true; ok(); });
+        let medir = null;
+        ws.addEventListener('open', () => {
+            clearTimeout(tiempo);
+            red.conectado = true;
+            // cada segundo se mide cuánto tarda el servidor en contestar
+            medir = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: 'ping', n: performance.now() })), PING_MS);
+            ok();
+        });
         ws.addEventListener('error', () => { clearTimeout(tiempo); mal(new Error('No se pudo conectar al servidor')); });
         ws.addEventListener('close', () => {
             const estaba = red.conectado;
             red.conectado = false;
             red.ws = null;
+            red.ping = null;
+            clearInterval(medir);
             const enSala = !!red.codigo;
             limpiarSala();
             if (estaba && enSala) avisar('desconectado', {});
@@ -63,6 +84,10 @@ export function conectar() {
         ws.addEventListener('message', e => {
             let m;
             try { m = JSON.parse(e.data); } catch { return; }
+            const ahora = performance.now();
+            if (m.t === 'pong') { red.ping = Math.round(ahora - m.n); return; }
+            if (ultimoMensaje) red.hueco = Math.max(red.hueco, ahora - ultimoMensaje);
+            ultimoMensaje = ahora;
             atender(m);
         });
     });
