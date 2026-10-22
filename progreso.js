@@ -30,7 +30,7 @@ import { sumarMonedas } from "./tienda.js"
 const CLAVE = 'monhabell-progreso';
 export const MAESTRIA_MAX = 100;
 const MAESTRO = 10; // maestría con la que se gana el título de maestro
-export const XP = { nivel: 180, nivelPrimera: 50, carrera: [120, 80, 60], carreraOtros: 30, arenaGana: 100, arenaPierde: 30, eliminar: 15 };
+export const XP = { nivel: 180, nivelPrimera: 50, carrera: [120, 80, 60], carreraOtros: 30, arenaGana: 100, arenaPierde: 30, eliminar: 15, nocheGana: 120, nochePierde: 40 };
 // XP para pasar del nivel n al n+1: sube rápido hasta el 50 y después despacio (siempre un poco más)
 const xpCuenta = n => (n <= 50 ? 200 + 100 * (n - 1) : 5100 + 20 * (n - 50));
 const xpHeroe = n => (n <= 40 ? 150 + 75 * (n - 1) : 3075 + 15 * (n - 40));

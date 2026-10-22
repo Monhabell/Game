@@ -18,7 +18,7 @@ import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
 import { ganarXP, XP, progresoJugador, maestria, tituloHeroe, factorRecarga, tieneRunaMaestria, MAESTRIA_MAX, textoNivel } from "./progreso.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
-import { red, enLinea, enCarrera, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
+import { red, enLinea, enCarrera, enNoche, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
 import {
     iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
     llegarMetaCarrera, recibirPoderCarrera,
@@ -29,6 +29,8 @@ import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
     actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
 } from "./arena.js"
+import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, NIVEL_NOCHE } from "./troll.js"
+import { nivelNoche } from "./bosque_troll.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
     avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder,
@@ -305,6 +307,7 @@ iniciarMenus(juego, {
     irAlInicio: () => {
         terminarArena();
         terminarCarrera();
+        terminarNoche();
         if (red.codigo) salirSala();
         juego.scene.stop('juego');
         juego.scene.start('titulo');
@@ -313,6 +316,7 @@ iniciarMenus(juego, {
     jugarConAmigos: () => {
         terminarArena();
         terminarCarrera();
+        terminarNoche();
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
         abrirSala();
@@ -321,6 +325,7 @@ iniciarMenus(juego, {
     salirAlMenu: () => {
         terminarArena();
         terminarCarrera();
+        terminarNoche();
         if (red.codigo) salirSala(); // salir del nivel en línea también es dejar la sala
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
@@ -343,6 +348,7 @@ iniciarArena({
     salir: () => {
         terminarArena();
         terminarCarrera();
+        terminarNoche();
         if (red.codigo) salirSala();
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
@@ -359,6 +365,7 @@ iniciarCarrera(juego, {
     pagar: n => gastarMonedas(n),
     salir: () => {
         terminarCarrera();
+        terminarNoche();
         if (red.codigo) salirSala();
         juego.scene.stop('juego');
         juego.scene.start('seleccion');
@@ -367,6 +374,21 @@ iniciarCarrera(juego, {
     volverASala: () => volverASala(),
     // un rival te dejó sin vida con sus poderes: mueres (ni el escudo ni las defensas lo evitan)
     morir: scene => killgesi(scene, 'rival'),
+});
+// ---------- La Noche del Troll (troll.js): antorchas, altar y el final ----------
+iniciarNoche({
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+    // una trampa del troll: mueres (ni el escudo ni las defensas lo evitan)
+    morir: scene => killgesi(scene, 'rival'),
+    premio: n => sumarMonedas(n),
+    revancha: () => empezarPartida(0), // (otra noche: el servidor reparte roles nuevos)
+    salir: () => {
+        terminarNoche();
+        if (red.codigo) salirSala();
+        juego.scene.stop('juego');
+        juego.scene.start('seleccion');
+    },
+    volverASala: () => volverASala(),
 });
 // mecanismos de las Ruinas del Abismo (abismo.js)
 iniciarAbismo({
@@ -377,6 +399,7 @@ iniciarAbismo({
 alRecibir('volver', () => {
     terminarArena();
     terminarCarrera();
+    terminarNoche();
     juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
     juego.scene.start('seleccion');
     abrirSala();
@@ -397,6 +420,11 @@ const abrirSala = iniciarSala(juego, {
             empezarCarrera({ pista: nivel, jugadores });
             nivelActual = pistaDe(nivel).region;
         } else terminarCarrera();
+        // La Noche del Troll (troll.js): los roles ya los repartió el servidor
+        if (esModoNoche(modo)) {
+            empezarNoche({ jugadores });
+            nivelActual = NIVEL_NOCHE;
+        } else terminarNoche();
         juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
         juego.scene.start('juego');
     },
@@ -586,9 +614,13 @@ function create() {
     const enEquipo = mundoCompartido() || (ajustes.cadena && !enLinea());
     // carrera: la pista con sus dos caminos (pistas.js), la misma para todos con la semilla de la sala
     const pista = !arena && enCarrera() && carreraActiva() ? carreraActiva().pista : null;
+    // La Noche del Troll: el Bosque de Albora (bosque_troll.js), sin trampas al azar ni jefe
+    const noche = !arena && enNoche() && !!nocheActiva();
+    this.noche = noche;
+    this.esFantasma = false; // (troll.js: un héroe que murió en la noche)
     // (las Ruinas del Abismo tienen sus trampas puestas a mano: prepararNivelFijo en azar.js)
     const delNivel = enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual];
-    const nivel = arena ? nivelArena() : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
+    const nivel = arena ? nivelArena() : noche ? nivelNoche(inicioNoche()) : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
         : delNivel.fija ? prepararNivelFijo(delNivel, semillaEnLinea(nivelActual))
         : aleatorizarNivel(delNivel, nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
@@ -652,7 +684,8 @@ function create() {
     crearFondoAbismo(this, nivel); // (solo la pista de las Ruinas del Abismo: volcanes y ruinas)
 
     // estalactitas, hongos, antorchas y la puerta de entrada (detrás de todo lo jugable)
-    const rangosSuelo = [...(nivel.suelo || []), ...(nivelActual === 0 && !arena ? [[0, 1106]] : [])];
+    const nivel1 = nivelActual === 0 && !arena && !noche; // (la parte hecha a mano del nivel 1)
+    const rangosSuelo = [...(nivel.suelo || []), ...(nivel1 ? [[0, 1106]] : [])];
     decorarNivel(this, nivel, arena ? 0 : nivelActual, x => rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
 
     this.floor = this.physics.add.staticGroup();
@@ -677,7 +710,7 @@ function create() {
     this.add.graphics().fillGradientStyle(
         nivel.cueva ? 0x2a1f1a : 0x221d2a, nivel.cueva ? 0x2a1f1a : 0x221d2a, 0x07060a, 0x07060a, 1,
     ).fillRect(-200, SUELO_Y + 12, nivel.ancho + 400, SUBSUELO);
-    if (nivelActual === 0 && !arena) construirNivel1(this);
+    if (nivel1) construirNivel1(this);
     construirNivel(this, nivel);
     crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
 
@@ -720,7 +753,7 @@ function create() {
     this.soltarCorazonArena = (x, y) => soltarCorazon(this, x, y);
     this.faltaSalud = () => this.salud < SALUD_MAXIMA || vidas < VIDAS_INICIALES;
     this.jefe = null;
-    if (!arena && pista == null) prepararJefe(this, nivel, nivelActual); // (las pistas no tienen jefe)
+    if (!arena && !noche && pista == null) prepararJefe(this, nivel, nivelActual); // (las pistas y la noche no tienen jefe)
 
     // con una sola vida se escucha un latido
     this.time.addEvent({
@@ -803,7 +836,7 @@ function create() {
     this.physics.add.collider(this.balasEnemigas, this.floor, bala => bala.destroy());
     this.physics.add.collider(this.flechasGrupo, this.moviles, flecha => flecha.destroy());
     this.physics.add.collider(this.flechasGrupo, this.invisibles, flecha => flecha.destroy(), (_f, b) => b.revelado);
-    this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
+    if (this.zonaMeta) this.physics.add.overlap(this.mascotaGesi, this.zonaMeta, completarNivel, null, this);
 
     // modo cadena (prototipo de 2 jugadores en el mismo teclado, se activa en la configuración)
     this.compa = null;
@@ -831,7 +864,7 @@ function create() {
     verColisiones(this);
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
-    crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivelActual === 0 && !arena ? [[1350, 2310]] : []);
+    crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivel1 ? [[1350, 2310]] : []);
 
     // HUD (en el celular, más chico y con íconos en vez de palabras: deja ver el juego, como en los
     // juegos de celular; lo de los poderes V y B lo muestran los botones táctiles)
@@ -881,6 +914,10 @@ function create() {
         // carrera: el cronómetro, las posiciones y el premio los muestra carrera.js (HUD propio)
         this.scoreText.setVisible(false);
         this.nivelText.setVisible(false);
+    } else if (noche) {
+        // Noche del Troll: ni puntaje ni "Nivel 1/7" (las antorchas y la luz las muestra troll.js)
+        this.scoreText.setVisible(false);
+        this.nivelText.setVisible(false);
     }
     else mostrarMensaje(this, `NIVEL ${nivelActual + 1}\n${nivel.nombre}`, 2000);
 
@@ -902,6 +939,7 @@ function create() {
     prepararNivelEnLinea(this);
     if (arena) prepararArena(this, (rival, daño, congela) => golpearRival(this, rival, daño, congela));
     if (enCarrera() && carreraActiva()) prepararCarrera(this, nivel, inicioX);
+    if (noche) prepararNoche(this);
     this.alDañarJefe = avisarJefe;
     this.alAlterarJefe = (tipo, ms) => { if (mundoCompartido()) enviarEvento('jefeEstado', { tipo, ms, nivel: nivelActual }); };
     // el troll en línea: lo maneja el anfitrión (jefes.js)
@@ -911,7 +949,7 @@ function create() {
         cercano: sprite => fantasmaMasCercano(this, sprite),
         comoJugador: (f, fn) => comoJugador(this, f, fn),
     } : null;
-    if (mundoCompartido() && !arena) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
+    if (mundoCompartido() && !arena && !noche) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
 ${nivel.nombre}
 ${red.jugadores.length} jugadores en cadena`, 2400);
 }
@@ -1746,6 +1784,9 @@ function construirNivel(scene, nivel) {
     });
 
     // meta: el Faro del Alba (columna con un cristal que se enciende al llegar) y el castillo
+    // (la Noche del Troll no tiene: su meta es el Altar del Amanecer, ver troll.js)
+    scene.zonaMeta = null;
+    if (nivel.sinMeta) return;
     const mx = nivel.meta;
     scene.add.image(mx, SUELO_Y, 'mastil').setOrigin(0.5, 1);
     scene.bandera = scene.add.image(mx, SUELO_Y - 165, 'bandera').setOrigin(0.5, 1).setScale(2);
@@ -2881,6 +2922,7 @@ function actualizarJugador(time, delta) {
     actualizarAmbiente(this, time, this.mascotaGesi);
     moverLava(this, time);
     actualizarCarrera(this); // (la barra de avance sigue aunque estés muerto o en la cuenta regresiva)
+    if (this.noche) actualizarNoche(this, time);
 
     if (this.mascotaGesi.isDead) return;
 
@@ -2994,7 +3036,7 @@ function actualizarJugador(time, delta) {
         killgesi(this, 'caida');
     }
 
-    if (nivelActual === 0 && !this.arena) trampasNivel1(this);
+    if (nivelActual === 0 && !this.arena && !this.noche) trampasNivel1(this);
     if (tiene('iman')) atraerMonedas(this);
     actualizarEstela(this);
     actualizarPoderes(this, time, delta);
@@ -3004,7 +3046,7 @@ function actualizarJugador(time, delta) {
     actualizarAbismo(this);
     // en línea las trampas también se activan cuando pasa otro jugador (sin hacerte daño a ti)
     fantasmas(this).forEach(f => comoJugador(this, f, () => {
-        if (nivelActual === 0 && !this.arena) trampasNivel1(this);
+        if (nivelActual === 0 && !this.arena && !this.noche) trampasNivel1(this);
         actualizarTrampas(this);
         actualizarSorpresas(this, apiSorpresas);
     }));
@@ -3083,6 +3125,7 @@ function usarRunaDeReserva(game) {
 
 function killgesi(game, causa, daño = 20, origenX) {
     if (game.soloActivar) return; // trampa o enemigo revisado con otro jugador (fantasma): el daño no es aquí
+    if (game.esFantasma) return;  // (Noche del Troll: los fantasmas no mueren)
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
     // cayó al foso estando atado: la cadena lo atrapa y el equipo puede rescatarlo (cadena.js)
@@ -3132,6 +3175,8 @@ function killgesi(game, causa, daño = 20, origenX) {
     mascotaGesi.anims.play(`${game.pj.anim}-dead`);
     caerMuerto(game, causa);
     if (game.arena) { arenaMuerte(game, causa); return; } // en la arena: pierde un corazón de la ronda (arena.js)
+    // Noche del Troll: un héroe queda como fantasma (y deja su cuerpo); el troll vuelve al claro (troll.js)
+    if (game.noche) { nocheMuerte(game, ms => reaparecer(game, ms)); return; }
     game.musica.stop();
     game.musicaBatalla?.stop();
     sound.add('gameover', { volume: 1 }).play();

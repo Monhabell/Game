@@ -28,7 +28,7 @@
 import { PERSONAJES, resDe } from "./personajes.js"
 import { prepararVariante } from "./vestidor.js"
 import { estaHablando } from "./voz.js"
-import { red, alRecibir, enviarEstado, enviarEvento, enLinea, enCarrera, mundoCompartido, esAnfitrion } from "./red.js"
+import { red, alRecibir, enviarEstado, enviarEvento, enLinea, enCarrera, enNoche, mundoCompartido, esAnfitrion } from "./red.js"
 import { poderRemoto as poderEspecialRemoto } from "./poderes.js"
 import { esRival, colorDe as colorEnArena } from "./arena.js"
 import { nivelDe, textoNivel } from "./progreso.js"
@@ -122,7 +122,7 @@ export function prepararNivelEnLinea(scene) {
     scene.remotos = enLinea() ? new Map() : null;
     scene.intento = red.intento; // (el mismo con el que se repartieron las trampas de este mapa)
     scene.ultimoEnvio = 0;
-    if (!scene.remotos || scene.arena || enCarrera()) { scene.cadenaRed = null; return; } // (en la arena y la carrera no hay cadena)
+    if (!scene.remotos || scene.arena || enCarrera() || enNoche()) { scene.cadenaRed = null; return; } // (en la arena, la carrera y la noche no hay cadena)
     // la cadena une a todos en el orden de la sala (yo soy el jugador 1 de mi pantalla)
     scene.cadenaRed = () => red.jugadores.map(j => {
         if (j.id === red.tuId) return { local: true, s: scene.mascotaGesi };
@@ -200,7 +200,8 @@ export function actualizarEnLinea(scene, time, delta) {
     const ahora = performance.now(), k = Math.min(1, delta / 1000 * SUAVIDAD);
     scene.remotos.forEach(r => {
         const e = r.estado;
-        r.visible = !!e && ahora - r.recibido < OLVIDO_MS && !e.muerto;
+        // (Noche del Troll: a los fantasmas solo los ven los otros fantasmas)
+        r.visible = !!e && ahora - r.recibido < OLVIDO_MS && !e.muerto && (!e.fantasma || !!scene.esFantasma);
         r.s.setVisible(r.visible);
         if (r.s.body) r.s.body.enable = r.visible;
         r.etiqueta.setVisible(r.visible);
@@ -215,7 +216,8 @@ export function actualizarEnLinea(scene, time, delta) {
         if (e.anim && !scene.anims.exists(e.anim) && e.anim.includes('~')) prepararVariante(scene, e.anim.slice(0, e.anim.lastIndexOf('-')));
         if (e.anim) r.prefijo = e.anim.slice(0, e.anim.lastIndexOf('-'));
         if (e.anim && r.s.anims.currentAnim?.key !== e.anim && scene.anims.exists(e.anim)) r.s.anims.play(e.anim, true);
-        if (!scene.arena) r.s.setTint(e.anclado ? 0x9fd8ff : 0xffffff);
+        if (!scene.arena) r.s.setTint(e.anclado || e.fantasma ? 0x9fd8ff : 0xffffff);
+        if (enNoche()) r.s.setAlpha(e.fantasma ? 0.45 : 1);
         r.etiqueta.setPosition(r.s.x, r.s.y - 8);
         // sobre la cabeza: su nivel (progreso.js), su nombre y 🔊 si está hablando por el chat de voz
         const habla = estaHablando(r.id), nv = nivelDe(r.id);
@@ -235,6 +237,7 @@ function enviarMiEstado(scene, time) {
         vx: r(b.velocity.x), vy: r(b.velocity.y),
         flip: g.flipX, anim: g.anims.currentAnim?.key,
         suelo: b.blocked.down || b.touching.down, anclado: !!g.anclado, muerto: !!g.isDead,
+        ...(scene.esFantasma ? { fantasma: true } : {}),
     });
 }
 
@@ -244,7 +247,7 @@ const nivel = () => ganchos.nivelActual();
 const marca = () => ({ nivel: nivel(), vez: escenaNivel()?.intento });
 
 export function avisarMuerte() {
-    if (!mundoCompartido()) return;
+    if (!mundoCompartido() || enNoche()) return; // (en la Noche del Troll cada uno muere por su cuenta)
     red.intento++;
     enviarEvento('muerte', { intento: red.intento, nivel: nivel() });
 }
@@ -404,7 +407,7 @@ export function fantasmas(scene) {
     scene.fantasmasCuadro = cuadro;
     scene.listaFantasmas = [];
     scene.remotos.forEach(r => {
-        if (!r.visible) return;
+        if (!r.visible || r.estado.fantasma) return; // (un fantasma no activa nada)
         const e = r.estado;
         const cx = r.s.x + (e.cx - e.x), cy = r.s.y + (e.cy - e.y);
         const body = sinEfecto({

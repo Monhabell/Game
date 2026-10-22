@@ -11,6 +11,7 @@
 // Modos (los elige el anfitrión): Aventura (todos atados con la cadena) o la Arena del Troll
 // (arena.js): 1 contra 1 o por equipos (rojo contra azul, cada uno elige su equipo; hasta 4).
 // También la Carrera (carrera.js): todos corren la misma pista y el primero en llegar gana (hasta 8).
+// Y La Noche del Troll (troll.js): uno (o dos) es el troll en secreto; de 4 a 8, con bots si faltan.
 // En la carrera cada uno elige SU apuesta y confirma con "Listo"; en la lista y sobre cada personaje
 // se ve cuánto apuesta cada uno. El anfitrión arranca cuando todos están listos.
 // Cada uno se ve con los colores que eligió en el vestidor: al entrar (y cada vez que cambia la sala)
@@ -26,7 +27,7 @@ import { PISTAS } from "./pistas.js"
 import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena, copasArena, ligaDe } from "./arena.js"
 import { saldo } from "./tienda.js"
 
-const MODOS = { aventura: 'Aventura (en cadena)', duelo: 'Arena · 1 contra 1', equipos: 'Arena · por equipos', carrera: '🏁 Carrera' };
+const MODOS = { aventura: 'Aventura (en cadena)', duelo: 'Arena · 1 contra 1', equipos: 'Arena · por equipos', carrera: '🏁 Carrera', troll: '🌙 Noche del Troll' };
 const esArena = modo => modo === 'duelo' || modo === 'equipos';
 import { animDe, prefijoValido, urlHoja } from "./vestidor.js"
 import { nivelDe, alCambiarNiveles, textoNivel } from "./progreso.js"
@@ -275,6 +276,11 @@ export function iniciarSala(juego, { alEmpezar }) {
             const n = red.jugadores.length, equipos = new Set(red.jugadores.map(j => j.equipo));
             if (red.modo === 'duelo' && n !== 2) { avisar('El 1 contra 1 es de 2 jugadores', true); return; }
             if (red.modo === 'equipos' && (n < 2 || equipos.size < 2)) { avisar('Hace falta alguien en cada equipo', true); return; }
+            if (red.modo === 'troll') {
+                if (n < 2) { avisar('La Noche del Troll necesita al menos 2 jugadores', true); return; }
+                empezarPartida(0); // (el mapa lo pone troll.js)
+                return;
+            }
             if (red.modo === 'carrera') {
                 if (n < 2) { avisar('La carrera necesita al menos 2 jugadores', true); return; }
                 const falta = red.jugadores.filter(j => j.id !== red.anfitrion && !j.listo);
@@ -412,6 +418,8 @@ export function iniciarSala(juego, { alEmpezar }) {
             ? `Carrera: todos corren la misma pista y ven el avance de los demás. Hay caminos largos y seguros y atajos con trampas. Tus poderes especiales alcanzan a los rivales (empujan, aturden o congelan, sin quitar vidas). Gana el primero en llegar · hasta 8 jugadores · apostado en total ◉ ${red.jugadores.reduce((t, j) => t + (j.apuesta || 0), 0)}`
             : enArena
             ? `${MODOS[red.modo]} · ${arenaSel?.nombre || ''} (${arenaSel?.peligro || ''}) · al mejor de 3 · ${red.apuesta ? `apuesta ◉ ${red.apuesta} cada uno, el ganador se lleva el pozo` : 'sin apuesta'} · 🏆 Tu liga: ${ligaDe(copasArena())} (${copasArena()} copas)`
+            : red.modo === 'troll'
+            ? `Noche del Troll: uno de ustedes es el troll en secreto${red.jugadores.length >= 7 ? ' (con 7 u 8, son dos)' : ''}. Los héroes encienden las antorchas y descubren al troll en el Juicio; el troll pone trampas sin que lo vean · de 4 a 8 (si faltan, se completa con bots 🤖)`
             : 'Aventura: todos atados con la cadena';
         const yo2 = red.jugadores.find(j => j.id === red.tuId);
         $('[data-equipos]').hidden = !porEquipos;

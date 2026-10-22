@@ -19,16 +19,20 @@
 //     empezar  { nivel }                 (solo anfitrión) arranca la partida para todos (también la revancha)
 //     modo     { modo, arena, apuesta }  (solo anfitrión) 'aventura' | 'duelo' (1 contra 1) | 'equipos' (rojo contra azul)
 //                                        | 'carrera' (todos el mismo nivel, gana el primero en llegar; la deciden los clientes)
+//                                        | 'troll' (La Noche del Troll: uno o dos son el troll en secreto)
 //     equipo   { equipo }                0 (rojo) o 1 (azul), en el modo por equipos
 //     volver   {}                        (solo anfitrión) todos vuelven a la sala de espera
 //     saldo    { monedas }               cuántas monedas tiene (para la apuesta de la arena)
 //     apostar  { apuesta }               (carrera) lo que apuesta este jugador; vuelve a 'no listo'
 //     listo    { listo }                 (carrera) ya eligió su apuesta y está listo para correr
-//     estado / evento { ... }            se reenvía a los demás con { de: tuId }
+//     estado / evento { ... }            se reenvía a los demás con { de: tuId } (sin 'de' si trae anonimo: true)
 //     ping     { n }                     se contesta al momento (para medir la demora en el juego)
 //   servidor -> cliente
 //     sala     { codigo, tuId, anfitrion, jugadores, modo, arena, publica }   (cada vez que cambia la lista)
 //     empezar  { nivel, semilla, jugadores, modo, arena }
+//              (troll) + { bots, rol, compas }: rol 'troll' | 'heroe' de ESE jugador; compas, los otros
+//              trolls (solo se le dice a un troll). El servidor reparte los roles: así nadie puede
+//              leer en los mensajes quién es el troll.
 //     volver   {}
 //     estado / evento { de, ... }
 //     error    { motivo }
@@ -43,7 +47,10 @@ const MAX_JUGADORES = 8;
 const MAX_MENSAJE = 16 * 1024;       // bytes por mensaje
 const MAX_MENSAJES_SEG = 60;         // por jugador (el juego manda ~20 por segundo)
 const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sin I ni O (se confunden con 1 y 0)
-const MODOS = new Set(['aventura', 'duelo', 'equipos', 'carrera']);
+const MODOS = new Set(['aventura', 'duelo', 'equipos', 'carrera', 'troll']);
+// La Noche del Troll: de 4 a 8 (con bots de relleno hasta 4); con 7 u 8, dos trolls
+const MIN_NOCHE = 4;
+const NOMBRES_BOT = ['Brisa', 'Toto', 'Lumi', 'Pipo', 'Nala', 'Rulo'];
 const esArena = modo => modo === 'duelo' || modo === 'equipos';
 const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo', 'abismo']);
 const MAX_ARENA = 4; // jugadores en una batalla de la arena
@@ -206,17 +213,35 @@ function atender(ws, m) {
             }
             const pobre = [...sala.jugadores.values()].find(j => (j.monedas || 0) < apuesta);
             if (pobre) return enviar(ws, { t: 'error', motivo: `${pobre.nombre} no tiene ${apuesta} monedas para la apuesta` });
+            if (sala.modo === 'troll' && n < 2) return enviar(ws, { t: 'error', motivo: 'La Noche del Troll necesita al menos 2 jugadores' });
             sala.empezada = true;
             const semilla = Math.floor(Math.random() * 2 ** 31);
-            difundir(sala, { t: 'empezar', nivel: Number(m.nivel) || 0, semilla, jugadores: lista(sala), modo: sala.modo, arena: sala.arena, apuesta });
+            const inicio = { t: 'empezar', nivel: Number(m.nivel) || 0, semilla, jugadores: lista(sala), modo: sala.modo, arena: sala.arena, apuesta };
+            if (sala.modo === 'troll') empezarNoche(sala, inicio);
+            else difundir(sala, inicio);
             return;
         }
         case 'estado':
         case 'evento': {
             const sala = ws.sala;
             if (!sala) return;
-            // se reenvía a los demás; 'para' permite mandarle algo a un solo jugador
-            const salida = JSON.stringify({ ...m, de: ws.id });
+            // Noche del Troll: el veredicto del Juicio lo manda el anfitrión; el servidor le agrega si el
+            // expulsado era el troll (solo él lo sabe) y se lo manda a TODOS, también al anfitrión
+            if (m.tipo === 'nocheVeredicto') {
+                if (sala.modo !== 'troll' || ws.id !== sala.anfitrion) return;
+                const fuera = Number.isInteger(m.fuera) ? m.fuera : null;
+                difundir(sala, { ...m, fuera, era: fuera != null && !!sala.trolls?.has(fuera), de: ws.id });
+                return;
+            }
+            // y el final de la noche: recién ahí se dice quiénes eran los trolls (a todos)
+            if (m.tipo === 'nocheFin') {
+                if (sala.modo !== 'troll' || ws.id !== sala.anfitrion) return;
+                difundir(sala, { ...m, trolls: [...(sala.trolls || [])], de: ws.id });
+                return;
+            }
+            // se reenvía a los demás; 'para' permite mandarle algo a un solo jugador.
+            // 'anonimo' (Noche del Troll: trampas, apagón…): sin 'de', para que nadie sepa quién fue
+            const salida = JSON.stringify(m.anonimo ? m : { ...m, de: ws.id });
             for (const [id, j] of sala.jugadores) {
                 if (id === ws.id) continue;
                 if (m.para != null && m.para !== id) continue;
@@ -224,6 +249,22 @@ function atender(ws, m) {
             }
             return;
         }
+    }
+}
+
+// La Noche del Troll: bots hasta llegar a 4 y los trolls sorteados entre las personas (los bots
+// solo son héroes). Cada jugador recibe SU rol; los compañeros trolls, solo los trolls.
+function empezarNoche(sala, inicio) {
+    const ids = [...sala.jugadores.keys()];
+    const bots = Array.from({ length: Math.max(0, MIN_NOCHE - ids.length) }, (_, i) =>
+        ({ id: -(i + 1), nombre: NOMBRES_BOT[i % NOMBRES_BOT.length], pj: [...PERSONAJES][(i * 3 + 1) % PERSONAJES.size], bot: true }));
+    const cuantos = ids.length + bots.length >= 7 ? 2 : 1;
+    const trolls = new Set();
+    while (trolls.size < cuantos) trolls.add(ids[Math.floor(Math.random() * ids.length)]);
+    sala.trolls = trolls;
+    for (const j of sala.jugadores.values()) {
+        const esTroll = trolls.has(j.id);
+        enviar(j.ws, { ...inicio, bots, rol: esTroll ? 'troll' : 'heroe', compas: esTroll ? [...trolls].filter(id => id !== j.id) : [] });
     }
 }
 

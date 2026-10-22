@@ -89,8 +89,10 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
         </div>`;
 
     // ---------- capa de configuración ----------
+    // A pantalla completa y sin desplazarse hacia abajo, como la tienda (usa su mismo armado: tienda-capa,
+    // tienda-pestanas…): a la izquierda las secciones y a la derecha los ajustes de la sección elegida
     const capaAjustes = document.createElement('div');
-    capaAjustes.className = 'menu-capa';
+    capaAjustes.className = 'menu-capa tienda-capa ajustes-capa';
     capaAjustes.hidden = true;
     const grupo = (clave, titulo, opciones, nota = '') => `
         <fieldset class="menu-grupo">
@@ -101,61 +103,82 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
             </div>
             ${nota ? `<p class="menu-nota" data-nota="${clave}">${nota}</p>` : ''}
         </fieldset>`;
+    const SECCIONES = [['juego', '🎮', 'Juego'], ['controles', '🕹', 'Controles'], ['pantalla', '🖥', 'Pantalla'], ['sonido', '🔊', 'Sonido']];
     capaAjustes.innerHTML = `
-        <div class="menu-panel menu-panel-ancho" role="dialog" aria-modal="true" aria-labelledby="titulo-ajustes">
-            <h2 id="titulo-ajustes">CONFIGURACIÓN</h2>
-            <div class="menu-contenido">
-                ${grupo('dificultad', 'Dificultad', DIFICULTADES, ' ')}
-                ${grupo('camara', 'Cámara', CAMARAS, 'Lejos: ves más plataformas al saltar')}
-                <fieldset class="menu-grupo">
-                    <legend>Gráficos</legend>
-                    <div class="menu-opciones">
-                        ${Object.entries(GRAFICOS).map(([v, o]) =>
-                            `<button type="button" class="menu-opcion" data-clave="graficos" data-valor="${v}">${o.nombre}</button>`).join('')}
-                    </div>
-                    <p class="menu-nota">Rápidos: mejor para celulares · Nítidos: se ve mejor pero pesa más</p>
-                    <button type="button" class="menu-boton" data-accion="reabrir" hidden>↻ Aplicar (vuelve a abrir el juego)</button>
-                </fieldset>
-                <fieldset class="menu-grupo">
-                    <legend>Volumen</legend>
-                    <div class="menu-volumen">
-                        <input type="range" min="0" max="100" step="5" id="ajuste-volumen" aria-label="Volumen">
-                        <output for="ajuste-volumen" id="valor-volumen"></output>
-                    </div>
-                </fieldset>
-                ${document.body.classList.contains('movil') ? `
-                <fieldset class="menu-grupo">
-                    <legend>Botones táctiles</legend>
-                    <div class="menu-opciones">
-                        ${Object.entries(BOTONES).map(([v, o]) =>
-                            `<button type="button" class="menu-opcion" data-clave="botones" data-valor="${v}">${o.nombre}</button>`).join('')}
-                    </div>
-                    <button type="button" class="menu-boton" data-accion="mover-botones">✥ Mover botones</button>
-                </fieldset>` : ''}
-                ${grupo('voz', 'Chat de voz (en línea)', VOCES, 'Pulsar: mantén 🎤 o Q para hablar · Abierto: 🎤 o Q te silencia')}
-                <fieldset class="menu-grupo">
-                    <legend>Para probar</legend>
-                    <div class="menu-opciones">
-                        <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="false">Normal</button>
-                        <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="true">Ver colisiones</button>
-                    </div>
-                    <div class="menu-opciones">
-                        <button type="button" class="menu-opcion" data-clave="fps" data-valor="false">Sin FPS</button>
-                        <button type="button" class="menu-opcion" data-clave="fps" data-valor="true">Ver FPS</button>
-                    </div>
-                </fieldset>
-                <fieldset class="menu-grupo">
-                    <legend>Cadena (2 jugadores)</legend>
-                    <div class="menu-opciones">
-                        <button type="button" class="menu-opcion" data-clave="cadena" data-valor="false">No</button>
-                        <button type="button" class="menu-opcion" data-clave="cadena" data-valor="true">Sí, mismo teclado</button>
-                    </div>
-                    <p class="menu-nota">J1: flechas, ↓ anclar · J2: A D, W saltar, S anclar<br>Se aplica al reiniciar el nivel</p>
-                </fieldset>
+        <div class="menu-panel tienda-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-ajustes">
+            <div class="tienda-cabecera">
+                <h2 id="titulo-ajustes">CONFIGURACIÓN</h2>
+                <button type="button" class="tienda-cerrar" data-accion="volver" aria-label="Cerrar la configuración">✕</button>
             </div>
-            <div class="menu-fila">
-                <button type="button" class="menu-boton" data-accion="volver">← Volver</button>
-                ${APP ? '<button type="button" class="menu-boton menu-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
+            <div class="tienda-cuerpo">
+                <nav class="tienda-pestanas" role="tablist" aria-label="Secciones">${SECCIONES.map(([id, icono, nombre]) => `
+                    <button type="button" class="tienda-pestana" role="tab" data-seccion="${id}">
+                        <span class="tienda-pestana-icono" aria-hidden="true">${icono}</span><span>${nombre}</span>
+                    </button>`).join('')}
+                    ${APP ? '<button type="button" class="menu-boton menu-salir ajustes-salir" data-accion="cerrar">✕ Salir del juego</button>' : ''}
+                </nav>
+                <div class="ajustes-zona">
+                    <div class="ajustes-seccion" data-panel="juego">
+                        ${grupo('dificultad', 'Dificultad', DIFICULTADES, ' ')}
+                        ${grupo('camara', 'Cámara', CAMARAS, 'Lejos: ves más plataformas al saltar')}
+                    </div>
+                    <div class="ajustes-seccion" data-panel="controles" hidden>
+                        ${document.body.classList.contains('movil') ? `
+                        <fieldset class="menu-grupo">
+                            <legend>Botones táctiles</legend>
+                            <div class="menu-opciones">
+                                ${Object.entries(BOTONES).map(([v, o]) =>
+                                    `<button type="button" class="menu-opcion" data-clave="botones" data-valor="${v}">${o.nombre}</button>`).join('')}
+                            </div>
+                            <button type="button" class="menu-boton" data-accion="mover-botones">✥ Mover botones</button>
+                        </fieldset>` : `
+                        <fieldset class="menu-grupo">
+                            <legend>Teclado</legend>
+                            <p class="menu-nota ajustes-teclas">← → caminar · ↑ saltar · ↓ anclar<br>ESPACIO, X, C: habilidades · V, B: poderes<br>P o Esc: pausa · T: tienda · F: pantalla completa</p>
+                        </fieldset>`}
+                        <fieldset class="menu-grupo">
+                            <legend>Cadena (2 jugadores)</legend>
+                            <div class="menu-opciones">
+                                <button type="button" class="menu-opcion" data-clave="cadena" data-valor="false">No</button>
+                                <button type="button" class="menu-opcion" data-clave="cadena" data-valor="true">Sí, mismo teclado</button>
+                            </div>
+                            <p class="menu-nota">J1: flechas, ↓ anclar · J2: A D, W saltar, S anclar<br>Se aplica al reiniciar el nivel</p>
+                        </fieldset>
+                    </div>
+                    <div class="ajustes-seccion" data-panel="pantalla" hidden>
+                        <fieldset class="menu-grupo">
+                            <legend>Gráficos</legend>
+                            <div class="menu-opciones">
+                                ${Object.entries(GRAFICOS).map(([v, o]) =>
+                                    `<button type="button" class="menu-opcion" data-clave="graficos" data-valor="${v}">${o.nombre}</button>`).join('')}
+                            </div>
+                            <p class="menu-nota">Rápidos: mejor para celulares · Nítidos: se ve mejor pero pesa más</p>
+                            <button type="button" class="menu-boton" data-accion="reabrir" hidden>↻ Aplicar (vuelve a abrir el juego)</button>
+                        </fieldset>
+                        <fieldset class="menu-grupo">
+                            <legend>Para probar</legend>
+                            <div class="menu-opciones">
+                                <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="false">Normal</button>
+                                <button type="button" class="menu-opcion" data-clave="colisiones" data-valor="true">Ver colisiones</button>
+                            </div>
+                            <div class="menu-opciones">
+                                <button type="button" class="menu-opcion" data-clave="fps" data-valor="false">Sin FPS</button>
+                                <button type="button" class="menu-opcion" data-clave="fps" data-valor="true">Ver FPS</button>
+                            </div>
+                            <p class="menu-nota">FPS: en línea también muestra el ping y la red</p>
+                        </fieldset>
+                    </div>
+                    <div class="ajustes-seccion" data-panel="sonido" hidden>
+                        <fieldset class="menu-grupo">
+                            <legend>Volumen</legend>
+                            <div class="menu-volumen">
+                                <input type="range" min="0" max="100" step="5" id="ajuste-volumen" aria-label="Volumen">
+                                <output for="ajuste-volumen" id="valor-volumen"></output>
+                            </div>
+                        </fieldset>
+                        ${grupo('voz', 'Chat de voz (en línea)', VOCES, 'Pulsar: mantén 🎤 o Q para hablar · Abierto: 🎤 o Q te silencia')}
+                    </div>
+                </div>
             </div>
         </div>`;
 
@@ -202,6 +225,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
         ocultar(capaPausa);
         marcar();
         mostrar(capaAjustes);
+        capaAjustes.querySelector(`[data-seccion="${seccion}"]`)?.focus({ preventScroll: true });
     }
 
     // tienda en medio de un nivel: el juego queda en pausa mientras está abierta.
@@ -256,6 +280,17 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
         valorVolumen.textContent = `${ajustes.volumen}%`;
     }
 
+    let seccion = 'juego';
+    function verSeccion(id) {
+        seccion = id;
+        capaAjustes.querySelectorAll('[data-seccion]').forEach(b => {
+            b.classList.toggle('activa', b.dataset.seccion === id);
+            b.setAttribute('aria-selected', String(b.dataset.seccion === id));
+        });
+        capaAjustes.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== id; });
+    }
+    verSeccion(seccion);
+    capaAjustes.addEventListener('click', e => { const b = e.target.closest('[data-seccion]'); if (b) verSeccion(b.dataset.seccion); });
     capaAjustes.addEventListener('click', e => {
         const b = e.target.closest('.menu-opcion');
         if (!b) return;

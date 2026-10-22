@@ -8,6 +8,9 @@
 // mensajes para conectarse (eventos 'voz' con 'para': no hubo que cambiar el servidor).
 // Quien tiene la voz activada escucha a los demás que también la activaron.
 //
+// Voz por cercanía (La Noche del Troll): troll.js da una función con el volumen de cada jugador
+// (usarVolumenVoz); se aplica varias veces por segundo. Sin ella, todos se oyen igual.
+//
 // Redes que no permiten la conexión directa (algunos datos móviles o redes de empresa) necesitan
 // un servidor TURN: cuando esté instalado en el VPS, se completa TURN abajo y listo.
 
@@ -34,6 +37,9 @@ const voz = {
 const abierto = () => ajustes.voz === 'abierto';
 
 export const vozActiva = () => voz.activa;
+// volumen de cada jugador (id -> 0..1) o null: todos al máximo
+let volumenDe = null;
+export const usarVolumenVoz = fn => { volumenDe = fn; };
 export const estaHablando = id => voz.hablando.has(id);
 const enPartidaEnLinea = () => red.enPartida && red.conectado && red.tuId != null;
 
@@ -233,12 +239,22 @@ export function iniciarVoz(juego) {
     });
     document.addEventListener('keyup', e => { if (e.key.toLowerCase() === 'q') soltar(); });
 
+    // voz por cercanía: el volumen de cada uno
+    setInterval(() => {
+        voz.conexiones.forEach((c, id) => {
+            if (!c.audio) return;
+            let v = 1;
+            try { v = volumenDe ? Math.max(0, Math.min(1, Number(volumenDe(id)) || 0)) : 1; } catch (_e) { v = 1; }
+            if (Math.abs(c.audio.volume - v) > 0.01) c.audio.volume = v;
+        });
+    }, 100);
+
     // cada tanto: mostrar/ocultar el botón y bajar el juego mientras alguien habla
     setInterval(() => {
         actualizarBoton();
         if (voz.activa && voz.modo !== ajustes.voz) aplicarModo();
         if (!juegoRef?.sound) return;
-        const otrosHablan = [...voz.hablando].some(id => id !== red.tuId);
+        const otrosHablan = [...voz.hablando].some(id => id !== red.tuId && (voz.conexiones.get(id)?.audio?.volume ?? 1) > 0.1);
         if (otrosHablan && volumenBase === null) {
             volumenBase = juegoRef.sound.volume;
             juegoRef.sound.volume = volumenBase * VOLUMEN_JUEGO_HABLANDO;

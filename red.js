@@ -20,7 +20,10 @@ export const red = {
     tuId: null,
     anfitrion: null,
     jugadores: [],    // [{ id, nombre, pj, equipo }] en orden de llegada (= orden de la cadena)
-    modo: 'aventura', // 'aventura' (cadena) | 'duelo' (arena 1 contra 1) | 'equipos' (arena rojo contra azul) | 'carrera'
+    modo: 'aventura', // 'aventura' (cadena) | 'duelo' (arena 1 contra 1) | 'equipos' (arena rojo contra azul) | 'carrera' | 'troll'
+    rol: null,        // (troll) 'troll' | 'heroe': lo reparte el servidor en secreto al empezar
+    compas: [],       // (troll) los otros trolls (solo lo sabe un troll)
+    bots: [],         // (troll) bots de relleno hasta 4: [{ id (negativo), nombre, pj, bot: true }]
     arena: 'bosque',
     apuesta: 0,       // monedas que paga cada jugador en la arena
     publica: false,   // la sala aparece en la búsqueda automática
@@ -111,6 +114,9 @@ function atender(m) {
         red.intento = 0;
         red.modo = m.modo || red.modo;
         red.jugadores = m.jugadores;
+        red.rol = m.rol || null;
+        red.compas = m.compas || [];
+        red.bots = m.bots || [];
     }
     avisar(m.t, m);
 }
@@ -168,3 +174,5 @@ export const enLinea = () => red.enPartida && red.conectado;
 export const enCarrera = () => enLinea() && red.modo === 'carrera';
 // en línea con el mundo compartido (enemigos, trampas, muertes, puntos de control y meta de todos)
 export const mundoCompartido = () => enLinea() && red.modo !== 'carrera';
+// La Noche del Troll (troll.js): mundo compartido, sin cadena y cada uno muere por su cuenta
+export const enNoche = () => enLinea() && red.modo === 'troll';
