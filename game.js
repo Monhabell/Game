@@ -21,7 +21,7 @@ import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actuali
 import { red, enLinea, enCarrera, enNoche, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
 import {
     iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
-    llegarMetaCarrera, recibirPoderCarrera,
+    llegarMetaCarrera, recibirPoderCarrera, tomeMonedaCarrera,
 } from "./carrera.js"
 import { iniciarAbismo, crearFondoAbismo, crearAbismo, actualizarAbismo } from "./abismo.js"
 import { armarPista, pistaDe } from "./pistas.js"
@@ -363,7 +363,11 @@ iniciarCarrera(juego, {
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
     premio: n => sumarMonedas(n),
     pagar: n => gastarMonedas(n),
+    // la carrera terminó (o me voy): se guardan las monedas juntadas que no llegaron a un punto de control
+    guardarMonedas: scene => guardarBolsa(scene),
     salir: () => {
+        const nivel = juego.scene.getScene('juego');
+        if (nivel?.bolsa) guardarBolsa(nivel);
         terminarCarrera();
         terminarNoche();
         if (red.codigo) salirSala();
@@ -2429,6 +2433,20 @@ function usarHabilidad(scene, tecla) {
     });
 }
 
+// los proyectiles no tienen distancia fija: siguen de largo hasta chocar con una pared o salir de
+// la pantalla (con un tope de tiempo por si acaso)
+const PROYECTIL_MAX_MS = 6000;
+const PROYECTIL_MARGEN = 80; // px fuera de la vista antes de quitarlo
+function fueraDeVista(scene, x, y) {
+    const v = scene.cameras.main.worldView;
+    return x < v.x - PROYECTIL_MARGEN || x > v.right + PROYECTIL_MARGEN || y < v.y - PROYECTIL_MARGEN || y > v.bottom + PROYECTIL_MARGEN;
+}
+function limpiarProyectiles(scene) {
+    scene.flechasGrupo?.getChildren().slice().forEach(p => {
+        if (p.nace != null && (fueraDeVista(scene, p.x, p.y) || scene.time.now - p.nace > PROYECTIL_MAX_MS)) p.destroy();
+    });
+}
+
 function ejecutarHabilidad(scene, h) {
     const g = scene.mascotaGesi, b = g.body;
     const dir = g.flipX ? -1 : 1;
@@ -2444,7 +2462,7 @@ function ejecutarHabilidad(scene, h) {
         p.congela = h.congela || 0;
         p.body.setAllowGravity(false);
         p.setVelocityX(dir * h.vel);
-        scene.time.delayedCall(h.vida, () => p.active && p.destroy());
+        p.nace = scene.time.now; // (sigue de largo: se quita al salir de la pantalla, ver limpiarProyectiles)
     } else if (h.tipo === 'golpe' || h.tipo === 'rayo') {
         // golpea a todos los enemigos en una franja delante del personaje (o a los dos lados: torbellino)
         const daño = h.daño ?? (h.tipo === 'rayo' ? 2 : 1);
@@ -2630,6 +2648,7 @@ function collectCoin(_mascotaGesi, coin) {
     this.sound.play('moneda');
     addToScore(100, coin, this);
     sumarABolsa(this);
+    if (this.carrera) tomeMonedaCarrera(coin); // (en la carrera, la que tomo ya no está para los demás)
 }
 
 // moneda juntada: a la bolsa (se guarda al activar un punto de control o al terminar el nivel)
@@ -2753,7 +2772,8 @@ function completarNivel(mascotaGesi) {
     this.sound.play('victoria');
     encenderFaro(this);
     // carrera: llegar es avisar (gana el primero); no hay premios del nivel ni se pasa al siguiente
-    if (this.carrera) { llegarMetaCarrera(this); return; }
+    // (las monedas juntadas desde el último punto de control sí se guardan)
+    if (this.carrera) { guardarBolsa(this); llegarMetaCarrera(this); return; }
     addToScore(1000, mascotaGesi, this);
     guardarBolsa(this);
     // premio: un poder especial (seguro la primera vez que se termina este nivel)
@@ -2906,6 +2926,7 @@ function trampasNivel1(scene) {
 
 function update(time, delta) {
     actualizarCiclos(this);
+    limpiarProyectiles(this);
     actualizarJugador.call(this, time, delta);
     if (this.compa || this.cadenaRed) actualizarCadena(this, time);
     actualizarMecanismos(this);

@@ -23,7 +23,8 @@
 // El troll (jefes.js) sigue el mismo esquema: lo maneja el anfitrión, viaja junto con los enemigos
 // y cada ataque se avisa con un "jefeFx".
 // En la CARRERA (carrera.js) no se comparte nada de eso: cada uno corre en su mundo (sus enemigos, sus
-// trampas, sus muertes) y los demás se ven como fantasmas que no tocan nada; solo viaja la posición.
+// trampas, sus muertes) y los demás se ven como fantasmas que no tocan nada; solo viaja la posición
+// (y los enemigos que alguien mata: mueren también en las demás pantallas).
 
 import { PERSONAJES, resDe } from "./personajes.js"
 import { prepararVariante } from "./vestidor.js"
@@ -63,8 +64,8 @@ export function iniciarMultijugador(juegoPhaser, g) {
         if (!scene.remotos || (m.nivel != null && m.nivel !== ganchos.nivelActual())) return;
         // de otro intento (alguien todavía no reaparece, o ya reapareció y yo no): otro reparto, no se mezcla
         if (m.vez != null && scene.intento != null && m.vez !== scene.intento) return;
-        // carrera: de los demás solo se ven sus poderes (lo demás pasa en el mundo de cada uno)
-        if (enCarrera() && m.tipo !== 'poder' && m.tipo !== 'poderEsp') return;
+        // carrera: de los demás solo se ven sus poderes y los enemigos que matan (lo demás pasa en el mundo de cada uno)
+        if (enCarrera() && m.tipo !== 'poder' && m.tipo !== 'poderEsp' && m.tipo !== 'enemigo') return;
         switch (m.tipo) {
             case 'muerte': ganchos.morir(scene, nombreDe(m.de)); break;
             case 'checkpoint': {
@@ -252,7 +253,8 @@ export function avisarMuerte() {
     enviarEvento('muerte', { intento: red.intento, nivel: nivel() });
 }
 export const avisarCheckpoint = x => mundoCompartido() && enviarEvento('checkpoint', { x, ...marca() });
-export const avisarEnemigo = id => mundoCompartido() && enviarEvento('enemigo', { id, ...marca() });
+// (también en la carrera: los enemigos del armado de la pista tienen el mismo número en todas las pantallas)
+export const avisarEnemigo = id => (mundoCompartido() || enCarrera()) && enviarEvento('enemigo', { id, ...marca() });
 export const avisarJefe = cantidad => mundoCompartido() && enviarEvento('jefe', { cantidad, ...marca() });
 export const avisarMeta = () => mundoCompartido() && enviarEvento('meta', { ...marca() });
 export function avisarPoder(scene, tecla) {
@@ -287,7 +289,9 @@ function poderRemoto(scene, m) {
         const p = scene.add.sprite(x, y, h.textura).setScale(h.escala || 1).setFlipX(m.dir < 0).setDepth(33);
         if (h.animProyectil) p.anims.play(h.animProyectil, true);
         if (h.tinte) p.setTint(h.tinte);
-        scene.tweens.add({ targets: p, x: x + m.dir * h.vel * h.vida / 1000, duration: h.vida, onComplete: () => p.destroy() });
+        // (sigue de largo, como en la pantalla de quien lo lanzó: hasta salir de la vista)
+        const ms = 2500;
+        scene.tweens.add({ targets: p, x: x + m.dir * h.vel * ms / 1000, duration: ms, onComplete: () => p.destroy() });
         if (h.sonido) scene.sound.play(h.sonido, { volume: 0.3, rate: h.rate || 1 });
     });
 }

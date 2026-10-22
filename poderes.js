@@ -515,7 +515,9 @@ function golpearRadio(scene, p, x, y, r, remoto, jefe = 2) {
     alterarAlJefe(scene, p, zonaCirculo(x, y, r));
 }
 
-// proyectil (también ola y meteoro): se mueve en update y revisa los choques
+// proyectil (también ola y meteoro): se mueve en update y revisa los choques.
+// No tiene distancia fija: sigue de largo hasta salir de la pantalla (tope LARGO_MAX_MS)
+const LARGO_MAX_MS = 6000;
 function proyectil(scene, p, x, y, vx, vy, remoto, extra = {}) {
     const s = efecto(scene, claveEfecto(p), x, y, { escala: (p.escala || 1) * (extra.escala || 0.8), tinte: p.tinte, flip: vx < 0, bucle: true, origenY: extra.origenY ?? 0.5 });
     if (!s) return;
@@ -772,7 +774,10 @@ export function actualizarPoderes(scene, time, delta) {
             s.destroy();
             return false;
         }
-        if (time - q.nace > q.vida) {
+        // los que se lanzan siguen de largo hasta salir de la pantalla (los meteoros, hasta el suelo)
+        const v = scene.cameras.main.worldView;
+        const fuera = s.x < v.x - 80 || s.x > v.right + 80 || s.y < v.y - 80 || s.y > v.bottom + 80;
+        if (q.sueloY === undefined ? fuera || time - q.nace > LARGO_MAX_MS : time - q.nace > q.vida) {
             s.destroy();
             return false;
         }

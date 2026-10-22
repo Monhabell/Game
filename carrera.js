@@ -34,7 +34,14 @@
 //     anuncia 'carreraFin' con el ganador (el de menor tiempo) y el orden de todos.
 //   - Si todos los rivales se van de la sala, el que queda gana.
 //
-// api (la da game.js): { mensaje(scene, texto, ms), premio(monedas), pagar(monedas), salir(),
+// MONEDAS: las del camino son las mismas para todos y cada una se la lleva EL PRIMERO que la toma: en
+//   las demás pantallas desaparece (con el nombre de quien se la llevó) y no vuelve aunque reaparezcas.
+//   Al llegar, al terminar la carrera (aunque gane otro) o al salir, se guardan las que no llegaron a un
+//   punto de control. (Si dos la toman casi a la vez, se la llevan los dos.)
+// ENEMIGOS: los del armado de la pista tienen el mismo número en todas las pantallas; si alguien mata
+//   uno, muere también en las demás (multijugador.js: 'enemigo').
+//
+// api (la da game.js): { mensaje(scene, texto, ms), premio(monedas), pagar(monedas), guardarMonedas(scene), salir(),
 //   volverASala(), revancha(nivel), morir(scene) }
 
 import { red, alRecibir, enviarEvento, esAnfitrion, informarSaldo } from "./red.js"
@@ -72,6 +79,7 @@ export function iniciarCarrera(juegoPhaser, ganchos) {
         else if (m.tipo === 'carreraFin') terminar(m);
         else if (m.tipo === 'carreraOtra' && carrera.fin && esAnfitrion()) { (carrera.piden ||= new Set()).add(m.de); pintarPiden(); }
         else if (m.tipo === 'carreraGolpe' && m.para === red.tuId) avisarGolpe(m);
+        else if (m.tipo === 'carreraMoneda') seLlevoMoneda(m.de, String(m.k));
     });
     // se fueron todos los rivales: el que queda gana (lo anuncia él mismo, ya es el anfitrión)
     alRecibir('sala', () => {
@@ -93,11 +101,31 @@ export function empezarCarrera({ pista, jugadores }) {
         salida: Date.now() + CUENTA_MS,
         avance: new Map(),   // id -> fracción del recorrido (0 a 1)
         llegadas: new Map(), // (anfitrión) id -> ms que tardó
+        tomadas: new Set(),  // monedas que se llevaron los demás (no vuelven al reaparecer)
         fin: null,
     };
     crearHud(jugadores);
 }
 export const terminarCarrera = () => { carrera = null; cerrarFin(); quitarHud(); cuentaEl?.remove(); cuentaEl = null; };
+
+// ---------- monedas: el primero que llega se la lleva ----------
+// (game.js) tomé una moneda del camino: que desaparezca en las demás pantallas
+export function tomeMonedaCarrera(moneda) {
+    if (!carrera || !moneda.clave || moneda.trampa) return;
+    enviarEvento('carreraMoneda', { k: moneda.clave });
+}
+// otro se llevó una: desaparece aquí, con su nombre encima
+function seLlevoMoneda(quien, clave) {
+    carrera.tomadas.add(clave);
+    const scene = escena();
+    const m = scene?.coins?.getChildren().find(c => c.clave === clave && c.active && c.body?.enable);
+    if (!m) return;
+    m.disableBody(true, false);
+    const etiqueta = scene.add.text(m.x, m.y - 14, nombreDe(quien), {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '6px', color: colorDe(quien), stroke: '#000', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(42);
+    scene.tweens.add({ targets: [m, etiqueta], y: '-=26', alpha: 0, duration: 650, ease: 'Quad.out', onComplete: () => { m.destroy(); etiqueta.destroy(); } });
+}
 
 // ---------- en el nivel ----------
 // al crear la escena (también al reaparecer después de morir)
@@ -110,6 +138,8 @@ export function prepararCarrera(scene, nivel, inicioX) {
     carrera.peligros ??= peligrosDe(nivel);
     carrera.zonas ??= nivel.zonas?.length ? [...nivel.zonas].sort((a, b) => a[0] - b[0]) : null;
     letreroMeta(scene, nivel.meta);
+    // (las que ya se llevaron los demás no están)
+    scene.coins?.getChildren().forEach(m => { if (carrera.tomadas.has(m.clave)) m.destroy(); });
     if (carrera.fin) { scene.cinematica = true; return; }
     const falta = carrera.salida - Date.now();
     if (falta <= 0) return;
@@ -274,8 +304,9 @@ function terminar(m) {
     setTimeout(() => ganarXP(XP.carrera[puesto] ?? XP.carreraOtros, escena()?.pj?.id, { victoria: puesto === 0 }), 2600);
     const premio = pagos.get(red.tuId) || 0;
     if (premio) api.premio(premio);
-    informarSaldo(saldo()); // (para la próxima: la sala revisa que alcance para la apuesta)
     const scene = escena();
+    if (scene) api.guardarMonedas(scene); // (las del camino no se pierden aunque gane otro)
+    informarSaldo(saldo()); // (para la próxima: la sala revisa que alcance para la apuesta)
     if (scene) {
         scene.cinematica = true;
         if (!mio) {
