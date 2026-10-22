@@ -93,6 +93,21 @@ function nodoCerca(x, pie) {
     return mejor;
 }
 
+// para las flechas (troll.js): hacia dónde ir AHORA para llegar de (x, pie) a (tx, tp) por el camino
+// (el zigzag, el ascensor…) y no en línea recta. null: ya está cerca o se va derecho
+export function guia(x, pie, tx, tp) {
+    const desde = nodoCerca(x, pie), hasta = nodoCerca(tx, tp);
+    if (desde === hasta) return null;
+    const pasos = ruta(desde, hasta);
+    if (!pasos.length) return null;
+    // el ascensor en los próximos pasos: la flecha lleva a su base (o a su parada de arriba) y lo dice
+    if (pasos.slice(0, 3).some(([, t]) => t === 'ascensor')) return { x: NODOS.ascB[0], pie: pie < S - 100 ? COPA_Y : S, tipo: 'ascensor' };
+    let [n, tipo] = pasos[0];
+    // (si ya está junto al primero, el que sigue)
+    if (Math.hypot(NODOS[n][0] - x, NODOS[n][1] - pie) < 60 && pasos[1]) [n, tipo] = pasos[1];
+    return { x: NODOS[n][0], pie: NODOS[n][1], tipo };
+}
+
 // adónde va cada encargo (recoger: un nodo por cosa; llevar: ida y vuelta)
 const PASOS_ENCARGO = {
     luciernagas: ['luc1', 'luc2', 'copa3'], hongos: ['hongo1', 'hongo2', 'hongo3'],

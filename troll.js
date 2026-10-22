@@ -28,6 +28,10 @@
 //   2 🌑 Apagón: 10 s de oscuridad para todos; solo se ve alrededor de cada uno (el troll ve un poco más).
 //   3 ✋ Empujón: empuja lejos al jugador que tienes pegado (a un precipicio, al río…).
 //   4 💨 Apagar antorcha: junto a una encendida, QUIETO 3 s: se apaga y hay que volver a encenderla.
+//   5 🗡️ Atacar: elimina al héroe (o bot) que tiene pegado. El troll y la víctima ven la ANIMACIÓN en
+//      pantalla completa (el troll se lanza con su ataque, la víctima cae); quien esté cerca ve el
+//      zarpazo en el bosque. El aviso le llega SOLO a la víctima ('para') y el servidor revisa que quien
+//      ataca sea de verdad un troll; los demás solo ven el zarpazo (anónimo) y, después, el cuerpo.
 //   Cada poder tiene su tiempo de espera. Las trampas, el apagón y las antorchas apagadas se mandan
 //   ANÓNIMOS (el servidor no dice de quién vienen: 'anonimo' en servidor/index.js).
 //
@@ -62,6 +66,15 @@
 //   por sus encargos y el troll por los héroes que cayeron). El anfitrión puede empezar otra noche
 //   (roles nuevos) o volver a la sala.
 //
+// FLECHAS: en el borde de la pantalla, una flecha por cada cosa pendiente que no se ve (mis encargos en
+//   amarillo, las antorchas apagadas en naranja; con todas encendidas, el altar). La del objetivo más
+//   cercano es más grande y sigue el CAMINO (bots.js: guia): si hay que subir por el zigzag o tomar el
+//   ascensor, apunta ahí primero y lo dice.
+//
+// RELOJ DE LA NOCHE: el ascensor y el tronco del río se mueven con el reloj de la sala (game.js); en la
+//   noche ese reloj cuenta desde que empezó la partida y no vuelve a cero cuando alguien reaparece (si no,
+//   al morir el anfitrión el ascensor saltaba en todas las pantallas y se veía gente flotando).
+//
 // api (la da game.js): { mensaje(scene, texto, ms), morir(scene), premio(monedas), revancha(), salir(),
 //   volverASala() }
 
@@ -74,8 +87,9 @@ import { ANTORCHAS_NOCHE, ALTAR_NOCHE, CASCADA, TRONCO_HUECO, ENCARGOS } from ".
 import { resDe } from "./personajes.js"
 import { iniciarJuicio, abrirJuicio, cerrarJuicio, juicioActivo } from "./juicio.js"
 import { usarVolumenVoz } from "./voz.js"
+import { urlHoja } from "./vestidor.js"
 import {
-    iniciarBots, empezarBots, terminarBots, crearDibujosBots, actualizarBots, botsVivos, empujarBot, matarBot, botsAlClaro,
+    iniciarBots, empezarBots, terminarBots, crearDibujosBots, actualizarBots, botsVivos, empujarBot, matarBot, botsAlClaro, guia,
 } from "./bots.js"
 
 const REVELACION_MS = 5000;
@@ -91,7 +105,9 @@ const PODERES = [
     { id: 'apagon', tecla: '2', icono: '🌑', nombre: 'Apagón', canal: 0, espera: 50000 },
     { id: 'empujon', tecla: '3', icono: '✋', nombre: 'Empujón', canal: 0, espera: 15000 },
     { id: 'apagar', tecla: '4', icono: '💨', nombre: 'Apagar', canal: 3000, espera: 60000 },
+    { id: 'atacar', tecla: '5', icono: '🗡️', nombre: 'Atacar', canal: 0, espera: 30000 },
 ];
+const ATAQUE_MS = 1900;  // lo que dura la animación del ataque en pantalla
 const APAGON_MS = 10000;
 const CLARO_LIBRE = 300;      // px alrededor del altar donde no se pueden poner trampas (en el suelo)
 const EMPUJE_X = 55, EMPUJE_Y = 50; // qué tan pegado hay que estar para empujar
@@ -163,6 +179,9 @@ export function iniciarNoche(ganchos) {
             case 'nocheApagon': apagon(); break;
             case 'nocheEmpuje': if (m.para === red.tuId) empujado(m.dir); break;
             case 'nocheEmpujeBot': if (esAnfitrion()) empujarBot(m.id, m.dir, escenaNoche()?.time.now ?? 0); break;
+            case 'nocheAtaque': if (m.para === red.tuId) meAtacan(m); break;
+            case 'nocheAtaqueBot': if (esAnfitrion()) { const b = botsVivos().find(x => x.id === m.id); if (b) muereBot(b, b.x, b.pie); } break;
+            case 'nocheZarpazo': zarpazo(Number(m.x), Number(m.y), m.dir); break;
             case 'nocheApagar': if (esAnfitrion()) apagarAntorcha(m.i); break;
             case 'nocheLuz': sumarLuz(); break;
             case 'nocheVisible': encargoVisible(m.id); break;
@@ -210,6 +229,7 @@ export function empezarNoche({ jugadores }) {
         trollsFuera: new Set(), // trolls expulsados en un juicio
         expulsados: new Set(),  // todos los expulsados (héroes y trolls)
         fin: Date.now() + NOCHE_MS, // cuándo se acaba la noche (se corre con cada juicio)
+        t0: Date.now(),  // (el reloj de la sala: ascensor y tronco del río)
         pausaDesde: 0,
         trollsReales: null,     // al final, el servidor dice quiénes eran
         textoFin: '',
@@ -225,6 +245,9 @@ export function empezarNoche({ jugadores }) {
     usarVolumenVoz(volumenDe);
     empezarBots(red.bots, red.semilla);
 }
+
+// ms desde que empezó la noche (game.js arranca con esto el reloj de la sala al rearmar el nivel)
+export const relojNoche = () => (noche ? Date.now() - noche.t0 : 0);
 
 // fuera del juego: un héroe muerto o expulsado, o un troll expulsado
 const fuera = id => noche.muertos.has(id) || noche.trollsFuera.has(id);
@@ -270,6 +293,9 @@ export function terminarNoche() {
     quitarHud();
     quitarBarraTroll();
     quitarLista();
+    quitarFlechas();
+    capaAtaque?.remove();
+    capaAtaque = null;
 }
 
 // al crear el nivel: el bosque (antorchas, altar, cascada), la revelación (la primera vez),
@@ -292,6 +318,7 @@ export function prepararNoche(scene) {
     crearHud();
     pintarHud();
     crearLista();
+    crearFlechas();
     if (!noche.revelado) {
         noche.revelado = true;
         mostrarRevelacion();
@@ -302,6 +329,7 @@ export function prepararNoche(scene) {
 export function actualizarNoche(scene, time) {
     if (!noche || !scene.nocheAntorchas) return;
     actualizarBots(scene, time, scene.game.loop.delta);
+    pintarFlechas(scene, time);
     if (juicioActivo()) return; // (todo se detiene mientras se vota)
     pintarTiempo();
     if (esAnfitrion() && !noche.ganador && Date.now() > noche.fin) terminar('troll', 'Se acabó la noche: el sol nunca salió.');
@@ -659,6 +687,84 @@ function alcanzable(scene) {
     return mejor;
 }
 
+// ---------- ataque del troll ----------
+// el troll elimina al que tiene pegado: se lanza sobre él, todos ven el zarpazo y los dos, la animación
+function atacar(scene) {
+    const g = scene.mascotaGesi, v = alcanzable(scene);
+    if (!v) return;
+    const dir = v.x < g.x ? -1 : 1;
+    const y = Math.round(g.body.center.y);
+    // el prefijo de animación de la víctima (sus colores) para dibujarla en la animación
+    const victima = v.bot ? botsVivos().find(b => b.id === v.id) : null;
+    const prefijo = v.bot ? victima?.pj.id : scene.remotos?.get(v.id)?.prefijo || noche.jugadores.find(j => j.id === v.id)?.pj;
+    if (v.bot) {
+        if (esAnfitrion()) { if (victima) muereBot(victima, victima.x, victima.pie); }
+        else enviarEvento('nocheAtaqueBot', { id: v.id, anonimo: true });
+    } else enviarEvento('nocheAtaque', { para: v.id, pref: scene.pj?.anim, dir });
+    enviarEvento('nocheZarpazo', { x: Math.round(v.x), y, dir, anonimo: true });
+    zarpazo(v.x, y, dir);
+    // se lanza sobre la víctima
+    g.body.reset(v.x - dir * 12, g.y);
+    g.setFlipX(dir < 0);
+    mostrarAtaque({ atacante: scene.pj?.anim, victima: prefijo, texto: `🗡️ ¡ELIMINASTE A ${nombreDe(v.id).toUpperCase()}!`, soyTroll: true });
+}
+
+// me atacó el troll: la animación y muero (quedo como fantasma, como con una trampa)
+function meAtacan(m) {
+    const scene = escenaNoche(), g = scene?.mascotaGesi;
+    if (!scene || !g || g.isDead || scene.esFantasma || soyTroll() || noche.ganador) return;
+    mostrarAtaque({ atacante: m.pref, victima: scene.pj?.anim, texto: '💀 ¡EL TROLL TE ATRAPÓ!', soyTroll: false });
+    noche.atrapado = true; // (sin el aviso de "moriste": ya lo dice la animación)
+    api.morir(scene);
+}
+
+// en el bosque (lo ve quien esté cerca): un zarpazo rojo y unas chispas
+function zarpazo(x, y, dir = 1) {
+    const scene = escenaNoche();
+    if (!scene || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const g = scene.add.graphics().setDepth(44);
+    [-12, 0, 12].forEach(d => {
+        g.lineStyle(4, 0xff3b4e, 1).beginPath();
+        g.arc(x - dir * 6, y + d, 26, (dir > 0 ? -0.9 : Math.PI - 0.9) + d / 40, (dir > 0 ? 0.9 : Math.PI + 0.9) + d / 40);
+        g.strokePath();
+    });
+    scene.tweens.add({ targets: g, alpha: 0, duration: 650, delay: 150, onComplete: () => g.destroy() });
+    for (let i = 0; i < 8; i++) {
+        const c = scene.add.circle(x, y, 3, 0xff4d5e).setDepth(44);
+        scene.tweens.add({ targets: c, x: x + (Math.random() - 0.5) * 90, y: y + (Math.random() - 0.7) * 70, alpha: 0, duration: 600, onComplete: () => c.destroy() });
+    }
+    scene.sound.play('romper', { volume: 0.6, rate: 0.7 });
+    if (scene.mascotaGesi && Math.abs(scene.mascotaGesi.x - x) < 500) scene.cameras.main.shake(180, 0.006);
+}
+
+// la animación en pantalla completa: el troll se lanza con su ataque y la víctima cae
+let capaAtaque = null;
+function mostrarAtaque({ atacante, victima, texto, soyTroll: esTroll }) {
+    capaAtaque?.remove();
+    const juego = escenaNoche()?.game;
+    const hoja = (prefijo, anim) => {
+        const id = String(prefijo || '').split('~')[0];
+        const pj = PERSONAJES.find(p => p.id === id) || PERSONAJES[0];
+        // (si no tiene esa hoja: su primer ataque, o quieto)
+        const nombre = pj.hojas[anim] ? anim : anim.startsWith('atk') ? Object.keys(pj.hojas).find(k => /^(atk|shot)/.test(k)) || 'idle' : 'idle';
+        const [, n, fps] = pj.hojas[nombre];
+        return `background-image:url('${urlHoja(juego, prefijo || pj.id, nombre)}');--n:${n};--fps:${fps}`;
+    };
+    capaAtaque = document.createElement('div');
+    capaAtaque.className = `noche-ataque ${esTroll ? 'troll' : 'victima'}`;
+    capaAtaque.setAttribute('role', 'alert');
+    capaAtaque.innerHTML = `
+        <div class="noche-ataque-escena">
+            <div class="noche-ataque-pj atacante"><div class="sala-sprite" style="${hoja(atacante, 'atk1')}"></div></div>
+            <div class="noche-ataque-corte" aria-hidden="true"></div>
+            <div class="noche-ataque-pj caido"><div class="sala-sprite izquierda vivo" style="${hoja(victima, 'idle')}"></div><div class="sala-sprite izquierda muerto" style="${hoja(victima, 'dead')}"></div></div>
+        </div>
+        <p>${escapar(texto)}</p>`;
+    document.getElementById('game').append(capaAtaque);
+    const capa = capaAtaque;
+    setTimeout(() => { capa.remove(); if (capaAtaque === capa) capaAtaque = null; }, ATAQUE_MS);
+}
+
 // ---------- poderes del troll: barra, teclas y "quieto" ----------
 const antorchaCerca = (scene, soloEncendida) => {
     const g = scene.mascotaGesi;
@@ -678,7 +784,7 @@ function motivoNo(scene, poder) {
         if (Math.abs(g.body.bottom - SUELO_Y) < 4 && Math.abs(g.body.center.x - ALTAR_NOCHE.x) < CLARO_LIBRE) return 'el claro es sagrado';
         if (antorchaCerca(scene, false) >= 0) return 'muy cerca de una antorcha';
     }
-    if (poder.id === 'empujon' && !alcanzable(scene)) return 'nadie cerca';
+    if ((poder.id === 'empujon' || poder.id === 'atacar') && !alcanzable(scene)) return 'nadie cerca';
     if (poder.id === 'apagar' && (!suelo || antorchaCerca(scene, true) < 0)) return 'ponte junto a una encendida';
     return null;
 }
@@ -718,6 +824,8 @@ function hacerPoder(scene, poder, canal) {
             if (esAnfitrion()) empujarBot(v.id, dir, scene.time.now);
             else enviarEvento('nocheEmpujeBot', { id: v.id, dir, anonimo: true });
         } else if (v) enviarEvento('nocheEmpuje', { para: v.id, dir });
+    } else if (poder.id === 'atacar') {
+        atacar(scene);
     } else if (poder.id === 'apagar' && canal?.i >= 0) {
         if (esAnfitrion()) apagarAntorcha(canal.i);
         else enviarEvento('nocheApagar', { i: canal.i, anonimo: true });
@@ -946,7 +1054,8 @@ export function nocheMuerte(scene, reaparecer) {
     noche.fantasma = [datos.x, datos.y];
     enviarEvento('nocheMuerte', datos);
     muerte(red.tuId, datos);
-    api.mensaje(scene, '💀 MORISTE\nAhora eres un fantasma 👻', 1800);
+    if (!noche.atrapado) api.mensaje(scene, '💀 MORISTE\nAhora eres un fantasma 👻', 1800);
+    noche.atrapado = false;
     reaparecer(1900);
 }
 
@@ -1079,6 +1188,121 @@ function prepararFantasma(scene) {
 function flotar(scene) {
     const g = scene.mascotaGesi;
     if (g && !g.isDead && scene.keys?.up.isDown) g.setVelocityY(-FLOTA);
+}
+
+// ---------- flechas hacia lo pendiente ----------
+const FLECHAS_MS = 100;  // cada cuánto se recalculan
+let flechas = null;
+function crearFlechas() {
+    quitarFlechas();
+    flechas = document.createElement('div');
+    flechas.className = 'noche-flechas';
+    flechas.setAttribute('aria-hidden', 'true');
+    document.getElementById('game').append(flechas);
+    flechas.pintada = 0;
+}
+function quitarFlechas() {
+    flechas?.remove();
+    flechas = null;
+}
+
+// lo pendiente, con su lugar: mis encargos, las antorchas apagadas o (con todas) el altar
+function objetivos() {
+    const lista = [];
+    noche.encargos.forEach(e => {
+        if (e.hecho) return;
+        let x, pie;
+        if (e.tipo === 'recoger') {
+            const k = e.puntos.findIndex((_p, i) => !e.tomados.includes(i));
+            [x, pie] = e.puntos[k];
+            pie += 30; // (la cosa flota sobre el piso)
+        } else if (e.tipo === 'llevar') ({ x, pie } = e.lleva ? e.hasta : e.desde);
+        else ({ x, pie } = e);
+        lista.push({ id: `e-${e.id}`, x, pie, icono: e.icono, clase: 'encargo', texto: e.texto });
+    });
+    if (noche.fuego.every(f => f.lit)) {
+        if (!soyTroll() && !noche.fantasma) lista.push({ id: 'altar', x: ALTAR_NOCHE.x, pie: ALTAR_NOCHE.pie, icono: '🌅', clase: 'altar', texto: 'Altar del Amanecer' });
+    } else if (!noche.fantasma) {
+        ANTORCHAS_NOCHE.forEach((a, i) => {
+            if (!noche.fuego[i].lit) lista.push({ id: `a-${a.id}`, x: a.x, pie: a.pie, icono: '🔥', letra: a.id, clase: 'antorcha', texto: `Antorcha ${a.id} · ${a.nombre}${a.dos ? ' (de a dos)' : ''}` });
+        });
+    }
+    return lista;
+}
+
+const AVISO_TRAMO = { ascensor: '🛗 ascensor', salta: '⬆ sube' };
+// márgenes dentro del juego: arriba el contador, abajo la marca del rol, a la izquierda la lista
+const MARGEN = { arriba: 76, abajo: 58, izq: 34, der: 34 };
+const SEPARA = 34; // dos flechas no quedan más cerca que esto
+function pintarFlechas(scene, time) {
+    if (!flechas || time - flechas.pintada < FLECHAS_MS) return;
+    flechas.pintada = time;
+    const g = scene.mascotaGesi, cam = scene.cameras.main, canvas = scene.game.canvas;
+    if (!g || !canvas || noche.ganador || juicioActivo()) { flechas.innerHTML = ''; flechas.ultimo = ''; return; }
+    const cr = canvas.getBoundingClientRect(), gr = flechas.parentElement.getBoundingClientRect();
+    const wv = cam.worldView;
+    if (!cr.width || !wv.width) return;
+    // el rectángulo donde van las flechas (px dentro del juego) y su centro
+    const caja = { x0: cr.left - gr.left + MARGEN.izq, x1: cr.right - gr.left - MARGEN.der, y0: cr.top - gr.top + MARGEN.arriba, y1: cr.bottom - gr.top - MARGEN.abajo };
+    // la lista de encargos (una flecha que caería encima se corre a su lado)
+    const lr = lista?.getBoundingClientRect();
+    const tapa = lr && { x0: lr.left - gr.left - 18, x1: lr.right - gr.left + 18, y0: lr.top - gr.top - 18, y1: lr.bottom - gr.top + 18 };
+    const enPantalla = (x, y) => [cr.left - gr.left + (x - wv.x) / wv.width * cr.width, cr.top - gr.top + (y - wv.y) / wv.height * cr.height];
+    const px = g.body.center.x, pie = g.body.bottom;
+    // las flechas salen desde el personaje (la cámara no siempre lo tiene en el centro)
+    const [cx, cy] = enPantalla(px, g.body.center.y).map((v, i) => Phaser.Math.Clamp(v, i ? caja.y0 + 1 : caja.x0 + 1, i ? caja.y1 - 1 : caja.x1 - 1));
+    // mis encargos y las 2 antorchas apagadas más cercanas (más, ya es un lío)
+    const todos = objetivos().map(o => ({ ...o, d: Math.hypot(o.x - px, o.pie - pie) })).sort((a, b) => a.d - b.d);
+    let antorchas = 0;
+    const pendientes = todos.filter(o => o.clase !== 'antorcha' || ++antorchas <= 2);
+    let principal = null;
+    pendientes.forEach(o => { o.d = Math.hypot(o.x - px, o.pie - pie); if (!principal || o.d < principal.d) principal = o; });
+    const puestas = [], html = [], avisos = new Set();
+    pendientes.sort((a, b) => a.d - b.d).forEach(o => {
+        // cada flecha sigue el camino (el fantasma flota: va derecho)
+        let tx = o.x, ty = o.pie - 40, aviso = '';
+        const paso = scene.esFantasma ? null : guia(px, pie, o.x, o.pie);
+        if (paso) {
+            tx = paso.x; ty = paso.pie - 40;
+            if (paso.tipo === 'ascensor' || (paso.tipo === 'salta' && paso.pie < pie - 20)) aviso = AVISO_TRAMO[paso.tipo];
+        }
+        const visible = ([x, y]) => x > caja.x0 && x < caja.x1 && y > caja.y0 && y < caja.y1;
+        const [sx, sy] = enPantalla(tx, ty);
+        // el objetivo a la vista: no hace falta flecha (salvo la principal sobre el ascensor o la subida)
+        const sobreElPaso = o === principal && aviso && visible([sx, sy]);
+        if (visible(enPantalla(o.x, o.pie - 40)) && !sobreElPaso) return;
+        // si no, en el borde, hacia donde sigue el camino (o sobre el paso, si es la principal y se ve)
+        let fx = sx, fy = sy;
+        const dentro = sobreElPaso;
+        if (!dentro) {
+            // donde el rayo del personaje hacia el camino toca el borde
+            const dx = sx - cx || 1e-6, dy = sy - cy || 1e-6;
+            const k = Math.min((dx > 0 ? caja.x1 - cx : caja.x0 - cx) / dx, (dy > 0 ? caja.y1 - cy : caja.y0 - cy) / dy);
+            fx = cx + dx * k; fy = cy + dy * k;
+        }
+        let corrida = false;
+        if (tapa && fx > tapa.x0 && fx < tapa.x1 && fy > tapa.y0 && fy < tapa.y1) { fx = tapa.x1; corrida = true; }
+        // que no se encimen: se corre a lo largo del borde (o de la lista), a un lado y al otro
+        const enLado = corrida || (!dentro && (Math.abs(fx - caja.x0) < 2 || Math.abs(fx - caja.x1) < 2));
+        const libre = (x, y) => !puestas.some(([qx, qy]) => Math.hypot(qx - x, qy - y) < SEPARA);
+        if (!libre(fx, fy)) {
+            for (let n = 1; n < 12; n++) {
+                const d = Math.ceil(n / 2) * SEPARA * (n % 2 ? 1 : -1);
+                const nx = enLado ? fx : Phaser.Math.Clamp(fx + d, caja.x0, caja.x1), ny = enLado ? Phaser.Math.Clamp(fy + d, caja.y0, caja.y1) : fy;
+                if (libre(nx, ny)) { fx = nx; fy = ny; break; }
+            }
+        }
+        puestas.push([fx, fy]);
+        const angulo = dentro ? 90 : Math.atan2(sy - cy, sx - cx) * 180 / Math.PI;
+        const lado = fx > caja.x1 - 60 ? ' der' : fx < caja.x0 + 60 ? ' izq' : '';
+        // (cada aviso una sola vez: dos "ascensor" seguidos se enciman)
+        if (aviso && avisos.has(aviso)) aviso = '';
+        if (aviso) avisos.add(aviso);
+        html.push(`<div class="noche-flecha ${o.clase}${o === principal ? ' principal' : ''}${lado}" style="left:${fx.toFixed(0)}px;top:${fy.toFixed(0)}px" title="${escapar(o.texto)}">
+            <i style="transform:rotate(${angulo.toFixed(0)}deg)"></i><span>${o.icono}${o.letra ? `<b>${o.letra}</b>` : ''}</span>${aviso ? `<small>${aviso}</small>` : ''}</div>`);
+    });
+    const nuevo = html.join('');
+    if (nuevo !== flechas.ultimo) { flechas.innerHTML = nuevo; flechas.ultimo = nuevo; }
 }
 
 // ---------- contador de antorchas (arriba al centro) ----------

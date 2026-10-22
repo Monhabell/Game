@@ -4,27 +4,29 @@
 // se separe y el troll tenga momentos sin testigos. Mide unas 4 pantallas de ancho y 3 de alto.
 //
 //    🔥A COPA DEL ROBLE ─── PUENTE DE RAMAS (sobre el claro) ─── 🔥B NIDO
-//          │ (zigzag de ramas)                                      │ (ascensor)
+//          │ (zigzag de tablas)                                     │ (ascensor)
 //    CUEVA DE RAÍCES 🔥C    🔔 CLARO CENTRAL + 🌅 ALTAR    ~RÍO~    CASCADA 🔥D (de a dos)
 //                                                       TRONCO HUECO ↓ (atajo del nido al suelo)
 //
 // Antorchas del Sol: [x, pie, dos] (pie = altura donde se pisa; dos: hacen falta dos a la vez).
 // Altar del Amanecer: se abre con las 4 encendidas; un héroe que lo toca trae el amanecer.
 // Se puede llegar a todo (lo comprueba alcance.js) con el salto más corto.
+// El zigzag y el puente son de TABLAS FIRMES (no ramas que se doblan y se rompen): en línea cada pantalla
+// doblaría y rompería sus ramas a su manera y se vería a la gente flotando.
 
 import { SUELO_Y } from "./niveles.js"
 
 const ANCHO = 3600;
 const PASO = 96; // escalón de una torre (como tramoTorre)
 
-// zigzag de ramas desde el suelo: x0 = donde empieza, pasos = cuántos escalones
+// zigzag de tablas desde el suelo: x0 = donde empieza, pasos = cuántos escalones
 const zigzag = (x0, pasos) => Array.from({ length: pasos }, (_, i) => {
     const k = i + 1, izq = k % 2 === 1;
-    return [x0 + (izq ? 40 : 250), SUELO_Y - PASO * k, izq ? 120 : 130, 'rama'];
+    return [x0 + (izq ? 40 : 250), SUELO_Y - PASO * k, izq ? 120 : 130, 'tabla'];
 });
 
 export const COPA_Y = SUELO_Y - PASO * 6;   // -244: arriba del todo (copa y nido)
-export const PUENTE_Y = SUELO_Y - PASO * 5 + 14; // -134: el puente de ramas, un poco más abajo
+export const PUENTE_Y = SUELO_Y - PASO * 5 + 14; // -134: el puente de tablas, un poco más abajo
 const TECHO_CUEVA = 220;             // la cueva es baja: se pasa caminando, no saltando
 
 export const ANTORCHAS_NOCHE = [
@@ -80,12 +82,12 @@ export function nivelNoche(inicio = null) {
         // la cueva: roca desde arriba hasta TECHO_CUEVA (su lomo se camina)
         techos: [[200, 860, TECHO_CUEVA]],
         plataformas: [
-            // Copa del Roble: zigzag de ramas y la copa (de roca: ahí se enciende la antorcha)
+            // Copa del Roble: zigzag de tablas y la copa (de roca: ahí se enciende la antorcha)
             ...zigzag(950, 6),
             [560, COPA_Y, 500],
-            // puente de ramas sobre el claro (la del medio es de roca: un mirador para descansar)
-            [1420, PUENTE_Y, 110, 'rama'], [1600, PUENTE_Y, 110, 'rama'], [1760, PUENTE_Y - 20, 140],
-            [1970, PUENTE_Y, 110, 'rama'], [2150, PUENTE_Y, 110, 'rama'], [2330, PUENTE_Y, 110, 'rama'],
+            // puente de tablas sobre el claro (la del medio es de roca: un mirador para descansar)
+            [1420, PUENTE_Y, 110, 'tabla'], [1600, PUENTE_Y, 110, 'tabla'], [1760, PUENTE_Y - 20, 140],
+            [1970, PUENTE_Y, 110, 'tabla'], [2150, PUENTE_Y, 110, 'tabla'], [2330, PUENTE_Y, 110, 'tabla'],
             [2500, PUENTE_Y - 50, 110],
             // el Nido
             [2700, COPA_Y, 400],

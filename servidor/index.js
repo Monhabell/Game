@@ -233,6 +233,8 @@ function atender(ws, m) {
                 difundir(sala, { ...m, fuera, era: fuera != null && !!sala.trolls?.has(fuera), de: ws.id });
                 return;
             }
+            // el ataque del troll: solo un troll de verdad puede mandarlo (si no, cualquiera "mataría")
+            if ((m.tipo === 'nocheAtaque' || m.tipo === 'nocheAtaqueBot') && (sala.modo !== 'troll' || !sala.trolls?.has(ws.id))) return;
             // y el final de la noche: recién ahí se dice quiénes eran los trolls (a todos)
             if (m.tipo === 'nocheFin') {
                 if (sala.modo !== 'troll' || ws.id !== sala.anfitrion) return;

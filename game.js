@@ -29,7 +29,7 @@ import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
     actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
 } from "./arena.js"
-import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, NIVEL_NOCHE } from "./troll.js"
+import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, relojNoche, NIVEL_NOCHE } from "./troll.js"
 import { nivelNoche } from "./bosque_troll.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
@@ -628,7 +628,8 @@ function create() {
     prepararAnimaciones(this);
     // reloj del nivel: las gotas, las bolas de fuego y las plataformas se guían por él (en línea,
     // todas las pantallas lo ajustan al del anfitrión: ver relojSala)
-    this.inicioNivel = this.time.now;
+    // (en la Noche del Troll cuenta desde que empezó la noche: no vuelve a cero al reaparecer)
+    this.inicioNivel = this.time.now - (noche ? relojNoche() : 0);
     this.desfaseReloj = 0;
     this.ciclos = [];
     // multijugador: los enemigos creados al armar el nivel llevan un número (igual en todas las pantallas)
