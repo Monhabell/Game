@@ -12,8 +12,12 @@
 // 4 poderes del troll · 4.5 encargos · 5 muerte y fantasmas · 6 Juicio y voz por cercanía · 7 bots ·
 // 8 final y premios.
 //
-// El mapa es el Bosque de Albora (bosque_troll.js). Se juega sin cadena y cada uno muere por su cuenta
-// (multijugador.js).
+// MAPAS: el Bosque de Albora (bosque_troll.js) y Las Criptas de Albora (criptas_troll.js, se baja a
+// submundos por escaleras). Cada uno trae su nivel, antorchas, altar, encargos, decorados y caminos;
+// el anfitrión lo elige en la sala (red.arena) y aquí se usa siempre M (el mapa de esta noche).
+// PUERTAS MÁGICAS (si el mapa tiene): quieto un momento delante de una y apareces del otro lado.
+// ZONA OSCURA (si el mapa tiene): por debajo de cierta altura solo se ve cerca (como en un apagón suave).
+// Se juega sin cadena y cada uno muere por su cuenta (multijugador.js).
 //
 // ANTORCHAS DEL SOL: se encienden quedándose cerca unos segundos (la de la Cascada, de a dos). Si te
 //   alejas, lo avanzado se va perdiendo despacio. Las cuenta el ANFITRIÓN con las posiciones de todos y
@@ -35,8 +39,10 @@
 //   Cada poder tiene su tiempo de espera. Las trampas, el apagón y las antorchas apagadas se mandan
 //   ANÓNIMOS (el servidor no dice de quién vienen: 'anonimo' en servidor/index.js).
 //
-// ENCARGOS (bosque_troll.js): a cada uno le tocan 3 al azar en zonas distintas (solo los ve él: la lista
-//   a la izquierda y un "!" sobre cada lugar), para que el grupo se separe. Cada encargo cumplido llena
+// M.encargos (bosque_troll.js): a cada uno le tocan 3 al azar en zonas distintas, para que el grupo se
+//   separe. Se hacen DE A UNO: la lista de la izquierda muestra la misión actual con qué hacer y cómo
+//   llegar (paso a paso: el agua primero se busca y después se lleva), el "!" y la flecha grande van solo
+//   a ella y las siguientes esperan con 🔒. Con las 3 hechas, el objetivo pasa a las antorchas y al altar. Cada encargo cumplido llena
 //   la "☀️ Luz del alba" (arriba, junto a las antorchas); si se llena, también amanece. El troll tiene
 //   encargos FALSOS para fingir: los "cumple", pero no suman. Los encargos 'visible' (la campana, la flor)
 //   los ven y oyen todos: quien los hace de verdad demuestra que no es el troll.
@@ -83,13 +89,14 @@ import { PERSONAJES } from "./personajes.js"
 import { fantasmas } from "./multijugador.js"
 import { SUELO_Y } from "./niveles.js"
 import { ganarXP, XP } from "./progreso.js"
-import { ANTORCHAS_NOCHE, ALTAR_NOCHE, CASCADA, TRONCO_HUECO, ENCARGOS } from "./bosque_troll.js"
+import { MAPA_BOSQUE } from "./bosque_troll.js"
+import { MAPA_CRIPTAS } from "./criptas_troll.js"
 import { resDe } from "./personajes.js"
 import { iniciarJuicio, abrirJuicio, cerrarJuicio, juicioActivo } from "./juicio.js"
 import { usarVolumenVoz } from "./voz.js"
 import { urlHoja } from "./vestidor.js"
 import {
-    iniciarBots, empezarBots, terminarBots, crearDibujosBots, actualizarBots, botsVivos, empujarBot, matarBot, botsAlClaro, guia,
+    iniciarBots, empezarBots, terminarBots, crearDibujosBots, actualizarBots, botsVivos, empujarBot, matarBot, botsAlClaro, guia, usarMapaBots,
 } from "./bots.js"
 
 const REVELACION_MS = 5000;
@@ -115,7 +122,12 @@ const ENCARGOS_POR_JUGADOR = 3;
 const TOMAR = 26;             // px para tomar una luciérnaga o un hongo
 const HALLAR = 70;            // px para encontrar un cuerpo
 const FLOTA = 170;            // fantasma: velocidad al subir con ↑
-const CAMPANA_JUICIO = { x: 1560, pie: SUELO_Y, ms: 1200 }; // en el claro
+const PUERTA_MS = 700;          // quieto delante de una puerta mágica hasta cruzarla
+// los mapas de la noche (el anfitrión elige uno en la sala) y el de esta noche
+export const MAPAS_NOCHE = { bosque: MAPA_BOSQUE, criptas: MAPA_CRIPTAS };
+let M = MAPA_BOSQUE;
+// (game.js) el nivel del mapa de esta noche; inicio: dónde aparece el fantasma
+export const nivelDeNoche = inicio => M.nivel(inicio);
 const JUICIO_PAUSA_MS = 15000; // después de un juicio, la campana descansa
 const TRAS_JUICIO_MS = 10000;  // y los poderes del troll también
 const VOZ_CERCA = 220, VOZ_LEJOS = 600; // px: hasta aquí se oye fuerte; desde aquí ya no se oye
@@ -206,15 +218,18 @@ function muereBot(b, x, pie) {
 }
 
 // el anfitrión empezó la noche (red.js ya guardó el rol, los compañeros y los bots)
-export function empezarNoche({ jugadores }) {
+export function empezarNoche({ jugadores, mapa }) {
     terminarNoche();
+    M = MAPAS_NOCHE[mapa] || MAPA_BOSQUE;
+    usarMapaBots(M);
     noche = {
+        mapa: M.id,
         rol: red.rol === 'troll' ? 'troll' : 'heroe',
         compas: [...red.compas],
         jugadores: [...jugadores, ...red.bots],
         revelado: false, // la revelación se ve una sola vez por partida (no al reaparecer)
         // avance de cada antorcha (0 a 1) y si ya prendió; sigue igual al reaparecer
-        fuego: ANTORCHAS_NOCHE.map(() => ({ p: 0, lit: false })),
+        fuego: M.antorchas.map(() => ({ p: 0, lit: false })),
         amanecio: false,
         trampas: [],     // [{ id, x, pie }] las que todavía no saltaron
         espera: {},      // (troll) poder -> Date.now() en que vuelve a estar listo
@@ -226,6 +241,8 @@ export function empezarNoche({ jugadores }) {
         fantasma: null,  // [x, y] donde morí (soy un fantasma); null: vivo
         muertos: new Set(), // héroes muertos (ids)
         cuerpos: [],     // [{ id, x, y, pj, hallado }]
+        visibles: new Set(), // encargos 'visible' ya cumplidos (la flor abierta, la palanca bajada…)
+        puerta: null,    // { p, lado, desde }: quieto delante de una puerta
         trollsFuera: new Set(), // trolls expulsados en un juicio
         expulsados: new Set(),  // todos los expulsados (héroes y trolls)
         fin: Date.now() + NOCHE_MS, // cuándo se acaba la noche (se corre con cada juicio)
@@ -276,7 +293,7 @@ export const inicioNoche = () => (noche?.fantasma ? [noche.fantasma[0], Math.min
 function repartirEncargos() {
     let a = ((red.semilla >>> 0) ^ Math.imul((red.tuId ?? 0) + 7, 2654435761)) >>> 0;
     const azar = () => { a = (Math.imul(a ^ (a >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return a / 4294967296; };
-    const bolsa = [...ENCARGOS];
+    const bolsa = [...M.encargos];
     for (let i = bolsa.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [bolsa[i], bolsa[j]] = [bolsa[j], bolsa[i]]; }
     return bolsa.slice(0, ENCARGOS_POR_JUGADOR).map(e => ({ ...e, hecho: false, tomados: [], lleva: false }));
 }
@@ -341,6 +358,7 @@ export function actualizarNoche(scene, time) {
     pintarOscuridad(scene);
     if (soyTroll()) actualizarTroll(scene, time);
     actualizarEncargos(scene, time);
+    revisarPuertas(scene, time);
     if (scene.esFantasma) flotar(scene);
     else { revisarCuerpos(scene); revisarCampana(scene, time); }
 }
@@ -355,7 +373,7 @@ function jugadoresCerca(scene, a) {
 
 // (anfitrión) avanza o apaga cada antorcha según cuántos hay cerca, y avisa a los demás
 function contarFuego(scene, dt, time) {
-    ANTORCHAS_NOCHE.forEach((a, i) => {
+    M.antorchas.forEach((a, i) => {
         const f = noche.fuego[i];
         if (f.lit) return;
         const hay = jugadoresCerca(scene, a) >= (a.dos ? 2 : 1);
@@ -388,11 +406,11 @@ function prendio(scene, i) {
     const a = scene.nocheAntorchas?.[i];
     if (a && !a.llama) encenderDibujo(scene, a);
     const encendidas = noche.fuego.filter(f => f.lit).length;
-    api.mensaje(scene, encendidas === ANTORCHAS_NOCHE.length
+    api.mensaje(scene, encendidas === M.antorchas.length
         ? '🌅 ¡EL ALTAR DESPERTÓ!\nVuelvan al claro'
-        : `🔥 ¡ANTORCHA DE ${ANTORCHAS_NOCHE[i].nombre.toUpperCase()}!\n${encendidas} de ${ANTORCHAS_NOCHE.length}`, 1600);
+        : `🔥 ¡ANTORCHA DE ${M.antorchas[i].nombre.toUpperCase()}!\n${encendidas} de ${M.antorchas.length}`, 1600);
     scene.sound.play('punto_control', { volume: 0.5 });
-    if (encendidas === ANTORCHAS_NOCHE.length) despertarAltar(scene);
+    if (encendidas === M.antorchas.length) despertarAltar(scene);
     pintarHud();
 }
 
@@ -400,7 +418,7 @@ function prendio(scene, i) {
 function revisarAltar(scene) {
     const g = scene.mascotaGesi;
     if (noche.amanecio || soyTroll() || scene.esFantasma || !g || g.isDead || !noche.fuego.every(f => f.lit)) return;
-    if (Math.abs(g.body.center.x - ALTAR_NOCHE.x) > 40 || Math.abs(g.body.bottom - ALTAR_NOCHE.pie) > 20) return;
+    if (Math.abs(g.body.center.x - M.altar.x) > 40 || Math.abs(g.body.bottom - M.altar.pie) > 20) return;
     enviarEvento('nocheAmanece', {});
     amanecer(red.tuId);
 }
@@ -458,13 +476,11 @@ const escenaNoche = () => (juegoNoche?.scene.isActive('juego') ? juegoNoche.scen
 function crearBosque(scene) {
     juegoNoche = scene.game;
     texturasNoche(scene);
-    // tronco hueco: un tronco gigante que baja del nido al suelo (por dentro se cae rápido)
-    const t = TRONCO_HUECO;
-    scene.add.rectangle(t.x, t.arriba - 20, 90, 352 - t.arriba + 20, 0x3b2716).setOrigin(0.5, 0).setDepth(2);
-    scene.add.rectangle(t.x, t.arriba + 10, 46, 352 - t.arriba - 30, 0x140b05).setOrigin(0.5, 0).setDepth(2);
-    letrero(scene, t.x, 300, 'TRONCO HUECO ↓');
+    // lo propio del mapa (el tronco y la cascada del bosque; las losas y escaleras de las criptas…)
+    M.decorar(scene, { letrero, visibles: noche.visibles });
+    crearPuertas(scene);
     // antorchas: un pedestal de piedra con su brasero (prenden en troll.js)
-    scene.nocheAntorchas = ANTORCHAS_NOCHE.map((a, i) => {
+    scene.nocheAntorchas = M.antorchas.map((a, i) => {
         scene.add.image(a.x, a.pie, 'noche_pedestal').setOrigin(0.5, 1).setDepth(6);
         const anillo = scene.add.graphics().setDepth(42);
         const nombre = scene.add.text(a.x, a.pie - 92, `${a.id} · ${a.nombre}${a.dos ? ' 👥' : ''}`, {
@@ -478,20 +494,12 @@ function crearBosque(scene) {
         return d;
     });
     // altar del amanecer: piedra con 4 ranuras (una por antorcha)
-    const al = ALTAR_NOCHE;
+    const al = M.altar;
     scene.add.image(al.x, al.pie, 'noche_altar').setOrigin(0.5, 1).setDepth(6);
-    scene.nocheRanuras = ANTORCHAS_NOCHE.map((_a, i) => scene.add.circle(al.x - 27 + i * 18, al.pie - 30, 5, 0x2a2a38).setDepth(7));
+    scene.nocheRanuras = M.antorchas.map((_a, i) => scene.add.circle(al.x - 27 + i * 18, al.pie - 30, 5, 0x2a2a38).setDepth(7));
     letrero(scene, al.x, al.pie - 76, 'ALTAR DEL AMANECER');
     scene.nocheAltarLuz = null;
     if (noche.fuego.every(f => f.lit)) despertarAltar(scene);
-    // la cascada: el agua tapa a quien está detrás (buen escondite… para cualquiera)
-    const c = CASCADA;
-    const agua = scene.add.tileSprite(c.x0, -60, c.x1 - c.x0, SUELO_Y + 60, 'noche_agua').setOrigin(0, 0).setDepth(36).setAlpha(0.62);
-    scene.tweens.add({ targets: agua, tilePositionY: -256, duration: 1400, repeat: -1 });
-    scene.add.ellipse((c.x0 + c.x1) / 2, SUELO_Y, c.x1 - c.x0 + 40, 26, 0xd8f0ff, 0.35).setDepth(36);
-    letrero(scene, 2400, 250, '~ RÍO ~');
-    letrero(scene, 900, SUELO_Y - 20, '← CUEVA');
-    letrero(scene, 3200, SUELO_Y - 140, 'ASCENSOR AL NIDO ↑');
 }
 
 function letrero(scene, x, y, texto) {
@@ -559,7 +567,7 @@ function seApago(scene, i) {
     const a = scene.nocheAntorchas?.[i];
     if (a?.llama) apagarDibujo(scene, a);
     dormirAltar(scene);
-    api.mensaje(scene, `💨 ¡SE APAGÓ LA ANTORCHA DE ${ANTORCHAS_NOCHE[i].nombre.toUpperCase()}!`, 1800);
+    api.mensaje(scene, `💨 ¡SE APAGÓ LA ANTORCHA DE ${M.antorchas[i].nombre.toUpperCase()}!`, 1800);
     pintarHud();
 }
 // (anfitrión) el troll apagó una antorcha: los demás se enteran con el próximo 'nocheFuego'
@@ -580,7 +588,7 @@ function dormirAltar(scene) {
 function despertarAltar(scene) {
     if (scene.nocheAltarLuz) return;
     scene.nocheRanuras?.forEach(r => r.setFillStyle(0xffc94a));
-    const al = ALTAR_NOCHE;
+    const al = M.altar;
     scene.nocheAltarLuz = scene.add.rectangle(al.x, al.pie - 40, 20, 520, 0xffe9a8, 0.35).setOrigin(0.5, 1).setDepth(41).setBlendMode('ADD');
     scene.tweens.add({ targets: scene.nocheAltarLuz, alpha: 0.15, yoyo: true, repeat: -1, duration: 800 });
 }
@@ -651,16 +659,20 @@ function texturaOscura(scene) {
     tx.refresh();
 }
 // sigue al jugador mientras dure; el troll ve un poco a través
+// (también en la zona oscura del mapa, más suave: las Catacumbas)
 function pintarOscuridad(scene) {
-    if (Date.now() >= noche.apagonHasta) {
+    const g = scene.mascotaGesi;
+    const apagon = Date.now() < noche.apagonHasta;
+    const zona = !!M.oscuro && !!g?.body && g.body.bottom > M.oscuro.desde;
+    if (!apagon && !zona) {
         if (scene.nocheOscuro) { scene.nocheOscuro.destroy(); scene.nocheOscuro = null; }
         return;
     }
     if (!scene.nocheOscuro) {
         texturaOscura(scene);
-        scene.nocheOscuro = scene.add.image(0, 0, 'noche_oscuro').setDepth(45).setAlpha(soyTroll() ? 0.6 : 0.97);
+        scene.nocheOscuro = scene.add.image(0, 0, 'noche_oscuro').setDepth(45);
     }
-    const g = scene.mascotaGesi;
+    scene.nocheOscuro.setAlpha(apagon ? (soyTroll() ? 0.6 : 0.97) : (soyTroll() ? 0.5 : 0.82));
     if (g) scene.nocheOscuro.setPosition(g.body?.center.x ?? g.x, g.body?.center.y ?? g.y);
 }
 
@@ -768,7 +780,7 @@ function mostrarAtaque({ atacante, victima, texto, soyTroll: esTroll }) {
 // ---------- poderes del troll: barra, teclas y "quieto" ----------
 const antorchaCerca = (scene, soloEncendida) => {
     const g = scene.mascotaGesi;
-    return ANTORCHAS_NOCHE.findIndex((a, i) => (!soloEncendida || noche.fuego[i].lit) &&
+    return M.antorchas.findIndex((a, i) => (!soloEncendida || noche.fuego[i].lit) &&
         Math.abs(g.body.center.x - a.x) < CERCA_X && Math.abs(g.body.bottom - a.pie) < CERCA_Y);
 };
 
@@ -781,7 +793,7 @@ function motivoNo(scene, poder) {
     const suelo = g.body.blocked.down || g.body.touching.down;
     if (poder.id === 'trampa') {
         if (!suelo) return 'párate en el suelo';
-        if (Math.abs(g.body.bottom - SUELO_Y) < 4 && Math.abs(g.body.center.x - ALTAR_NOCHE.x) < CLARO_LIBRE) return 'el claro es sagrado';
+        if (Math.abs(g.body.bottom - M.altar.pie) < 4 && Math.abs(g.body.center.x - M.altar.x) < CLARO_LIBRE) return 'junto al altar no';
         if (antorchaCerca(scene, false) >= 0) return 'muy cerca de una antorcha';
     }
     if ((poder.id === 'empujon' || poder.id === 'atacar') && !alcanzable(scene)) return 'nadie cerca';
@@ -899,40 +911,39 @@ function quitarBarraTroll() {
 
 // ---------- encargos ----------
 function crearEncargos(scene) {
-    // lo que todos ven: la campana del nido, la flor del claro y el cofre del río
-    const camp = ENCARGOS.find(e => e.id === 'campana');
-    scene.nocheCampana = scene.add.text(camp.x, camp.pie - 46, '🔔', { fontSize: '22px' }).setOrigin(0.5, 1).setDepth(8);
-    scene.add.rectangle(camp.x, camp.pie - 46, 3, 30, 0x4a3420).setOrigin(0.5, 0).setDepth(7);
-    const agua = ENCARGOS.find(e => e.id === 'agua');
-    scene.nocheFlor = scene.add.text(agua.hasta.x, agua.hasta.pie, '🌱', { fontSize: '18px' }).setOrigin(0.5, 1).setDepth(8);
-    scene.add.text(agua.desde.x, agua.desde.pie, '🏺', { fontSize: '16px' }).setOrigin(0.5, 1).setDepth(8);
-    const cofre = ENCARGOS.find(e => e.id === 'cofre');
-    scene.add.text(cofre.x, cofre.pie, '🧰', { fontSize: '18px' }).setOrigin(0.5, 1).setDepth(8);
-    if (noche.florAbierta) scene.nocheFlor.setText('🌸');
-    // lo mío: las cosas que hay que tomar y un "!" sobre cada encargo pendiente
-    scene.nocheMarcas = [];
-    noche.encargos.forEach(e => {
-        e.dibujos = [];
-        if (e.hecho) return;
-        if (e.tipo === 'recoger') {
-            e.puntos.forEach(([x, y], k) => {
-                if (e.tomados.includes(k)) return;
-                const d = scene.add.text(x, y, e.icono, { fontSize: '16px' }).setOrigin(0.5).setDepth(34);
-                scene.tweens.add({ targets: d, y: y - 6, yoyo: true, repeat: -1, duration: 700 + k * 90, ease: 'Sine.inOut' });
-                d.k = k;
-                e.dibujos.push(d);
-            });
-        }
-        const [mx, my] = marcaDe(e);
-        const m = scene.add.text(mx, my, '!', {
-            fontFamily: LETRA, fontSize: '12px', color: '#ffe066', stroke: '#000', strokeThickness: 4,
-        }).setOrigin(0.5, 1).setDepth(42);
-        scene.tweens.add({ targets: m, y: my - 8, yoyo: true, repeat: -1, duration: 500 });
-        e.marca = m;
-    });
+    // (lo que todos ven de los encargos lo dibuja el mapa: M.decorar)
+    // lo mío: las cosas de la misión actual y su "!"
+    marcarMision(scene);
     scene.nocheEncargoAnillo = scene.add.graphics().setDepth(46);
     noche.encargoQuieto = null;
 }
+// la misión que toca (de a una, en orden); null: ya están todas
+const misionActual = () => noche.encargos.find(e => !e.hecho) || null;
+// qué paso de la misión va (el agua: 0 buscarla, 1 llevarla)
+const pasoDe = e => (e.tipo === 'llevar' && e.lleva ? 1 : 0);
+
+// dibuja lo de la misión actual (las cosas que hay que tomar y el "!") y borra lo de la anterior
+function marcarMision(scene) {
+    noche.encargos.forEach(e => { e.marca?.destroy(); e.marca = null; (e.dibujos || []).forEach(d => d.destroy()); e.dibujos = []; });
+    const e = misionActual();
+    if (!e) return;
+    if (e.tipo === 'recoger') {
+        e.puntos.forEach(([x, y], k) => {
+            if (e.tomados.includes(k)) return;
+            const d = scene.add.text(x, y, e.icono, { fontSize: '16px' }).setOrigin(0.5).setDepth(34);
+            scene.tweens.add({ targets: d, y: y - 6, yoyo: true, repeat: -1, duration: 700 + k * 90, ease: 'Sine.inOut' });
+            d.k = k;
+            e.dibujos.push(d);
+        });
+    }
+    const [mx, my] = marcaDe(e);
+    const m = scene.add.text(mx, my, '!', {
+        fontFamily: LETRA, fontSize: '14px', color: '#ffe066', stroke: '#000', strokeThickness: 4,
+    }).setOrigin(0.5, 1).setDepth(42);
+    scene.tweens.add({ targets: m, y: my - 8, yoyo: true, repeat: -1, duration: 500 });
+    e.marca = m;
+}
+
 // dónde va el "!" de un encargo (el agua: primero la cascada, después la flor)
 function marcaDe(e) {
     if (e.tipo === 'recoger') return [e.puntos[1][0], e.puntos[1][1] - 34];
@@ -947,8 +958,8 @@ function actualizarEncargos(scene, time) {
     const b = g.body;
     const cerca = (x, pie, dx = 40, dy = 30) => Math.abs(b.center.x - x) < dx && Math.abs(b.bottom - pie) < dy;
     let quieto = null;
-    noche.encargos.forEach(e => {
-        if (e.hecho) return;
+    // solo la misión actual (las demás esperan su turno)
+    [misionActual()].filter(Boolean).forEach(e => {
         if (e.tipo === 'recoger') {
             e.dibujos.forEach(d => {
                 if (!d.active || Math.abs(b.center.x - d.x) > TOMAR || Math.abs(b.center.y - d.y) > TOMAR + 20) return;
@@ -963,7 +974,8 @@ function actualizarEncargos(scene, time) {
             if (!cerca(p.x, p.pie)) return;
             if (!e.lleva) {
                 e.lleva = true;
-                api.mensaje(scene, '💧 ¡AGUA! Llévala a la flor del claro', 1200);
+                api.mensaje(scene, '💧 ¡TIENES EL AGUA!\nLlévala a la flor del claro', 1600);
+                scene.sound.play('moneda', { volume: 0.5 });
                 const [mx, my] = marcaDe(e);
                 e.marca?.setPosition(mx, my);
                 pintarLista();
@@ -984,10 +996,11 @@ function actualizarEncargos(scene, time) {
 // encargo cumplido: suma a la luz del alba (el troll solo finge: no suma ni se ve)
 function cumplir(scene, e) {
     e.hecho = true;
-    e.marca?.destroy();
-    e.dibujos?.forEach(d => d.destroy());
     scene.sound.play('punto_control', { volume: 0.4 });
-    api.mensaje(scene, `${e.icono} ¡ENCARGO CUMPLIDO!`, 1000);
+    // la siguiente misión (o, si eran todas, las antorchas)
+    const sig = misionActual();
+    api.mensaje(scene, sig ? `✔ ¡MISIÓN CUMPLIDA!\nSiguiente: ${sig.icono} ${sig.texto}` : '✔ ¡MISIONES LISTAS!\nAhora: ayuda con las antorchas 🔥', 2200);
+    marcarMision(scene);
     pintarLista();
     if (soyTroll()) return;
     if (e.visible) { enviarEvento('nocheVisible', { id: e.id, anonimo: true }); encargoVisible(e.id); }
@@ -1001,20 +1014,13 @@ function sumarLuz() {
     if (noche.luz >= noche.luzMeta) amanecer(null);
 }
 
-// la campana suena y la flor se abre para todos (prueba de que quien estaba ahí es héroe)
+// un encargo 'visible' se cumplió (la campana suena, la flor se abre…): lo ven todos (prueba de que
+// quien estaba ahí es héroe). Lo que pasa lo dice el mapa (M.visible)
 function encargoVisible(id) {
+    noche.visibles.add(id);
     const scene = escenaNoche();
-    if (id === 'agua') noche.florAbierta = true;
-    if (!scene) return;
-    if (id === 'campana' && scene.nocheCampana) {
-        scene.tweens.add({ targets: scene.nocheCampana, angle: { from: -25, to: 25 }, yoyo: true, repeat: 5, duration: 120, onComplete: () => scene.nocheCampana.setAngle(0) });
-        scene.sound.play('punto_control', { volume: 0.7, rate: 1.4 });
-        api.mensaje(scene, '🔔 ¡SONÓ LA CAMPANA DEL NIDO!', 1300);
-    } else if (id === 'agua' && scene.nocheFlor) {
-        scene.nocheFlor.setText('🌸');
-        scene.tweens.add({ targets: scene.nocheFlor, scale: { from: 0.4, to: 1 }, duration: 500, ease: 'Back.out' });
-        api.mensaje(scene, '🌸 ¡SE ABRIÓ LA FLOR DEL CLARO!', 1300);
-    }
+    const aviso = scene && M.visible(scene, id);
+    if (aviso) api.mensaje(scene, aviso, 1300);
 }
 
 // lista de mis encargos (izquierda): ✔ los cumplidos; el troll ve que son de mentira
@@ -1029,10 +1035,24 @@ function crearLista() {
 }
 function pintarLista() {
     if (!lista || !noche) return;
-    lista.innerHTML = `<b>${soyTroll() ? '🎭 Encargos (de mentira)' : noche.fantasma ? '👻 Encargos' : '📜 Encargos'}</b>` +
-        noche.encargos.map(e => `<p class="${e.hecho ? 'hecho' : ''}">${e.hecho ? '✔' : e.icono} ${escapar(e.texto)}${
-            e.tipo === 'recoger' && !e.hecho ? ` ${e.tomados.length}/${e.puntos.length}` : ''}${
-            e.tipo === 'llevar' && e.lleva && !e.hecho ? ' (llevas el agua)' : ''}<small>${escapar(e.zona)}</small></p>`).join('');
+    const actual = misionActual(), n = noche.encargos.indexOf(actual) + 1, total = noche.encargos.length;
+    const titulo = soyTroll() ? '🎭 Misión de mentira' : noche.fantasma ? '👻 Misión' : '🎯 Misión';
+    let html;
+    if (actual) {
+        const progreso = actual.tipo === 'recoger' ? ` <em>${actual.tomados.length}/${actual.puntos.length}</em>`
+            : actual.tipo === 'llevar' ? ` <em>${pasoDe(actual) + 1}/2</em>` : '';
+        html = `<b>${titulo} ${n} de ${total}</b>
+            <p class="actual">${actual.icono} ${escapar(actual.texto)}${progreso}</p>
+            <p class="paso">👉 ${escapar(actual.pasos?.[pasoDe(actual)] || actual.zona)}</p>`;
+    } else {
+        // misiones listas: lo que sigue es lo de todos
+        const faltan = M.antorchas.filter((_a, i) => !noche.fuego[i].lit).map(a => a.id);
+        html = `<b>✅ Misiones listas</b><p class="paso">👉 ${faltan.length
+            ? `Ayuda a encender las antorchas 🔥 (faltan ${faltan.join(', ')}): quédate junto a una`
+            : soyTroll() ? '¡Las 4 antorchas están encendidas! Que no lleguen al altar 👹' : '¡Las 4 antorchas están encendidas! Corre al altar 🌅 del claro'}</p>`;
+    }
+    html += noche.encargos.filter(e => e !== actual).map(e => `<p class="${e.hecho ? 'hecho' : 'bloq'}">${e.hecho ? '✔' : '🔒'} ${escapar(e.texto)}</p>`).join('');
+    lista.innerHTML = html;
 }
 function quitarLista() {
     lista?.remove();
@@ -1108,9 +1128,44 @@ function hallazgo(quien, id) {
     scene.cameras.main.shake(200, 0.004);
 }
 
+// ---------- puertas mágicas (si el mapa tiene): quieto delante de una y apareces del otro lado ----------
+function crearPuertas(scene) {
+    scene.nochePuertaAnillo = scene.add.graphics().setDepth(46);
+    noche.puerta = null;
+    (M.puertas || []).forEach(p => [['a', p.a, p.textoA], ['b', p.b, p.textoB]].forEach(([, lado, texto]) => {
+        if (scene.textures.exists('cr_door1')) scene.add.image(lado.x, lado.pie, 'cr_door1').setOrigin(0.5, 1).setDepth(3);
+        const brillo = scene.add.image(lado.x, lado.pie - 30, 'brillo').setDepth(41).setScale(1.4).setTint(0x9f8cff).setAlpha(0.35).setBlendMode('ADD');
+        scene.tweens.add({ targets: brillo, alpha: 0.15, yoyo: true, repeat: -1, duration: 900 });
+        letrero(scene, lado.x, lado.pie - 70, `🚪 ${texto}`);
+    }));
+}
+function revisarPuertas(scene, time) {
+    const g = scene.mascotaGesi;
+    scene.nochePuertaAnillo?.clear();
+    if (!M.puertas?.length || !g || g.isDead || noche.ganador) { noche.puerta = null; return; }
+    const b = g.body;
+    let aqui = null;
+    M.puertas.forEach(p => [['a', p.a, p.b], ['b', p.b, p.a]].forEach(([lado, de, a]) => {
+        if (!aqui && Math.abs(b.center.x - de.x) < 24 && Math.abs(b.bottom - de.pie) < 14 && Math.abs(b.velocity.x) < 5) aqui = { p, lado, a };
+    }));
+    if (!aqui) { noche.puerta = null; return; }
+    if (noche.puerta?.p !== aqui.p || noche.puerta.lado !== aqui.lado) { noche.puerta = { ...aqui, desde: time }; return; }
+    const k = (time - noche.puerta.desde) / PUERTA_MS;
+    const y = b.top - 18;
+    scene.nochePuertaAnillo.lineStyle(4, 0x000000, 0.5).strokeCircle(b.center.x, y, 10);
+    scene.nochePuertaAnillo.lineStyle(4, 0x9f8cff, 1).beginPath().arc(b.center.x, y, 10, -Math.PI / 2, -Math.PI / 2 + Math.min(1, k) * Math.PI * 2).strokePath();
+    if (k < 1) return;
+    // ¡al otro lado!
+    noche.puerta = null;
+    g.body.reset(aqui.a.x + 30, aqui.a.pie - 70);
+    g.setVelocity(0, 0);
+    scene.cameras.main.flash(250, 140, 120, 255);
+    scene.sound.play('aparece', { volume: 0.5 });
+}
+
 // ---------- el Juicio: la campana del claro, la pausa y lo que pasa después ----------
 function crearCampanaJuicio(scene) {
-    const c = CAMPANA_JUICIO;
+    const c = M.campanaJuicio;
     scene.add.rectangle(c.x, c.pie, 6, 70, 0x4a3420).setOrigin(0.5, 1).setDepth(6);
     scene.add.rectangle(c.x, c.pie - 70, 34, 5, 0x4a3420).setOrigin(0.5, 0.5).setDepth(6);
     scene.nocheCampanaJuicio = scene.add.text(c.x, c.pie - 66, '🛎️', { fontSize: '20px' }).setOrigin(0.5, 0).setDepth(7);
@@ -1121,7 +1176,7 @@ function crearCampanaJuicio(scene) {
 
 // quieto junto a la campana: se llena un anillo y se llama al Juicio (una vez cada uno)
 function revisarCampana(scene, time) {
-    const g = scene.mascotaGesi, c = CAMPANA_JUICIO;
+    const g = scene.mascotaGesi, c = M.campanaJuicio;
     scene.nocheCampanaAnillo?.clear();
     const listo = !noche.campanaUsada && !noche.ganador && Date.now() - noche.finJuicio > JUICIO_PAUSA_MS;
     const cerca = g && !g.isDead && Math.abs(g.body.center.x - c.x) < 34 && Math.abs(g.body.bottom - c.pie) < 12 && Math.abs(g.body.velocity.x) < 5;
@@ -1164,7 +1219,7 @@ function despuesDelJuicio({ fuera: id, era }) {
         if (era === true) noche.trollsFuera.add(id); else noche.muertos.add(id);
         noche.expulsados.add(id);
         if (id < 0) matarBot(id); // (un bot expulsado: se va sin cuerpo)
-        if (id === red.tuId) noche.fantasma = [CAMPANA_JUICIO.x + 80, SUELO_Y - 90];
+        if (id === red.tuId) noche.fantasma = [M.campanaJuicio.x + 80, M.campanaJuicio.pie - 90];
     }
     revisarTroll();
     if (esAnfitrion()) botsAlClaro();
@@ -1175,7 +1230,7 @@ function despuesDelJuicio({ fuera: id, era }) {
     const g = scene.mascotaGesi;
     if (g && !g.isDead && !scene.esFantasma) {
         const i = Math.max(0, noche.jugadores.findIndex(j => j.id === red.tuId));
-        g.body.reset(ALTAR_NOCHE.x - 260 + i * 70, SUELO_Y - 90);
+        g.body.reset(M.altar.x - 260 + i * 70, M.altar.pie - 90);
     }
 }
 
@@ -1209,8 +1264,7 @@ function quitarFlechas() {
 // lo pendiente, con su lugar: mis encargos, las antorchas apagadas o (con todas) el altar
 function objetivos() {
     const lista = [];
-    noche.encargos.forEach(e => {
-        if (e.hecho) return;
+    [misionActual()].filter(Boolean).forEach(e => {
         let x, pie;
         if (e.tipo === 'recoger') {
             const k = e.puntos.findIndex((_p, i) => !e.tomados.includes(i));
@@ -1220,17 +1274,18 @@ function objetivos() {
         else ({ x, pie } = e);
         lista.push({ id: `e-${e.id}`, x, pie, icono: e.icono, clase: 'encargo', texto: e.texto });
     });
+    if (lista.length) return lista; // (primero la misión)
     if (noche.fuego.every(f => f.lit)) {
-        if (!soyTroll() && !noche.fantasma) lista.push({ id: 'altar', x: ALTAR_NOCHE.x, pie: ALTAR_NOCHE.pie, icono: '🌅', clase: 'altar', texto: 'Altar del Amanecer' });
+        if (!soyTroll() && !noche.fantasma) lista.push({ id: 'altar', x: M.altar.x, pie: M.altar.pie, icono: '🌅', clase: 'altar', texto: 'Altar del Amanecer' });
     } else if (!noche.fantasma) {
-        ANTORCHAS_NOCHE.forEach((a, i) => {
+        M.antorchas.forEach((a, i) => {
             if (!noche.fuego[i].lit) lista.push({ id: `a-${a.id}`, x: a.x, pie: a.pie, icono: '🔥', letra: a.id, clase: 'antorcha', texto: `Antorcha ${a.id} · ${a.nombre}${a.dos ? ' (de a dos)' : ''}` });
         });
     }
     return lista;
 }
 
-const AVISO_TRAMO = { ascensor: '🛗 ascensor', salta: '⬆ sube' };
+const AVISO_TRAMO = { ascensor: '🛗 ascensor', puerta: '🚪 puerta', sube: '⬆ sube', baja: '⬇ baja' };
 // márgenes dentro del juego: arriba el contador, abajo la marca del rol, a la izquierda la lista
 const MARGEN = { arriba: 76, abajo: 58, izq: 34, der: 34 };
 const SEPARA = 34; // dos flechas no quedan más cerca que esto
@@ -1264,7 +1319,9 @@ function pintarFlechas(scene, time) {
         const paso = scene.esFantasma ? null : guia(px, pie, o.x, o.pie);
         if (paso) {
             tx = paso.x; ty = paso.pie - 40;
-            if (paso.tipo === 'ascensor' || (paso.tipo === 'salta' && paso.pie < pie - 20)) aviso = AVISO_TRAMO[paso.tipo];
+            if (paso.tipo === 'ascensor' || paso.tipo === 'puerta') aviso = AVISO_TRAMO[paso.tipo];
+            else if (paso.pie < pie - 20 && (paso.tipo === 'salta' || paso.tipo === 'escalera')) aviso = AVISO_TRAMO.sube;
+            else if (paso.pie > pie + 20 && (paso.tipo === 'escalera' || paso.tipo === 'caer')) aviso = AVISO_TRAMO.baja;
         }
         const visible = ([x, y]) => x > caja.x0 && x < caja.x1 && y > caja.y0 && y < caja.y1;
         const [sx, sy] = enPantalla(tx, ty);
@@ -1325,10 +1382,11 @@ function pintarTiempo() {
     el.classList.toggle('poco', s <= 60);
 }
 function pintarHud() {
+    pintarLista(); // (con las misiones listas, la lista dice qué antorchas faltan)
     if (!hud || !noche) return;
     const n = noche.fuego.filter(f => f.lit).length;
     const luz = Math.min(1, noche.luz / noche.luzMeta);
-    hud.innerHTML = `<span>🔥 ${n}/${ANTORCHAS_NOCHE.length}</span>` + ANTORCHAS_NOCHE.map((a, i) =>
+    hud.innerHTML = `<span>🔥 ${n}/${M.antorchas.length}</span>` + M.antorchas.map((a, i) =>
         `<b class="${noche.fuego[i].lit ? 'lit' : ''}" title="${a.nombre}">${a.id}</b>`).join('') +
         `<span class="noche-luz" title="Luz del alba: ${noche.luz} de ${noche.luzMeta} encargos" role="img" aria-label="Luz del alba ${Math.round(luz * 100)}%">☀️<em><u style="width:${luz * 100}%"></u></em></span>` +
         '<span class="noche-tiempo" title="Lo que queda de noche"></span>';
@@ -1353,6 +1411,7 @@ function mostrarRevelacion() {
     capa.setAttribute('aria-modal', 'true');
     capa.setAttribute('aria-labelledby', 'noche-revela-rol');
     capa.innerHTML = `
+        <p class="noche-revela-mapa">🗺️ ${escapar(M.nombre)}</p>
         <p class="noche-revela-eres">Eres…</p>
         <h2 id="noche-revela-rol" class="noche-revela-rol">${troll ? '👹 EL TROLL' : '☀️ HÉROE'}</h2>
         <p class="noche-revela-mision">${troll
@@ -1384,7 +1443,7 @@ function cerrarRevelacion() {
     if (capa && noche) {
         // al cerrar la revelación: qué hay que hacer (el cartel de siempre quedaría tapado por ella)
         const scene = escenaNoche();
-        if (scene) api.mensaje(scene, soyTroll() ? 'QUE NO TE DESCUBRAN 👹' : 'ENCIENDAN LAS 4 ANTORCHAS\nY VUELVAN AL ALTAR', 2200);
+        if (scene) api.mensaje(scene, soyTroll() ? 'QUE NO TE DESCUBRAN 👹\nFinge tu misión (arriba a la izquierda)' : 'SIGUE TU MISIÓN 🎯\n(arriba a la izquierda y la flecha)', 2600);
     }
     capa?.remove();
     capa = null;

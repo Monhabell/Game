@@ -35,7 +35,10 @@ import { nivelDe, alCambiarNiveles, textoNivel } from "./progreso.js"
 const CLAVE_NOMBRE = 'monhabell-aventura-nombre';
 
 // mapas al azar (el anfitrión puede elegir uno fijo): qué está en "🎲 Al azar"
-const azar = { nivel: true, pista: true, arena: true };
+const azar = { nivel: true, pista: true, arena: true, mapaNoche: true };
+// mapas de la Noche del Troll (troll.js: MAPAS_NOCHE); viajan en el campo 'arena' de la sala
+const MAPAS_NOCHE = { bosque: '🌲 El Bosque de Albora', criptas: '🏰 Las Criptas de Albora' };
+const mapaNocheAlAzar = () => { const ids = Object.keys(MAPAS_NOCHE); return ids[sortear(ids.length)]; };
 const sortear = n => Math.floor(Math.random() * n);
 const nivelAlAzar = () => sortear(NIVELES.length);
 const pistaAlAzar = () => sortear(PISTAS.length);
@@ -187,6 +190,9 @@ export function iniciarSala(juego, { alEmpezar }) {
                             <label class="sala-campo" data-solo-anfitrion data-solo-aventura>Nivel
                                 <select id="sala-nivel"><option value="azar" selected>🎲 Al azar</option>${NIVELES.map((n, i) => `<option value="${i}">${i + 1} · ${n.nombre}</option>`).join('')}</select>
                             </label>
+                            <label class="sala-campo" data-solo-anfitrion data-solo-noche hidden>Mapa
+                                <select id="sala-mapa-noche"><option value="azar" selected>🎲 Al azar</option>${Object.entries(MAPAS_NOCHE).map(([id, n]) => `<option value="${id}">${n}</option>`).join('')}</select>
+                            </label>
                             <label class="sala-campo" data-solo-anfitrion data-solo-carrera hidden>Pista
                                 <select id="sala-pista"><option value="azar" selected>🎲 Al azar</option>${PISTAS.map((p, i) => `<option value="${i}">${p.nombre}</option>`).join('')}</select>
                             </label>
@@ -278,7 +284,9 @@ export function iniciarSala(juego, { alEmpezar }) {
             if (red.modo === 'equipos' && (n < 2 || equipos.size < 2)) { avisar('Hace falta alguien en cada equipo', true); return; }
             if (red.modo === 'troll') {
                 if (n < 2) { avisar('La Noche del Troll necesita al menos 2 jugadores', true); return; }
-                empezarPartida(0); // (el mapa lo pone troll.js)
+                // el mapa viaja como 'arena' (al azar: se sortea ahora; el servidor atiende en orden)
+                elegirModo('troll', azar.mapaNoche ? mapaNocheAlAzar() : $('#sala-mapa-noche').value, 0);
+                empezarPartida(0);
                 return;
             }
             if (red.modo === 'carrera') {
@@ -314,7 +322,8 @@ export function iniciarSala(juego, { alEmpezar }) {
     capa.addEventListener('click', e => {
         const b = e.target.closest('[data-modo], [data-equipo]');
         if (!b || !red.codigo) return;
-        if (b.dataset.modo && esAnfitrion()) elegirModo(b.dataset.modo, azar.arena ? red.arena : $('#sala-arena').value || 'bosque', Number($('#sala-apuesta').value) || 0);
+        if (b.dataset.modo && esAnfitrion()) elegirModo(b.dataset.modo, b.dataset.modo === 'troll' ? (azar.mapaNoche ? 'bosque' : $('#sala-mapa-noche').value)
+            : azar.arena ? red.arena : $('#sala-arena').value || 'bosque', Number($('#sala-apuesta').value) || 0);
         if (b.dataset.equipo) elegirEquipo(Number(b.dataset.equipo));
     });
     $('#sala-arena').addEventListener('change', e => {
@@ -322,6 +331,10 @@ export function iniciarSala(juego, { alEmpezar }) {
         if (esAnfitrion() && !azar.arena) elegirModo(red.modo, e.target.value, red.apuesta);
     });
     $('#sala-nivel').addEventListener('change', e => { azar.nivel = e.target.value === 'azar'; });
+    $('#sala-mapa-noche').addEventListener('change', e => {
+        azar.mapaNoche = e.target.value === 'azar';
+        if (esAnfitrion() && !azar.mapaNoche) elegirModo('troll', e.target.value, 0);
+    });
     $('#sala-pista').addEventListener('change', e => { azar.pista = e.target.value === 'azar'; });
     $('#sala-apuesta').addEventListener('change', e => { if (esAnfitrion()) elegirModo(red.modo, red.arena, Number(e.target.value)); });
     // copiar el código de la sala (para mandarlo por mensaje)
@@ -438,6 +451,7 @@ export function iniciarSala(juego, { alEmpezar }) {
         capa.querySelectorAll('[data-con-apuesta]').forEach(el => { el.hidden = !anfitrion || !enArena; });
         capa.querySelectorAll('[data-solo-aventura]').forEach(el => { el.hidden = !anfitrion || red.modo !== 'aventura'; });
         capa.querySelectorAll('[data-solo-carrera]').forEach(el => { el.hidden = !carrera || (el.matches('[data-solo-anfitrion]') && !anfitrion); });
+        capa.querySelectorAll('[data-solo-noche]').forEach(el => { el.hidden = !anfitrion || red.modo !== 'troll'; });
         // mi apuesta y mi "listo" (el anfitrión no confirma: él arranca)
         capa.querySelectorAll('[data-apuesta]').forEach(b => {
             const si = Number(b.dataset.apuesta) === (yo2?.apuesta || 0);

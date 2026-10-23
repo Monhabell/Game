@@ -4,8 +4,9 @@
 // pantallas los dibujan con movimiento suavizado. Si el anfitrión se va, el siguiente sigue desde la
 // última posición que recibió (y con los encargos que ya habían cumplido).
 //
-// No usan la física del juego: caminan por un MAPA DE CAMINOS del Bosque de Albora (puntos unidos por
-// tramos para caminar, saltar, caer o subir en el ascensor) y buscan la ruta más corta.
+// No usan la física del juego: caminan por el MAPA DE CAMINOS del mapa de la noche (bosque_troll.js,
+// criptas_troll.js: puntos unidos por tramos para caminar, saltar, caer, subir en el ascensor, bajar una
+// escalera o cruzar una puerta mágica) y buscan la ruta más corta. usarMapaBots elige el mapa.
 //
 // Qué hace cada bot, en orden:
 //   1. con las 4 antorchas encendidas, va al altar (y trae el amanecer)
@@ -20,10 +21,7 @@
 
 import { red, alRecibir, enviarEvento } from "./red.js"
 import { PERSONAJES, resDe } from "./personajes.js"
-import { SUELO_Y } from "./niveles.js"
-import { ANTORCHAS_NOCHE, ALTAR_NOCHE, ENCARGOS, COPA_Y, PUENTE_Y } from "./bosque_troll.js"
 
-const S = SUELO_Y;
 const VEL = 115;          // px/s caminando
 const SUBE = 55;          // px/s en el ascensor (como el de verdad)
 const ENVIO_MS = 125;
@@ -32,39 +30,22 @@ const ESPERA_ANTORCHA = 12000; // lo que se queda ayudando con una antorcha
 const ALTO_PIE = 62;      // del pie al centro del dibujo (como el jugador: pie 332 -> y 270)
 const LETRA = '"Press Start 2P", monospace';
 
-// ---------- mapa de caminos ----------
-const NODOS = {
-    cueva0: [120, S], hongo1: [260, S], antC: [430, S], hongo2: [560, S], hongo3: [790, S], zig0: [1000, S],
-    campJ: [1560, S], claro: [ALTAR_NOCHE.x, S], flor: [1990, S], rioI: [2180, S],
-    rioD: [2580, S], tronco: [2650, S], cofre: [2780, S], ascB: [3200, S], agua: [3260, S], antD: [3400, S], fondo: [3540, S],
-    z1: [1050, S - 96], z2: [1265, S - 192], z3: [1050, S - 288], z4: [1265, S - 384], z5: [1050, S - 480], z6: [1265, COPA_Y],
-    copa3: [1020, COPA_Y], luc2: [860, COPA_Y], antA: [700, COPA_Y], luc1: [600, COPA_Y],
-    p1: [1475, PUENTE_Y], p2: [1655, PUENTE_Y], mirador: [1830, PUENTE_Y - 20], p4: [2025, PUENTE_Y], p5: [2205, PUENTE_Y],
-    p6: [2385, PUENTE_Y], p7: [2555, PUENTE_Y - 50],
-    nido0: [2730, COPA_Y], campana: [2790, COPA_Y], antB: [2960, COPA_Y], nido3: [3080, COPA_Y],
-};
-// [desde, hasta, tipo]; 'caer' va en un solo sentido, lo demás en los dos
-const cadena = (ids, tipo) => ids.slice(1).map((id, i) => [ids[i], id, tipo]);
-const TRAMOS = [
-    ...cadena(['cueva0', 'hongo1', 'antC', 'hongo2', 'hongo3', 'zig0', 'campJ', 'claro', 'flor', 'rioI'], 'camina'),
-    ...cadena(['rioD', 'tronco', 'cofre', 'ascB', 'agua', 'antD', 'fondo'], 'camina'),
-    ['rioI', 'rioD', 'salta'], // (sobre el tronco del río)
-    ...cadena(['zig0', 'z1', 'z2', 'z3', 'z4', 'z5', 'z6'], 'salta'),
-    ['z6', 'copa3', 'salta'],
-    ...cadena(['copa3', 'luc2', 'antA', 'luc1'], 'camina'),
-    ['z6', 'p1', 'salta'],
-    ...cadena(['p1', 'p2', 'mirador', 'p4', 'p5', 'p6', 'p7'], 'salta'),
-    ['p7', 'nido0', 'salta'],
-    ...cadena(['nido0', 'campana', 'antB', 'nido3'], 'camina'),
-    ['nido3', 'ascB', 'ascensor'],
-    ['mirador', 'claro', 'caer'], ['nido0', 'tronco', 'caer'], // (del mirador al claro; el tronco hueco)
-];
-const VECINOS = {};
-TRAMOS.forEach(([a, b, tipo]) => {
-    (VECINOS[a] ||= []).push([b, tipo]);
-    if (tipo !== 'caer') (VECINOS[b] ||= []).push([a, tipo]);
-});
+// ---------- mapa de caminos (el del mapa de la noche) ----------
+let M = null;            // el mapa (MAPA_BOSQUE, MAPA_CRIPTAS…)
+let NODOS = {}, VECINOS = {};
+export function usarMapaBots(mapa) {
+    M = mapa;
+    NODOS = mapa.nav.nodos;
+    VECINOS = {};
+    // [desde, hasta, tipo]; 'caer' va en un solo sentido, lo demás en los dos
+    mapa.nav.tramos.forEach(([a, b, tipo]) => {
+        (VECINOS[a] ||= []).push([b, tipo]);
+        if (tipo !== 'caer') (VECINOS[b] ||= []).push([a, tipo]);
+    });
+}
 const dist = (a, b) => Math.hypot(NODOS[a][0] - NODOS[b][0], NODOS[a][1] - NODOS[b][1]);
+// (cruzar una puerta es instantáneo: cuesta poco aunque los dos lados estén lejos)
+const COSTO = { ascensor: 2, puerta: 0.15 };
 
 // ruta más corta (Dijkstra; el mapa es chico): lista de [nodo, tipo del tramo para llegar]
 function ruta(desde, hasta) {
@@ -74,7 +55,7 @@ function ruta(desde, hasta) {
         abiertos.delete(n);
         if (n === hasta) break;
         (VECINOS[n] || []).forEach(([v, tipo]) => {
-            const c = costo[n] + dist(n, v) * (tipo === 'ascensor' ? 2 : 1);
+            const c = costo[n] + (tipo === 'puerta' ? 60 : dist(n, v) * (COSTO[tipo] ?? 1));
             if (c < (costo[v] ?? Infinity)) { costo[v] = c; previo[v] = [n, tipo]; abiertos.add(v); }
         });
     }
@@ -85,7 +66,7 @@ function ruta(desde, hasta) {
 }
 // el nodo más cercano (a la misma altura, si hay)
 function nodoCerca(x, pie) {
-    let mejor = 'claro', d = Infinity;
+    let mejor = M.nav.altar, d = Infinity;
     Object.entries(NODOS).forEach(([id, [nx, np]]) => {
         const dd = Math.abs(nx - x) + Math.abs(np - pie) * 3;
         if (dd < d) { d = dd; mejor = id; }
@@ -101,19 +82,16 @@ export function guia(x, pie, tx, tp) {
     const pasos = ruta(desde, hasta);
     if (!pasos.length) return null;
     // el ascensor en los próximos pasos: la flecha lleva a su base (o a su parada de arriba) y lo dice
-    if (pasos.slice(0, 3).some(([, t]) => t === 'ascensor')) return { x: NODOS.ascB[0], pie: pie < S - 100 ? COPA_Y : S, tipo: 'ascensor' };
+    const asc = M.nav.ascensor;
+    if (asc && pasos.slice(0, 3).some(([, t]) => t === 'ascensor')) return { x: asc.x, pie: pie < asc.abajo - 100 ? asc.arriba : asc.abajo, tipo: 'ascensor' };
+    // una puerta mágica en los próximos pasos: la flecha lleva a la puerta (de este lado) y lo dice
+    const i = pasos.slice(0, 3).findIndex(([, t]) => t === 'puerta');
+    if (i >= 0) { const n = i === 0 ? desde : pasos[i - 1][0]; return { x: NODOS[n][0], pie: NODOS[n][1], tipo: 'puerta' }; }
     let [n, tipo] = pasos[0];
     // (si ya está junto al primero, el que sigue)
     if (Math.hypot(NODOS[n][0] - x, NODOS[n][1] - pie) < 60 && pasos[1]) [n, tipo] = pasos[1];
     return { x: NODOS[n][0], pie: NODOS[n][1], tipo };
 }
-
-// adónde va cada encargo (recoger: un nodo por cosa; llevar: ida y vuelta)
-const PASOS_ENCARGO = {
-    luciernagas: ['luc1', 'luc2', 'copa3'], hongos: ['hongo1', 'hongo2', 'hongo3'],
-    campana: ['campana'], mirador: ['mirador'], cofre: ['cofre'], agua: ['agua', 'flor'],
-};
-const ANTORCHA_NODO = { A: 'antA', B: 'antB', C: 'antC', D: 'antD' };
 
 // ---------- estado ----------
 let ctx = null;
@@ -137,10 +115,10 @@ export function iniciarBots(contexto) {
 export function empezarBots(lista, semilla) {
     terminarBots();
     lista.forEach((j, i) => {
-        const x = ALTAR_NOCHE.x + 90 + i * 50;
+        const x = M.altar.x + 90 + i * 50, pie = M.altar.pie;
         bots.set(j.id, {
             id: j.id, nombre: j.nombre, pj: PERSONAJES.find(p => p.id === j.pj) || PERSONAJES[0],
-            x, pie: S, meta: { x, pie: S }, dir: 1, anim: 0, vivo: true,
+            x, pie, meta: { x, pie }, dir: 1, anim: 0, vivo: true,
             encargos: repartir(semilla, j.id), hechos: new Set(),
             pasos: [], tramo: null, quieto: 0, objetivo: null, aturdido: 0, pensar: 0,
         });
@@ -157,7 +135,7 @@ export const botPorId = id => bots.get(id);
 function repartir(semilla, id) {
     let a = ((semilla >>> 0) ^ Math.imul(id + 97, 2654435761)) >>> 0;
     const azar = () => { a = (Math.imul(a ^ (a >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return a / 4294967296; };
-    const bolsa = ENCARGOS.map(e => e.id);
+    const bolsa = M.encargos.map(e => e.id);
     for (let i = bolsa.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [bolsa[i], bolsa[j]] = [bolsa[j], bolsa[i]]; }
     return bolsa.slice(0, 3);
 }
@@ -251,12 +229,12 @@ function elegirObjetivo(b) {
     const n = ctx.noche();
     if (!n) return;
     // 1. el altar despertó
-    if (n.fuego.every(f => f.lit)) { irA(b, 'claro', { tipo: 'altar' }); return; }
+    if (n.fuego.every(f => f.lit)) { irA(b, M.nav.altar, { tipo: 'altar' }); return; }
     // 2. sus encargos
     const pendiente = b.encargos.find(id => !b.hechos.has(id));
     if (pendiente) {
-        const pasos = PASOS_ENCARGO[pendiente];
-        const enc = ENCARGOS.find(e => e.id === pendiente);
+        const pasos = M.nav.pasos[pendiente];
+        const enc = M.encargos.find(e => e.id === pendiente);
         // (los de recoger o llevar: un nodo tras otro; al llegar al último se cumple)
         b.cola = pasos.slice(1);
         irA(b, pasos[0], enc.tipo === 'quieto' ? { tipo: 'quieto', ms: enc.ms + 300, encargo: pendiente }
@@ -265,12 +243,12 @@ function elegirObjetivo(b) {
     }
     // 3. una antorcha apagada (la más cercana a la que no vaya otro bot; a la de la cascada, de a dos)
     const ocupadas = new Set([...bots.values()].filter(o => o !== b && o.vivo && o.objetivo?.tipo === 'antorcha').map(o => o.objetivo.i));
-    const todas = ANTORCHAS_NOCHE.map((a, i) => ({ a, i })).filter(({ i }) => !n.fuego[i].lit);
+    const todas = M.antorchas.map((a, i) => ({ a, i })).filter(({ i }) => !n.fuego[i].lit);
     const libres = todas.filter(({ a, i }) => a.dos || !ocupadas.has(i));
     const apagadas = libres.length ? libres : todas;
     if (apagadas.length) {
         const { a, i } = apagadas.reduce((m, o) => (Math.abs(o.a.x - b.x) < Math.abs(m.a.x - b.x) ? o : m));
-        irA(b, ANTORCHA_NODO[a.id], { tipo: 'antorcha', i });
+        irA(b, M.nav.antorchas[a.id], { tipo: 'antorcha', i });
         return;
     }
     // 4. pasear
@@ -287,22 +265,28 @@ function terminarEncargo(b, id) {
     }
     if (b.hechos.has(id)) return;
     b.hechos.add(id);
-    ctx.cumplir(b, ENCARGOS.find(e => e.id === id));
+    ctx.cumplir(b, M.encargos.find(e => e.id === id));
 }
 
 function siguienteTramo(b) {
     const [nodo, tipo, xx, pp] = b.pasos.shift();
     const [x, pie] = xx != null ? [xx, pp] : NODOS[nodo];
+    if (tipo === 'puerta') {
+        // puerta mágica: aparece del otro lado (un momento quieto, como quien la usa)
+        b.x = x; b.pie = pie; b.anim = 0;
+        b.tramo = { tipo: 'sube', x0: x, p0: pie, x1: x, p1: pie, t: 0, dur: 0.6 };
+        return;
+    }
     if (tipo === 'ascensor') {
         // en dos partes: el ascensor sube o baja en vertical, y en el nido se camina
-        const ax = NODOS.ascB[0];
+        const ax = M.nav.ascensor.x;
         if (pie < b.pie) { b.pasos.unshift(['', 'sube', ax, pie], [nodo, 'camina']); }
         else { b.pasos.unshift(['', 'camina', ax, b.pie], [nodo, 'sube']); }
         siguienteTramo(b);
         return;
     }
     const d = Math.hypot(x - b.x, pie - b.pie);
-    const dur = tipo === 'camina' ? d / VEL : tipo === 'sube' ? Math.abs(pie - b.pie) / SUBE : Math.max(0.45, d / 320);
+    const dur = tipo === 'camina' || tipo === 'escalera' ? d / VEL : tipo === 'sube' ? Math.abs(pie - b.pie) / SUBE : Math.max(0.45, d / 320);
     b.tramo = { tipo, x0: b.x, p0: b.pie, x1: x, p1: pie, t: 0, dur: Math.max(0.05, dur) };
     b.dir = x < b.x ? -1 : x > b.x ? 1 : b.dir;
 }
@@ -311,10 +295,10 @@ function mover(b, dt) {
     const t = b.tramo;
     t.t = Math.min(1, t.t + dt / t.dur);
     const k = t.t;
-    if (t.tipo === 'camina' || t.tipo === 'sube') {
+    if (t.tipo === 'camina' || t.tipo === 'escalera' || t.tipo === 'sube') {
         b.x = t.x0 + (t.x1 - t.x0) * k;
         b.pie = t.p0 + (t.p1 - t.p0) * k;
-        b.anim = t.tipo === 'camina' ? 1 : 0;
+        b.anim = t.tipo === 'sube' ? 0 : 1;
     } else {
         // salto o caída: una parábola
         const alto = t.tipo === 'caer' ? 18 : 40 + Math.max(0, t.p0 - t.p1);
@@ -328,7 +312,7 @@ function mover(b, dt) {
 // trampas y cuerpos (solo cuando está apoyado)
 function revisarAlrededor(b) {
     const n = ctx.noche();
-    if (!n || !b.vivo || (b.tramo && b.tramo.tipo !== 'camina')) return;
+    if (!n || !b.vivo || (b.tramo && b.tramo.tipo !== 'camina' && b.tramo.tipo !== 'escalera')) return;
     const t = n.trampas.find(t => Math.abs(b.x - t.x) < 22 && Math.abs(b.pie - t.pie) < 12);
     if (t) { ctx.pisaTrampa(b, t); return; }
     const c = n.cuerpos.find(c => !c.hallado && Math.abs(b.x - c.x) < 70 && Math.abs(b.pie - ALTO_PIE - c.y) < 70);
@@ -336,13 +320,13 @@ function revisarAlrededor(b) {
 }
 
 // ---------- lo que les pasa ----------
-// el troll empujó a un bot: en alto o junto al río se cae (y muere); si no, queda aturdido
+// el troll empujó a un bot: donde el mapa dice que se cae (lo alto, el río, la lava) muere; si no, queda aturdido
 export function empujarBot(id, dir, time) {
     const b = bots.get(id);
     if (!b?.vivo || !simulando) return;
-    const enAlto = b.pie < S - 20, rio = b.x > 2080 && b.x < 2680;
-    if (enAlto || rio) { ctx.muere(b, b.x + dir * 40, S); return; }
-    b.x = Math.max(20, Math.min(3580, b.x + dir * 70));
+    const cae = M.nav.caida(b.x, b.pie);
+    if (cae != null) { ctx.muere(b, b.x + dir * 40, cae); return; }
+    b.x = Math.max(20, Math.min(M.ancho - 20, b.x + dir * 70));
     b.tramo = null;
     b.pasos = [];
     b.objetivo = null;
@@ -360,8 +344,8 @@ export function botsAlClaro() {
     let i = 0;
     bots.forEach(b => {
         if (!b.vivo) return;
-        b.x = b.meta.x = ALTAR_NOCHE.x + 120 + i++ * 60;
-        b.pie = b.meta.pie = S;
+        b.x = b.meta.x = M.altar.x + 120 + i++ * 60;
+        b.pie = b.meta.pie = M.altar.pie;
         b.tramo = null; b.pasos = []; b.objetivo = null;
     });
 }

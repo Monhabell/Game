@@ -1856,6 +1856,7 @@
         }
         .noche-revela.heroe { --brillo: rgba(255, 196, 80, 0.32); --rol: #ffcf5a; }
         .noche-revela.troll { --brillo: rgba(220, 40, 60, 0.38); --rol: #ff4d5e; }
+        .noche-revela-mapa { margin: 0 0 4px; font-size: 13px; opacity: 0.7; }
         .noche-revela-eres { margin: 0; font-size: 18px; opacity: 0.75; letter-spacing: 0.2em; text-transform: uppercase; }
         .noche-revela-rol {
             margin: 0; font-size: clamp(40px, 13vmin, 96px); font-weight: 800; line-height: 1; color: var(--rol);
@@ -1917,6 +1918,13 @@
         .noche-lista b { display: block; margin-bottom: 4px; font-weight: 700; color: #ffe066; }
         .noche-lista p { margin: 3px 0 0; }
         .noche-lista p.hecho { opacity: 0.5; text-decoration: line-through; }
+        .noche-lista p.actual { margin-top: 2px; font-size: 13px; font-weight: 700; color: #fff; }
+        .noche-lista p.actual em { font-style: normal; color: #ffe066; }
+        .noche-lista p.paso {
+            margin: 4px 0 6px; padding: 5px 7px; border-radius: 8px; font-size: 11px; line-height: 1.35;
+            color: #1a1405; background: #ffe066; box-shadow: 0 0 10px rgba(255, 224, 102, 0.35);
+        }
+        .noche-lista p.bloq { opacity: 0.5; font-size: 10px; }
         .noche-lista small { display: block; padding-left: 18px; font-size: 10px; opacity: 0.6; }
         .noche-marca.fantasma { --rol: #9fd8ff; }
         @media (max-height: 500px) { .noche-lista { top: 84px; max-width: 190px; font-size: 10px; } }

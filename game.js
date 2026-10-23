@@ -29,8 +29,8 @@ import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
     actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
 } from "./arena.js"
-import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, relojNoche, NIVEL_NOCHE } from "./troll.js"
-import { nivelNoche } from "./bosque_troll.js"
+import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, relojNoche, nivelDeNoche, NIVEL_NOCHE } from "./troll.js"
+import { precargarCriptas } from "./criptas_troll.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
     avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder,
@@ -426,7 +426,7 @@ const abrirSala = iniciarSala(juego, {
         } else terminarCarrera();
         // La Noche del Troll (troll.js): los roles ya los repartió el servidor
         if (esModoNoche(modo)) {
-            empezarNoche({ jugadores });
+            empezarNoche({ jugadores, mapa: arena }); // (en la noche, 'arena' es el mapa: bosque o criptas)
             nivelActual = NIVEL_NOCHE;
         } else terminarNoche();
         juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
@@ -556,6 +556,7 @@ function preload() {
     // (los enemigos se cargan al entrar a cada nivel: ver precargarNivel)
     cargarCastillos(this);
     cargarMazmorra(this);
+    precargarCriptas(this); // (losas, escaleras y objetos del mapa de las Criptas: Noche del Troll)
 
 
 
@@ -624,7 +625,7 @@ function create() {
     this.esFantasma = false; // (troll.js: un héroe que murió en la noche)
     // (las Ruinas del Abismo tienen sus trampas puestas a mano: prepararNivelFijo en azar.js)
     const delNivel = enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual];
-    const nivel = arena ? nivelArena() : noche ? nivelNoche(inicioNoche()) : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
+    const nivel = arena ? nivelArena() : noche ? nivelDeNoche(inicioNoche()) : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
         : delNivel.fija ? prepararNivelFijo(delNivel, semillaEnLinea(nivelActual))
         : aleatorizarNivel(delNivel, nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
@@ -691,7 +692,8 @@ function create() {
     // estalactitas, hongos, antorchas y la puerta de entrada (detrás de todo lo jugable)
     const nivel1 = nivelActual === 0 && !arena && !noche; // (la parte hecha a mano del nivel 1)
     const rangosSuelo = [...(nivel.suelo || []), ...(nivel1 ? [[0, 1106]] : [])];
-    decorarNivel(this, nivel, arena ? 0 : nivelActual, x => rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
+    // (sinDecorado: el mapa pone todo lo suyo, como las Criptas de la Noche del Troll)
+    decorarNivel(this, nivel, arena ? 0 : nivelActual, x => !nivel.sinDecorado && rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
 
     this.floor = this.physics.add.staticGroup();
     this.enemies = this.physics.add.group();
@@ -1670,7 +1672,13 @@ function construirNivel(scene, nivel) {
     (nivel.plataformas || []).forEach(([x, arriba, ancho, tipo]) => {
         if (tipo === 'rama') crearRama(scene, x, arriba, ancho);
         else if (tipo === 'tabla') crearTabla(scene, x, arriba, ancho); // (puente de madera del nivel 1, bosque.js)
-        else crearPlataforma(scene, x, arriba, ancho).esPlataforma = true;
+        else if (tipo === 'oculta') {
+            // solo la física: el dibujo lo pone el mapa (escalones y torres de las Criptas)
+            const p = crearPlataforma(scene, x, arriba, ancho);
+            p.esPlataforma = true;
+            p.setVisible(false);
+            p.visuales?.forEach(v => v.setVisible(false));
+        } else crearPlataforma(scene, x, arriba, ancho).esPlataforma = true;
     });
     // piedras rúnicas doradas: al golpearlas desde abajo aparecen sus losas sobre el abismo.
     // Antes de activarlas, las losas se ven como contornos fantasma (la pista de que hay un camino)
@@ -1696,6 +1704,12 @@ function construirNivel(scene, nivel) {
             .setOrigin(0, 0).setScale(ancho / 128, (SUELO_Y - arriba) / 32).refreshBody();
         if (tipo === 'tronco') pieza.setVisible(false);
         else vestirMuro(scene, pieza);
+    });
+    // losas: [x0, x1, arriba, grosor] pisos macizos a cualquier altura (los pisos de las Criptas);
+    // solo la física: el dibujo lo pone el mapa
+    (nivel.losas || []).forEach(([x0, x1, arriba, grosor]) => {
+        scene.floor.create(x0, arriba, 'suelo' + scene.sufijo)
+            .setOrigin(0, 0).setScale((x1 - x0) / 128, grosor / 32).refreshBody().setVisible(false);
     });
     // techos de túnel: roca maciza desde arriba hasta 'abajo' (queda poco espacio para saltar)
     (nivel.techos || []).forEach(([x0, x1, abajo]) => {
