@@ -479,6 +479,13 @@ function crearBosque(scene) {
     texturasNoche(scene);
     // lo propio del mapa (el tronco y la cascada del bosque; las losas y escaleras de las criptas…)
     M.decorar(scene, { letrero, visibles: noche.visibles });
+    // luces que cambian (luz.js): las Antorchas del Sol encendidas y el altar despierto alumbran su zona
+    scene.lucesExtra = () => {
+        if (!noche) return [];
+        const l = M.antorchas.filter((_a, i) => noche.fuego[i].lit).map(a => ({ x: a.x, y: a.pie - 70, r: 300, color: 0xffb050, fuerza: 1 }));
+        if (noche.fuego.every(f => f.lit)) l.push({ x: M.altar.x, y: M.altar.pie - 60, r: 280, color: 0xffe08a, fuerza: 1 });
+        return l;
+    };
     crearPuertas(scene);
     // antorchas: un pedestal de piedra con su brasero (prenden en troll.js)
     scene.nocheAntorchas = M.antorchas.map((a, i) => {
@@ -665,6 +672,11 @@ function pintarOscuridad(scene) {
     const g = scene.mascotaGesi;
     const apagon = Date.now() < noche.apagonHasta;
     const zona = !!M.oscuro && !!g?.body && g.body.bottom > M.oscuro.desde;
+    // con la luz nueva (luz.js): se oscurece la noche en vez de tapar la pantalla (el troll ve más)
+    if (scene.luz) {
+        scene.luzOscurecer = apagon ? (soyTroll() ? 0.45 : 0.9) : zona ? (soyTroll() ? 0.3 : 0.55) : 0;
+        return;
+    }
     if (!apagon && !zona) {
         if (scene.nocheOscuro) { scene.nocheOscuro.destroy(); scene.nocheOscuro = null; }
         return;
@@ -1233,6 +1245,8 @@ function revisarCampana(scene, time) {
 function pausarPorJuicio() {
     if (!noche) return;
     mostrarReportar(false);
+    const sc = escenaNoche();
+    if (sc) sc.luzOscurecer = 0; // (el apagón termina con el Juicio)
     noche.pausaDesde = Date.now();
     noche.apagonHasta = 0;
     noche.canal = null;

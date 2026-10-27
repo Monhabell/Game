@@ -76,6 +76,7 @@ export function nivelNoche(inicio = null) {
         nubes: true,
         fondo: 'montanas',
         sinMeta: true, // la meta es el Altar del Amanecer (troll.js)
+        luz: { oscuridad: 0.72, sinGasto: true }, // (penumbra de noche y tu luz: luz.js)
         meta: ANCHO,   // (solo para repartir la niebla y los relámpagos a lo ancho: ambiente.js)
         inicio: inicio || [ALTAR_NOCHE.x - 120, 250],
         mezcla: [],

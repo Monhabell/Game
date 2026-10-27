@@ -418,7 +418,9 @@ function azar(semilla) {
 
 // especiales: tramos con altura que se reparten a lo largo del nivel ('torre4', 'torre6', 'puentesAltos', 'runa')
 // bajadaInicial: el nivel empieza arriba y se baja por cornisas sobre la lava
-function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, nubes = false, tinte, mezcla, especiales = [], bajadaInicial = false }) {
+// obstaculos: los que se usan entre llanos (repetir uno le da más peso); llanos: [mínimo, máximo] px
+function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, nubes = false, tinte, mezcla, especiales = [], bajadaInicial = false,
+    obstaculos: nombresObstaculos = ['hueco', 'hueco', 'islas', 'puente', 'escalera'], llanos = [450, 800] }) {
     const r = azar(semilla);
     const entre = (a, b) => Math.round(a + r() * (b - a));
     const n = {
@@ -545,7 +547,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         x = 480;
     }
 
-    const obstaculos = [hueco, hueco, islas, puente, escalera];
+    const obstaculos = nombresObstaculos.map(o => ({ hueco, islas, puente, escalera })[o]);
     const CHECKPOINT_CADA = 2400; // un punto de control cada ~2400 px (los niveles generados son largos)
     let ultimoCheckpoint = 0;
     const ponerCheckpoint = cx => {
@@ -562,7 +564,7 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         else obstaculos[entre(0, obstaculos.length - 1)]();
         // después del obstáculo empieza un llano: el punto de control va al comienzo
         if (x - ultimoCheckpoint >= CHECKPOINT_CADA) ponerCheckpoint(x + 60);
-        llano(entre(450, 800));
+        llano(entre(llanos[0], llanos[1]));
         // y al final del llano también se revisa (por si el obstáculo siguiente es largo)
         // (a 120 px del final: un suelo falso del llano termina como mucho a 164 px del final)
         if (x - ultimoCheckpoint >= CHECKPOINT_CADA) ponerCheckpoint(x - 120);
@@ -609,10 +611,56 @@ const TEMAS = [
     { nombre: 'Las Torres del Cielo', nubes: true, tinte: 0x9fb8ff, mezcla: ['alien_armor', 'zombie3', 'alien_green', 'esqueleto'] },
     { nombre: 'El Abismo sin Fondo', cueva: true, tinte: 0xa58a9a, mezcla: ['alien_armor', 'alien_dark_gray', 'esqueleto', 'zombie3'] },
 ];
+// PERSONALIDADES: cada nivel generado tiene una, y le cambia la forma, el ritmo, la luz y las sorpresas
+// (las más raras aparecen en niveles más altos). Se ve en el nombre: "Las Grutas Rojas 2-7 · Torres".
+//   obstaculos/llanos/especiales: la forma del nivel · oscuridad: qué tan oscuro · cueva: con techo
+//   locuras: sorpresas de locuras.js repartidas por el nivel · persecuciones: gigantes que te persiguen
+//   bajada: se empieza arriba de un cráter y se baja por cornisas
+const ARQUETIPOS = [
+    { nombre: 'Clásico', desde: 0, obstaculos: ['hueco', 'hueco', 'islas', 'puente', 'escalera'], llanos: [450, 800] },
+    { nombre: 'Torres', desde: 0, obstaculos: ['escalera', 'islas', 'hueco'], llanos: [380, 620], especiales: ['torre6', 'torre4', 'puentesAltos'], locuras: ['seta'] },
+    { nombre: 'Cuevas', desde: 0, obstaculos: ['hueco', 'escalera', 'hueco'], llanos: [420, 700], especiales: ['sotano', 'tunel'], cueva: true, oscuridad: 0.8, luz: true, locuras: ['estalactita'] },
+    { nombre: 'Mar de lava', desde: 0, obstaculos: ['islas', 'puente', 'hueco', 'islas'], llanos: [280, 480], especiales: ['dobleCamino', 'runa', 'puentesAltos'], locuras: ['monedaHuye'] },
+    { nombre: 'Persecución', desde: 3, obstaculos: ['hueco', 'hueco', 'escalera'], llanos: [800, 1200], especiales: ['tunel'], persecuciones: 3, locuras: ['tronco'] },
+    { nombre: 'Tormenta', desde: 6, obstaculos: ['islas', 'puente', 'hueco'], llanos: [450, 800], locuras: ['viento', 'viento', 'cartelCae'], nubes: true },
+    { nombre: 'Cráter', desde: 10, obstaculos: ['hueco', 'islas', 'escalera'], llanos: [400, 700], bajada: true, especiales: ['sotano', 'torre4'] },
+    { nombre: 'Embrujado', desde: 15, obstaculos: ['hueco', 'escalera', 'puente'], llanos: [420, 720], oscuridad: 0.75, luz: true, sombras: true, locuras: ['antorcha', 'quieto', 'sombra'] },
+    { nombre: 'Pesadilla', desde: 25, obstaculos: ['islas', 'hueco', 'puente', 'escalera'], llanos: [350, 650], oscuridad: 0.82, luz: true, sombras: true, locuras: ['gravedad', 'sombra', 'quieto', 'viento'] },
+];
 const ESPECIALES_INF = ['torre4', 'tunel', 'dobleCamino', 'puentesAltos', 'torre6', 'runa', 'sotano', 'sotano'];
 const SUBIDAS = ['torre4', 'torre6', 'puentesAltos'];
 
 let guardado = null; // (solo el último nivel generado: no se juntan miles en memoria)
+// la personalidad de un nivel: cada mundo baraja las desbloqueadas y las va dando en orden (así dos
+// niveles seguidos nunca se parecen); el "Clásico" va al final, para que salga menos
+function ordenDelMundo(mundo) {
+    // (las desbloqueadas al EMPEZAR el mundo: la lista no cambia a mitad de mundo)
+    const k = Math.max(0, (mundo - 1) * NIVELES_POR_MUNDO - NIVELES.length);
+    const r = azar(mundo * 15485863 + 3);
+    const otras = ARQUETIPOS.filter(a => k >= a.desde && a.nombre !== 'Clásico');
+    for (let j = otras.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [otras[j], otras[m]] = [otras[m], otras[j]]; }
+    return [...otras, ARQUETIPOS[0]];
+}
+// si el primero de un mundo repetiría el último del anterior, el mundo entero se corre un lugar
+const corrimientos = new Map();
+function corrimiento(mundo) {
+    if (mundo <= 1) return 0;
+    if (corrimientos.has(mundo)) return corrimientos.get(mundo);
+    // (de a un mundo hacia atrás, sin recursión profunda: se calculan en orden)
+    let c = 0;
+    for (let w = 2; w <= mundo; w++) {
+        if (corrimientos.has(w)) { c = corrimientos.get(w); continue; }
+        const antes = ordenDelMundo(w - 1), ahora = ordenDelMundo(w);
+        const ultimo = antes[(NIVELES_POR_MUNDO - 1 + (corrimientos.get(w - 1) ?? 0)) % antes.length];
+        c = ahora[0] === ultimo ? 1 : 0;
+        corrimientos.set(w, c);
+    }
+    return c;
+}
+function arquetipoDe(i) {
+    const mundo = mundoDe(i), orden = ordenDelMundo(mundo);
+    return orden[(i % NIVELES_POR_MUNDO + corrimiento(mundo)) % orden.length];
+}
 export function nivelPorIndice(i) {
     if (!esInfinito(i)) return NIVELES[i];
     if (guardado?.i === i) return guardado.nivel;
@@ -626,20 +674,64 @@ function nivelInfinito(i) {
     const tema = TEMAS[(mundo - 1) % TEMAS.length];
     const conJefe = enMundo === NIVELES_POR_MUNDO;
     const r = azar(i * 7919 + 13);
+    const arq = arquetipoDe(i);
     // cuántos tramos especiales y cuáles (al azar, pero siempre los mismos para este nivel)
     // siempre al menos una subida y una bajada a un sótano; con el nivel, más de todo
     const cuantos = Math.min(8, 2 + Math.floor(k / 12));
+    // (con más peso los de su personalidad)
+    const pool = arq.especiales ? [...arq.especiales, ...arq.especiales, ...ESPECIALES_INF] : ESPECIALES_INF;
     const especiales = [SUBIDAS[Math.floor(r() * SUBIDAS.length)], 'sotano',
-        ...Array.from({ length: cuantos - 2 }, () => ESPECIALES_INF[Math.floor(r() * ESPECIALES_INF.length)])];
+        ...Array.from({ length: cuantos - 2 }, () => pool[Math.floor(r() * pool.length)])];
     for (let j = especiales.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [especiales[j], especiales[m]] = [especiales[m], especiales[j]]; }
     const n = generarNivel({
-        nombre: `${tema.nombre} ${mundo}-${enMundo}`,
+        nombre: `${tema.nombre} ${mundo}-${enMundo} · ${arq.nombre}`,
         semilla: i * 104729 + 7,
         dificultad: Math.min(1, 0.6 + k * 0.01),
         tramos: Math.min(26, 12 + Math.floor(k / 3)),     // más largo en cada nivel (tope: muchos enemigos a la vez pesan en el celular)
-        cueva: !!tema.cueva, nubes: !!tema.nubes, tinte: tema.tinte, mezcla: tema.mezcla,
-        especiales,
+        cueva: !!(arq.cueva ?? tema.cueva), nubes: !!(arq.nubes ?? tema.nubes) && !arq.cueva, tinte: tema.tinte, mezcla: tema.mezcla,
+        especiales, obstaculos: arq.obstaculos, llanos: arq.llanos, bajadaInicial: !!arq.bajada,
     });
+    n.arquetipo = arq.nombre;
+    if (arq.oscuridad) n.oscuridad = arq.oscuridad;
+    // luz de antorcha y braseros (luz.js): cada ~1100-1500 px, en suelo firme lejos de la lava
+    if (arq.luz) {
+        n.luz = { oscuridad: Math.min(0.95, arq.oscuridad + 0.1), sombras: !!arq.sombras };
+        n.braseros = [];
+        const huecos = [...n.lava, ...n.falsos];
+        let proximo = 1200;
+        (n.suelo || []).forEach(([a, b]) => {
+            for (let x = Math.max(a + 150, proximo); x < b - 150 && x < n.meta - 400; x += 100) {
+                if (huecos.some(([h0, h1]) => x > h0 - 150 && x < h1 + 150)) continue;
+                n.braseros.push(x);
+                proximo = x + 1100 + Math.round(r() * 400);
+                break;
+            }
+            while (proximo < b - 150) {
+                const x = proximo;
+                if (x >= n.meta - 400) break;
+                if (!huecos.some(([h0, h1]) => x > h0 - 150 && x < h1 + 150) && x > a + 150) { n.braseros.push(x); proximo = x + 1100 + Math.round(r() * 400); }
+                else proximo += 100;
+            }
+        });
+    }
+    // sus sorpresas, repartidas por el suelo firme (más en cada nivel)
+    if (arq.locuras) {
+        const huecos = [...n.lava, ...n.falsos];
+        const libres = [];
+        (n.suelo || []).forEach(([a, b]) => { for (let x = Math.max(a + 200, 1000); x < b - 200 && x < n.meta - 1500; x += 120) {
+            if (!huecos.some(([h0, h1]) => x > h0 - 200 && x < h1 + 200)) libres.push(x);
+        } });
+        const cuantas = Math.min(10, 3 + Math.floor(k / 30));
+        n.locuras = n.locuras || [];
+        for (let j = 0; j < cuantas && libres.length; j++) {
+            const x = libres.splice(Math.floor(r() * libres.length), 1)[0];
+            for (let q = libres.length - 1; q >= 0; q--) if (Math.abs(libres[q] - x) < 700) libres.splice(q, 1);
+            const tipo = arq.locuras[j % arq.locuras.length];
+            n.locuras.push(tipo === 'viento' ? [x, tipo, r() < 0.5 ? 1 : -1] : [x, tipo]);
+        }
+    }
+    // gigantes que te persiguen
+    for (let j = 0; j < (arq.persecuciones || 0); j++) n.persecuciones.push(Math.round(1500 + (n.meta - 3500) * (j + 1) / (arq.persecuciones + 1)));
     n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)); // más rápidos en cada nivel
     // más enemigos: uno cada 'paso' px de suelo firme (más juntos en cada nivel), con tope por los celulares
     const paso = Math.max(300, 620 - k * 3);

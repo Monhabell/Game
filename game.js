@@ -33,6 +33,7 @@ import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, 
 import { precargarCriptas } from "./criptas_troll.js"
 import { decorarAfueras } from "./afueras.js"
 import { configurarCatacumbas, crearCatacumbas, actualizarCatacumbas } from "./catacumbas.js"
+import { crearLuz, actualizarLuz } from "./luz.js"
 import { configurarMundos, abrirMapa, mapaAbierto, contarMoneda, reiniciarMonedasNivel, ganarEstrellas, textoEstrellas } from "./mundos.js"
 import { configurarFalsas, crearFalsas, actualizarFalsas } from "./falsas.js"
 import { configurarMisiones, crearMisiones, actualizarMisiones, golpeMisiones, reiniciarMisiones, misionesBloquean } from "./misiones.js"
@@ -955,6 +956,7 @@ function create() {
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
     crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivel1 ? [[1350, 2310]] : []);
+    crearLuz(this, nivel, ZOOM); // (niveles oscuros: antorcha, braseros y enemigos sombra; sombras bajo los pies)
 
     // HUD (en el celular, más chico y con íconos en vez de palabras: deja ver el juego, como en los
     // juegos de celular; lo de los poderes V y B lo muestran los botones táctiles)
@@ -3140,6 +3142,7 @@ function actualizarJugador(time, delta) {
     if (this.minas) actualizarMinas(this, time);
     if (this.misionesNivel) actualizarMisiones(this, time);
     if (this.falsas) actualizarFalsas(this);
+    actualizarLuz(this, time, this.game.loop.delta);
 
     if (this.mascotaGesi.isDead) return;
 

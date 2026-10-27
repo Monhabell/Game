@@ -113,6 +113,7 @@ function nivelCriptas(inicio = null) {
         nubes: true,
         fondo: 'montanas',
         sinMeta: true,
+        luz: { oscuridad: 0.74, sinGasto: true }, // (penumbra de noche y tu luz: luz.js)
         sinDecorado: true, // (nada de árboles ni ruinas: todo lo pone este archivo)
         meta: ANCHO,
         inicio: inicio || [ALTAR.x - 150, Y0 - 80],
