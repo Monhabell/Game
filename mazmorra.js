@@ -40,11 +40,23 @@ export function crearAnimacionesMazmorra(scene) {
     }));
 }
 
+// ---------- Decorado de fondo ----------
+// paredes y muebles de los mapas nuevos (afueras.js, catacumbas.js, criptas_troll.js): justo encima del
+// cielo y el paisaje, pero DEBAJO de todo lo jugable (enemigos, poderes, monedas: capa 0). game.js anota
+// en scene.fondoHasta dónde termina el paisaje; cada pieza va a continuación, en orden.
+export function alFondo(scene, obj) {
+    obj.setDepth(0);
+    scene.fondoHasta ??= 0;
+    scene.children.moveTo(obj, scene.fondoHasta++);
+    return obj;
+}
+
 // ---------- Suelo, plataformas y lava ----------
 
 // viste una pieza de suelo (de la física) con roca; 'izq'/'der' agregan el borde
 export function vestirSuelo(scene, pieza, { izq = false, der = false, flotante = false } = {}) {
     const b = pieza.getBounds();
+    if (scene.estiloMedieval) return vestirMedieval(scene, pieza, b, flotante);
     const tex = flotante ? 'mz_plat' : 'mz_suelo';
     // posiciones enteras y 1 px de solape para que no se vean rayas entre piezas
     const x0 = Math.floor(b.x), ancho = Math.ceil(b.right) - x0 + 1;
@@ -61,9 +73,31 @@ export function vestirSuelo(scene, pieza, { izq = false, der = false, flotante =
     return partes;
 }
 
+// estilo medieval (nivel 1, las Afueras): ladrillo de assets/criptas en vez de roca. El dibujo de los
+// muros lo pone el nivel (afueras.js); el suelo sigue hacia abajo en ladrillo oscuro
+function vestirMedieval(scene, pieza, b, flotante) {
+    const x0 = Math.floor(b.x), ancho = Math.ceil(b.right) - x0 + 1, y = Math.round(b.y);
+    // (las plataformas flotantes: una losa de ladrillo de 26 px, el borde arriba)
+    const partes = [scene.add.tileSprite(x0, y + 12, ancho, flotante ? 14 : PROFUNDIDAD_SUELO, 'cr_tile93').setOrigin(0).setTileScale(2 / 3)];
+    partes.push(scene.add.tileSprite(x0, y, ancho, 16, 'cr_tile75').setOrigin(0).setTileScale(2 / 3));
+    partes.forEach(p => { p.tilePositionX = x0 * 1.5; });
+    pieza.visuales = partes;
+    pieza.setVisible(false);
+    return partes;
+}
+
 // muro de roca maciza (usa el cuerpo de física para saber dónde está)
 export function vestirMuro(scene, pieza) {
     const b = pieza.body;
+    if (scene.estiloMedieval) {
+        pieza.setVisible(false);
+        // (los niveles hechos a mano dibujan sus muros; los infinitos, aquí: ladrillo con el borde arriba)
+        if (scene.murosPropios) { pieza.visuales = []; return; }
+        const relleno = scene.add.tileSprite(b.x, b.y + 12, b.width, b.height - 12, 'cr_tile93').setOrigin(0).setTileScale(2 / 3);
+        const tope = scene.add.tileSprite(b.x, b.y, b.width, 16, 'cr_tile75').setOrigin(0).setTileScale(2 / 3);
+        pieza.visuales = [relleno, tope];
+        return;
+    }
     const relleno = scene.add.tileSprite(b.x, b.y + 40, b.width, b.height - 40, 'mz_relleno').setOrigin(0);
     const tope = scene.add.tileSprite(b.x, b.y - BORDE, b.width, 64, 'mz_suelo').setOrigin(0);
     pieza.visuales = [relleno, tope];
@@ -73,6 +107,14 @@ export function vestirMuro(scene, pieza) {
 // techo de túnel: roca maciza con el borde de roca por abajo (usa el cuerpo de física)
 export function vestirTecho(scene, pieza) {
     const b = pieza.body;
+    if (scene.estiloMedieval) {
+        // el techo de la bodega: ladrillo con el borde por abajo
+        const relleno = scene.add.tileSprite(b.x, b.y, b.width, b.height - 14, 'cr_tile93').setOrigin(0).setTileScale(2 / 3);
+        const borde = scene.add.tileSprite(b.x, b.bottom - 16, b.width, 16, 'cr_tile75').setOrigin(0).setTileScale(2 / 3).setFlipY(true);
+        pieza.visuales = [relleno, borde];
+        pieza.setVisible(false);
+        return;
+    }
     const relleno = scene.add.tileSprite(b.x, b.y, b.width, b.height - 30, 'mz_relleno').setOrigin(0).setTint(0xb0a8a0);
     const borde = scene.add.tileSprite(b.x, b.bottom - 64 + BORDE, b.width, 64, 'mz_suelo').setOrigin(0).setFlipY(true);
     pieza.visuales = [relleno, borde];

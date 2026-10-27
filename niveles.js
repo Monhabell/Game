@@ -45,6 +45,9 @@
 // Una gota de lava golpea en x + 31 respecto a su gotero: los goteros se ponen
 // sobre huecos o suelo, nunca sobre una plataforma en la que haya que pararse.
 
+import { NIVEL_AFUERAS } from "./afueras.js"
+import { NIVEL_CATACUMBAS } from "./catacumbas.js"
+import { NIVEL_MINAS } from "./minas.js"
 import {
     colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
     tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
@@ -341,6 +344,14 @@ extender(NIVELES[1], 4660, [ // Cueva: doble camino sobre la lava y un túnel la
     tramoLlano(200), tramoDobleCamino(), tramoLlano(400, { enemigos: 1 }), tramoTunel(900),
     tramoLlano(300), tramoCornisaSecreta(),
 ]);
+// NIVEL 1: Las Afueras de Albora (afueras.js), con el estilo de las Criptas. El Bosque de Gesi de antes
+// queda guardado en NIVEL_1_ANTERIOR (amano: su primera parte la arma construirNivel1 en game.js);
+// para volver a él, basta con quitar la línea que lo reemplaza.
+export const NIVEL_1_ANTERIOR = Object.assign(NIVELES[0], { amano: true });
+NIVELES[0] = NIVEL_AFUERAS;
+// NIVEL 2: Las Catacumbas de Albora (catacumbas.js). La Cueva de Lava de antes queda en NIVEL_2_ANTERIOR
+export const NIVEL_2_ANTERIOR = NIVELES[1];
+NIVELES[1] = NIVEL_CATACUMBAS;
 extender(NIVELES[2], 4710, [ // Puentes: túnel, una torre y otro doble camino
     tramoLlano(300), tramoTunel(600), tramoLlano(300, { enemigos: 1 }), tramoTorre(4), tramoLlano(400),
     tramoDobleCamino(), tramoLlano(300),
@@ -349,6 +360,10 @@ extender(NIVELES[3], 5160, [ // Fortaleza: túneles, doble camino y una torre al
     tramoLlano(300), tramoTunel(900), tramoLlano(700, { enemigos: 2 }), tramoDobleCamino(), tramoLlano(400),
     tramoTorre(6), tramoLlano(400, { enemigos: 1 }), tramoTunel(600), tramoLlano(300),
 ]);
+// NIVEL 3: Las Minas del Rey Troll (minas.js), con misiones. Los Puentes sobre la Lava de antes quedan en
+// NIVEL_3_ANTERIOR (con sus tramos ya agregados)
+export const NIVEL_3_ANTERIOR = NIVELES[2];
+NIVELES[2] = NIVEL_MINAS;
 
 // Generador de niveles grandes a partir de "tramos" que siempre se pueden pasar.
 // Nivel 7 · Las Ruinas del Abismo: el Rey Troll huye de las Nubes al abismo y ahí espera, en su
@@ -512,6 +527,8 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
     // tramos especiales: piezas compartidas (tramos.js), las mismas que alargan los niveles hechos a mano
     const especial = t => { colocar(n, t, x); x += t.ancho; };
     const TRAMOS_ESPECIALES = {
+        // bajada a un sótano: cada vez más largo (más difícil en niveles altos: más enemigos adentro)
+        sotano: () => especial(tramoSotano(entre(600, 900 + Math.round(700 * d)), d)),
         torre4: () => especial(tramoTorre(4)), torre6: () => especial(tramoTorre(6)),
         puentesAltos: () => especial(tramoPuentesAltos()), dobleCamino: () => especial(tramoDobleCamino()),
         runa: () => especial(tramoAbismoRunico()), tunel: () => especial(tramoTunel(800)),
@@ -568,4 +585,85 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
     n.meta = fin + 200 + altura * 32 + 250;
     n.ancho = x;
     return n;
+}
+
+// ---------- NIVELES INFINITOS ----------
+// Después de los niveles hechos a mano (NIVELES) sigue un camino de miles de niveles GENERADOS: cada uno
+// es una "receta" (generarNivel) que se arma con su número como semilla al entrar, así que no pesan nada
+// (en memoria solo está el nivel que se juega) y el nivel 347 es el mismo para todos.
+//   - Van en MUNDOS de 10: el último de cada mundo trae al Rey Troll; los otros 9 no tienen jefe.
+//   - Cada nivel es más difícil que el anterior: más largo, enemigos más rápidos y más tramos especiales
+//     (torres, túneles, puentes altos, doble camino). La forma del suelo deja de crecer en la dificultad
+//     1 (más, y los huecos ya no se podrían saltar): de ahí en adelante crecen el largo y la velocidad.
+//   - Suelos de ladrillo medieval, como los niveles nuevos; cada mundo cambia de tema.
+export const TOTAL_NIVELES = 5000;
+export const NIVELES_POR_MUNDO = 10;
+export const esInfinito = i => i >= NIVELES.length;
+export const mundoDe = i => Math.floor(i / NIVELES_POR_MUNDO) + 1;
+
+const TEMAS = [
+    { nombre: 'Las Ruinas Olvidadas', nubes: true, tinte: 0x9a9ab8, mezcla: ['zombie1', 'zombie2', 'esqueleto', 'zombie3'] },
+    { nombre: 'Las Grutas Rojas', cueva: true, tinte: 0xc08070, mezcla: ['esqueleto', 'zombie3', 'alien_dark_gray', 'zombie2'] },
+    { nombre: 'Los Pantanos Muertos', nubes: true, tinte: 0x7fa080, mezcla: ['zombie2', 'alien_green', 'zombie3', 'esqueleto'] },
+    { nombre: 'Las Forjas del Troll', cueva: true, tinte: 0xb8503a, mezcla: ['alien_armor', 'esqueleto', 'zombie3', 'alien_dark_gray'] },
+    { nombre: 'Las Torres del Cielo', nubes: true, tinte: 0x9fb8ff, mezcla: ['alien_armor', 'zombie3', 'alien_green', 'esqueleto'] },
+    { nombre: 'El Abismo sin Fondo', cueva: true, tinte: 0xa58a9a, mezcla: ['alien_armor', 'alien_dark_gray', 'esqueleto', 'zombie3'] },
+];
+const ESPECIALES_INF = ['torre4', 'tunel', 'dobleCamino', 'puentesAltos', 'torre6', 'runa', 'sotano', 'sotano'];
+const SUBIDAS = ['torre4', 'torre6', 'puentesAltos'];
+
+let guardado = null; // (solo el último nivel generado: no se juntan miles en memoria)
+export function nivelPorIndice(i) {
+    if (!esInfinito(i)) return NIVELES[i];
+    if (guardado?.i === i) return guardado.nivel;
+    guardado = { i, nivel: nivelInfinito(i) };
+    return guardado.nivel;
+}
+
+function nivelInfinito(i) {
+    const k = i - NIVELES.length;                 // 0 = el primer nivel infinito
+    const mundo = mundoDe(i), enMundo = i % NIVELES_POR_MUNDO + 1;
+    const tema = TEMAS[(mundo - 1) % TEMAS.length];
+    const conJefe = enMundo === NIVELES_POR_MUNDO;
+    const r = azar(i * 7919 + 13);
+    // cuántos tramos especiales y cuáles (al azar, pero siempre los mismos para este nivel)
+    // siempre al menos una subida y una bajada a un sótano; con el nivel, más de todo
+    const cuantos = Math.min(8, 2 + Math.floor(k / 12));
+    const especiales = [SUBIDAS[Math.floor(r() * SUBIDAS.length)], 'sotano',
+        ...Array.from({ length: cuantos - 2 }, () => ESPECIALES_INF[Math.floor(r() * ESPECIALES_INF.length)])];
+    for (let j = especiales.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [especiales[j], especiales[m]] = [especiales[m], especiales[j]]; }
+    const n = generarNivel({
+        nombre: `${tema.nombre} ${mundo}-${enMundo}`,
+        semilla: i * 104729 + 7,
+        dificultad: Math.min(1, 0.6 + k * 0.01),
+        tramos: Math.min(26, 12 + Math.floor(k / 3)),     // más largo en cada nivel (tope: muchos enemigos a la vez pesan en el celular)
+        cueva: !!tema.cueva, nubes: !!tema.nubes, tinte: tema.tinte, mezcla: tema.mezcla,
+        especiales,
+    });
+    n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)); // más rápidos en cada nivel
+    n.estilo = 'infinito';
+    n.sinJefe = !conJefe;
+    n.mundo = mundo;
+    return n;
+}
+
+// SÓTANO (niveles infinitos): se sube por escalones a un bloque de ladrillo y desde ahí se BAJA a un túnel
+// techado a ras del suelo (el sótano), con enemigos y monedas; se sale por el otro lado.
+//   largo: lo que mide el túnel; d: dificultad (más enemigos adentro)
+function tramoSotano(largo, d) {
+    const A = 140;                                  // lo alto del bloque de la entrada
+    const subida = [0, 1, 2, 3, 4].map(i => [40 + i * 48, SUELO_Y - 38 * (i + 1), 44]);
+    const bajada = [0, 1, 2, 3, 4].map(i => [500 + i * 44, A + 32 * (i + 1), 44]);
+    const t0 = 740, t1 = t0 + largo, ancho = t1 + 220;
+    const adentro = 2 + Math.round(3 * d);
+    return {
+        ancho,
+        suelo: [[0, ancho]],
+        muros: [[280, A, 220]],
+        plataformas: [...subida, ...bajada],
+        techos: [[t0, t1, 200]],
+        enemigos: Array.from({ length: adentro }, (_, i) => Math.round(t0 + 150 + i * (largo - 250) / Math.max(1, adentro - 1))),
+        monedas: Array.from({ length: Math.floor(largo / 120) }, (_, i) => [t0 + 80 + i * 120, 300]),
+        carteles: [[400, A - 40, '⬇ SÓTANO']],
+    };
 }

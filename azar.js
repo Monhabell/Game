@@ -245,7 +245,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     ];
 
     // ---------- Locuras: las trampas nuevas de cada nivel (ver locuras.js) ----------
-    n.locuras = [];
+    n.locuras = [...(nivel.locuras || [])]; // (las que el nivel trae puestas a mano se quedan)
     n.cristales = [...(nivel.cristales || [])];
     const firme = (a, b) => [...n.suelo, ...sueloExtra].some(([s, e]) => a >= s && b <= e);
     const flotantes = (nivel.plataformas || []).map(([x, , ancho]) => [x - 60, x + ancho + 60]);

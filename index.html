@@ -2046,6 +2046,53 @@
         @keyframes noche-desaparece { to { opacity: 0; } }
         @media (prefers-reduced-motion: reduce) { .noche-ataque, .noche-ataque * { animation-duration: 0.01s !important; animation-delay: 0s !important; } }
         @media (max-height: 500px) { .noche-ataque-escena { height: 160px; --tam: 160px; } }
+        /* GAME OVER (game.js): cuántas veces moriste y una burla */
+        .game-over .menu-panel { text-align: center; }
+        .game-over h2 { color: #ff5a6a; letter-spacing: 0.06em; }
+        .game-over-muertes { margin: 4px 0; font-size: 16px; }
+        .game-over-muertes b { color: #ffcf5a; font-size: 22px; }
+        .game-over-burla { margin: 2px 0 8px; font-style: italic; opacity: 0.85; }
+        /* nivel 3, las Minas (minas.js): misiones y resultados */
+        .minas-lista small { display: block; padding-left: 16px; font-size: 10px; opacity: 0.65; }
+        .minas-resultados {
+            position: absolute; left: 50%; top: 22%; transform: translateX(-50%); z-index: 12; pointer-events: none;
+            min-width: 240px; padding: 14px 20px; border-radius: 14px; text-align: center; font-family: var(--letra); color: #eef1f7;
+            background: rgba(10, 13, 22, 0.88); border: 1px solid rgba(255, 201, 74, 0.5); box-shadow: 0 0 30px rgba(255, 201, 74, 0.25);
+            animation: noche-entra 0.4s ease-out;
+        }
+        .minas-resultados b { display: block; margin-bottom: 6px; color: #ffcf5a; font-size: 15px; }
+        .minas-resultados p { margin: 3px 0; font-size: 14px; }
+        .minas-resultados em { font-style: normal; font-weight: 700; color: #ffe066; }
+        .minas-resultados small { display: block; margin-top: 6px; opacity: 0.75; }
+        /* mapa de mundos y estrellas (mundos.js) */
+        .mundos-panel { width: min(560px, 96%); text-align: center; }
+        .mundos-panel header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .mundos-panel h2 { margin: 0; color: #ffcf5a; }
+        .mundos-panel header p { margin: 2px 0 0; font-size: 13px; opacity: 0.8; }
+        .mundos-flecha { width: 40px; height: 40px; border-radius: 50%; font-size: 24px; line-height: 1; cursor: pointer; color: #fff; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .mundos-flecha:disabled { opacity: 0.3; cursor: default; }
+        .mundos-camino { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 14px 0 8px; }
+        .mundo-nivel {
+            display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 12px; cursor: pointer;
+            font-family: var(--letra); color: #fff; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .mundo-nivel b { font-size: 17px; }
+        .mundo-nivel small { font-size: 10px; letter-spacing: 1px; }
+        .mundo-nivel.jefe { border-color: #ff5a6a; background: rgba(255, 77, 94, 0.12); }
+        .mundo-nivel.sigue { outline: 2px solid #ffcf5a; box-shadow: 0 0 14px rgba(255, 207, 90, 0.5); }
+        .mundo-nivel.cerrado { opacity: 0.4; cursor: default; }
+        .mundos-total { margin: 4px 0; font-weight: 700; color: #ffe066; }
+        /* portada de carga (historia.js: mostrarCarga) */
+        .portada-carga {
+            position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+            padding-bottom: 7%; background: #05060c url("assets/portada.jpg") center / cover no-repeat;
+            transition: opacity 0.6s ease;
+        }
+        .portada-carga::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(3, 4, 10, 0.9)); }
+        .portada-carga.lista { opacity: 0; pointer-events: none; }
+        .portada-barra { position: relative; width: min(320px, 60%); height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.12); }
+        .portada-barra i { display: block; width: 0; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4f7bff, #9fd8ff); box-shadow: 0 0 12px #6f9bff; transition: width 0.2s; }
+        .portada-carga p { position: relative; margin: 10px 0 0; font: 600 13px var(--letra); color: #c9d6ff; letter-spacing: 0.08em; text-shadow: 0 2px 6px #000; }
         .noche-marca.heroe { --rol: #ffcf5a; }
         .noche-marca.troll { --rol: #ff4d5e; }
         @keyframes noche-entra { from { opacity: 0; } to { opacity: 1; } }
@@ -2079,6 +2126,8 @@
     <div class="game-container">
         <h1 class="title">TROLL NIGHT</h1>
         <div id="game">
+            <!-- portada de carga: la imagen del juego a pantalla completa mientras se carga (historia.js: mostrarCarga) -->
+            <div class="portada-carga" aria-live="polite"><div class="portada-barra"><i></i></div><p>Cargando…</p></div>
             <!-- botones sobre el juego: siguen visibles en itch.io y en pantalla completa -->
             <div class="botones-flotantes">
                 <button type="button" class="boton-flotante" id="btn-sonido" aria-pressed="false"

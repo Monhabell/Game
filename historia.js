@@ -58,10 +58,18 @@ export function mostrarCarga(scene, zoom) {
     const barra = scene.add.graphics();
     const titulo = scene.add.text(w / 2, h / 2 - 6 * z, 'TROLL NIGHT', moderno(30 * z, '#eef1f7', 700, { resolution: 1 })).setOrigin(0.5);
     const pie = scene.add.text(w / 2, h / 2 + 46 * z, 'Cargando…', moderno(10 * z, '#7f88a6', 500, { resolution: 1 })).setOrigin(0.5);
+    // (la portada de carga es HTML, sobre el juego: index.html, .portada-carga; aquí solo se le pasa el avance)
+    const html = document.querySelector('.portada-carga');
+    const barraHtml = html?.querySelector('i'), textoHtml = html?.querySelector('p');
     scene.load.on('progress', p => {
         barra.clear().fillStyle(ACENTO, 1).fillRoundedRect(w / 2 - ancho / 2, h / 2 + 24 * z, Math.max(alto, ancho * p), alto, alto / 2);
+        if (barraHtml) barraHtml.style.width = `${Math.round(p * 100)}%`;
+        if (textoHtml) textoHtml.textContent = `Cargando… ${Math.round(p * 100)} %`;
     });
-    scene.load.once('complete', () => [fondo, barra, titulo, pie].forEach(o => o.destroy()));
+    scene.load.once('complete', () => {
+        [fondo, barra, titulo, pie].forEach(o => o.destroy());
+        if (html) { html.classList.add('lista'); setTimeout(() => html.remove(), 700); }
+    });
 }
 
 // fondo compartido: cielo nocturno, castillo y niebla (historia y final)
@@ -181,14 +189,36 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     const velo = scene.add.graphics().setDepth(9);
     velo.fillGradientStyle(0x05060c, 0x05060c, 0x05060c, 0x05060c, 0.75, 0, 0.75, 0).fillRect(0, 0, 430, ALTO);
 
-    // logo y textos (columna izquierda)
+    // PORTADA (assets/portada.jpg): la imagen del juego ocupa toda la pantalla, se acerca y se aleja muy
+    // despacio, y abajo una sombra deja leer los botones (que van en fila). Sin la imagen: el título de antes
+    const portada = scene.textures.exists('portada');
+    if (portada) {
+        velo.setVisible(false);
+        const img = scene.add.image(ANCHO / 2, ALTO / 2, 'portada').setDepth(9);
+        const esc = Math.max(ANCHO / img.width, ALTO / img.height) * 1.03;
+        img.setScale(esc);
+        if (!quieto) scene.tweens.add({ targets: img, scale: esc * 1.06, yoyo: true, repeat: -1, duration: 12000, ease: 'Sine.inOut' });
+        scene.add.graphics().setDepth(9.1)
+            .fillGradientStyle(0x03040a, 0x03040a, 0x03040a, 0x03040a, 0, 0, 0.95, 0.95).fillRect(0, ALTO - 130, ANCHO, 130);
+        // brillos que suben por delante de la imagen
+        if (!quieto) for (let i = 0; i < 16; i++) {
+            const b = scene.add.circle(0, 0, Phaser.Math.FloatBetween(0.6, 1.5), 0x8fb4ff, 0.8).setDepth(9.2).setBlendMode('ADD');
+            const subir = () => {
+                b.setPosition(Phaser.Math.Between(0, ANCHO), ALTO + 6).setAlpha(Phaser.Math.FloatBetween(0.3, 0.8));
+                scene.tweens.add({ targets: b, y: Phaser.Math.Between(60, 240), x: b.x + Phaser.Math.Between(-30, 30), alpha: 0, duration: Phaser.Math.Between(5000, 9000), onComplete: subir });
+            };
+            scene.time.delayedCall(Phaser.Math.Between(0, 5000), subir);
+        }
+    }
+
+    // logo y textos (columna izquierda; con la portada no hacen falta: la imagen ya lo dice todo)
     const X = 64;
-    const etiqueta = scene.add.text(X, 70, 'UN PLATAFORMAS TROLL', moderno(10, '#8b9cff', 600)).setOrigin(0, 0.5).setDepth(10);
-    const logo = scene.add.text(X - 3, 110, 'TROLL NIGHT', moderno(54, '#ffffff', 700)).setOrigin(0, 0.5).setDepth(10);
+    const etiqueta = scene.add.text(X, 70, 'UN PLATAFORMAS TROLL', moderno(10, '#8b9cff', 600)).setOrigin(0, 0.5).setDepth(10).setVisible(!portada);
+    const logo = scene.add.text(X - 3, 110, 'TROLL NIGHT', moderno(54, '#ffffff', 700)).setOrigin(0, 0.5).setDepth(10).setVisible(!portada);
     logo.setTint(0xffffff, 0xffffff, 0xc3cbff, 0xc3cbff);
     logo.setShadow(0, 0, '#6f82ff', 22, false, true);
-    const subtitulo = scene.add.text(X, 152, 'La Noche Eterna', moderno(20, '#c9d0e6', 400)).setOrigin(0, 0.5).setDepth(10);
-    const lema = scene.add.text(X, 178, 'Nada es lo que parece.', moderno(11, '#7f88a6', 400, { fontStyle: 'italic' })).setOrigin(0, 0.5).setDepth(10);
+    const subtitulo = scene.add.text(X, 152, 'La Noche Eterna', moderno(20, '#c9d0e6', 400)).setOrigin(0, 0.5).setDepth(10).setVisible(!portada);
+    const lema = scene.add.text(X, 178, 'Nada es lo que parece.', moderno(11, '#7f88a6', 400, { fontStyle: 'italic' })).setOrigin(0, 0.5).setDepth(10).setVisible(!portada);
     const textos = [etiqueta, logo, subtitulo, lema];
 
     // menú: botones de píldora; el elegido se llena con el color de acento
@@ -200,26 +230,32 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     if (app) opciones.push(['Salir del juego', () => app.exitApp()]);
     let sel = 0, elegido = false;
     // con 4 opciones los botones van un poco más juntos (para que quepa la ayuda de abajo)
-    const BOTON = opciones.length > 3 ? { w: 220, h: 30, paso: 38, y0: 210 } : { w: 220, h: 34, paso: 44, y0: 222 };
+    // con la portada, los botones van en FILA abajo al centro; si no, en columna a la izquierda
+    const enFila = portada;
+    const BOTON = enFila ? { w: opciones.length > 3 ? 166 : 182, h: 34, paso: opciones.length > 3 ? 176 : 196, y0: ALTO - 52 }
+        : opciones.length > 3 ? { w: 220, h: 30, paso: 38, y0: 210 } : { w: 220, h: 34, paso: 44, y0: 222 };
+    const x0Fila = ANCHO / 2 - ((opciones.length - 1) * BOTON.paso + BOTON.w) / 2;
     const items = opciones.map(([nombre, accion], i) => {
-        const y = BOTON.y0 + i * BOTON.paso;
+        const ix = enFila ? x0Fila + i * BOTON.paso : X;
+        const y = enFila ? BOTON.y0 : BOTON.y0 + i * BOTON.paso;
         const marco = scene.add.graphics().setDepth(10);
-        const t = scene.add.text(X + 20, y, nombre, moderno(13, '#c9d0e6', 500)).setOrigin(0, 0.5).setDepth(11);
-        const flecha = scene.add.text(X + BOTON.w - 20, y, '→', moderno(14, '#ffffff', 500)).setOrigin(1, 0.5).setDepth(11);
-        const zona = scene.add.zone(X + BOTON.w / 2, y, BOTON.w, BOTON.h).setDepth(12).setInteractive({ useHandCursor: true });
+        const t = scene.add.text(ix + 20, y, nombre, moderno(13, '#c9d0e6', 500)).setOrigin(0, 0.5).setDepth(11);
+        const flecha = scene.add.text(ix + BOTON.w - 20, y, '→', moderno(14, '#ffffff', 500)).setOrigin(1, 0.5).setDepth(11);
+        const zona = scene.add.zone(ix + BOTON.w / 2, y, BOTON.w, BOTON.h).setDepth(12).setInteractive({ useHandCursor: true });
         zona.on('pointerover', () => { if (sel !== i) { sel = i; marcar(); scene.sound.play('menu_mover', { volume: 0.4 }); } });
         zona.on('pointerdown', () => elegir(accion));
-        return { t, flecha, marco, y };
+        return { t, flecha, marco, y, ix };
     });
     function marcar() {
         items.forEach((it, i) => {
             const activo = i === sel, top = it.y - BOTON.h / 2;
             it.marco.clear();
             if (activo) {
-                it.marco.fillStyle(ACENTO_FUERTE, 1).fillRoundedRect(X, top, BOTON.w, BOTON.h, BOTON.h / 2);
+                it.marco.fillStyle(ACENTO_FUERTE, 1).fillRoundedRect(it.ix, top, BOTON.w, BOTON.h, BOTON.h / 2);
+                if (enFila) it.marco.lineStyle(2, 0xbfd0ff, 0.9).strokeRoundedRect(it.ix, top, BOTON.w, BOTON.h, BOTON.h / 2);
             } else {
-                it.marco.fillStyle(0xffffff, 0.05).fillRoundedRect(X, top, BOTON.w, BOTON.h, BOTON.h / 2);
-                it.marco.lineStyle(1, 0xffffff, 0.12).strokeRoundedRect(X, top, BOTON.w, BOTON.h, BOTON.h / 2);
+                it.marco.fillStyle(enFila ? 0x0a0e1e : 0xffffff, enFila ? 0.75 : 0.05).fillRoundedRect(it.ix, top, BOTON.w, BOTON.h, BOTON.h / 2);
+                it.marco.lineStyle(1, 0xffffff, enFila ? 0.25 : 0.12).strokeRoundedRect(it.ix, top, BOTON.w, BOTON.h, BOTON.h / 2);
             }
             it.t.setColor(activo ? '#ffffff' : '#c9d0e6');
             it.flecha.setAlpha(activo ? 1 : 0);
@@ -227,8 +263,8 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         if (!quieto) {
             const f = items[sel].flecha;
             scene.tweens.killTweensOf(f);
-            f.x = X + BOTON.w - 26;
-            scene.tweens.add({ targets: f, x: X + BOTON.w - 20, duration: 180, ease: 'Quad.out' });
+            f.x = items[sel].ix + BOTON.w - 26;
+            scene.tweens.add({ targets: f, x: items[sel].ix + BOTON.w - 20, duration: 180, ease: 'Quad.out' });
         }
     }
     marcar();
@@ -243,8 +279,12 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
 
     // ayuda de teclas y créditos (discretos)
     const ayuda = opciones.length > 1 ? '↑ ↓  elegir   ·   Enter  jugar   ·   F  pantalla completa' : 'Enter  empezar   ·   F  pantalla completa';
-    const pie = scene.add.text(X, ALTO - 26, ayuda, moderno(9, '#6c7591', 500)).setOrigin(0, 0.5).setDepth(10);
-    const autor = scene.add.text(X, ALTO - 12, '© 2026 · Desarrollado por Monhabell', moderno(8, '#4f5770', 500)).setOrigin(0, 0.5).setDepth(10);
+    const pie = enFila
+        ? scene.add.text(ANCHO / 2, ALTO - 22, ayuda.replace('↑ ↓', '← →'), moderno(9, '#8a93b0', 500)).setOrigin(0.5).setDepth(10)
+        : scene.add.text(X, ALTO - 26, ayuda, moderno(9, '#6c7591', 500)).setOrigin(0, 0.5).setDepth(10);
+    const autor = enFila
+        ? scene.add.text(ANCHO / 2, ALTO - 9, '© 2026 · Desarrollado por Gabriel Monhabell', moderno(8, '#6c7591', 500)).setOrigin(0.5).setDepth(10)
+        : scene.add.text(X, ALTO - 12, '© 2026 · Desarrollado por Monhabell', moderno(8, '#4f5770', 500)).setOrigin(0, 0.5).setDepth(10);
 
     const base = capas.map(([o]) => [o.x, o.y]); // (antes de la entrada, que mueve al troll)
 
@@ -266,10 +306,12 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
             },
         });
         heroe.setAlpha(0);
-        scene.time.delayedCall(1300, mostrarHeroe);
-    } else {
+        if (!portada) scene.time.delayedCall(1300, mostrarHeroe);
+    } else if (!portada) {
         mostrarHeroe();
     }
+    // (con la portada el héroe no se muestra: la imagen ocupa todo)
+    if (portada) [heroe, nombreHeroe, luz, piso].forEach(o => o.setVisible(false));
 
     // profundidad: las capas se corren un poco según dónde esté el mouse
     let mx = 0, my = 0;
@@ -278,7 +320,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         my = p.y / scene.scale.height - 0.5;
     });
 
-    const k = scene.input.keyboard.addKeys({ arriba: 'UP', abajo: 'DOWN', enter: 'ENTER', espacio: 'SPACE' });
+    const k = scene.input.keyboard.addKeys({ arriba: 'UP', abajo: 'DOWN', izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE' });
     scene.actualizarTitulo = () => {
         if (!quieto) {
             capas.forEach(([o, prof], i) => {
@@ -287,8 +329,9 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
             });
         }
         const JD = Phaser.Input.Keyboard.JustDown;
-        if (JD(k.arriba) || JD(k.abajo)) {
-            sel = (sel + (JD(k.abajo) ? 1 : opciones.length - 1)) % opciones.length;
+        const sig = JD(k.abajo) || JD(k.der), ant = JD(k.arriba) || JD(k.izq);
+        if (sig || ant) {
+            sel = (sel + (sig ? 1 : opciones.length - 1)) % opciones.length;
             marcar();
             scene.sound.play('menu_mover', { volume: 0.4 });
         }

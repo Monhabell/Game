@@ -1,6 +1,6 @@
 import { createAnimations } from "./animations.js"
 import { monedas } from "./monedas.js"
-import { NIVELES, SUELO_Y } from "./niveles.js"
+import { NIVELES, SUELO_Y, nivelPorIndice, esInfinito, TOTAL_NIVELES } from "./niveles.js"
 import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes, resDe } from "./personajes.js"
 import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos, enemigosDelNivel } from "./enemigos.js"
 import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
@@ -31,6 +31,12 @@ import {
 } from "./arena.js"
 import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, relojNoche, nivelDeNoche, NIVEL_NOCHE } from "./troll.js"
 import { precargarCriptas } from "./criptas_troll.js"
+import { decorarAfueras } from "./afueras.js"
+import { configurarCatacumbas, crearCatacumbas, actualizarCatacumbas } from "./catacumbas.js"
+import { configurarMundos, abrirMapa, mapaAbierto, contarMoneda, reiniciarMonedasNivel, ganarEstrellas, textoEstrellas } from "./mundos.js"
+import { configurarFalsas, crearFalsas, actualizarFalsas } from "./falsas.js"
+import { configurarMisiones, crearMisiones, actualizarMisiones, golpeMisiones, reiniciarMisiones, misionesBloquean } from "./misiones.js"
+import { configurarMinas, crearMinas, actualizarMinas, golpeMinas, reiniciarMinas, resultadosMinas, texturasMinas } from "./minas.js"
 import {
     iniciarMultijugador, semillaEnLinea, prepararNivelEnLinea, actualizarEnLinea,
     avisarMuerte, avisarCheckpoint, avisarEnemigo, avisarJefe, avisarMeta, avisarPoder,
@@ -74,7 +80,11 @@ const apiJefe = {
 // poderes especiales (poderes.js): lo que necesitan del juego
 iniciarPoderes({
     dañar: (scene, e, daño, congela, empuje, p) => (e.rivalId != null ? golpearRival(scene, e, daño, congela, empuje, p) : dañarEnemigo(scene, e, daño, congela)),
-    golpearJefe: (scene, zona, daño) => golpearJefeEnZona(scene, zona, daño, apiJefe),
+    golpearJefe: (scene, zona, daño) => {
+        if (scene.misionesNivel) golpeMisiones(scene, zona, 'poder'); // (niveles infinitos: muros agrietados…)
+        if (scene.minas) golpeMinas(scene, zona, 'poder'); // (nivel 3: el muro agrietado solo se rompe con un poder)
+        return golpearJefeEnZona(scene, zona, daño, apiJefe);
+    },
     alterarJefe: (scene, tipo, ms) => alterarJefe(scene, tipo, ms),
     congelar: (scene, e, ms) => congelarEnemigo(scene, e, ms),
     // carrera: el poder de un rival me alcanzó (carrera.js decide el efecto)
@@ -117,11 +127,16 @@ const FLECHAS_INICIALES = 10;
 const FLECHAS_RECOGIDAS = 5; // Gesi recoge flechas sola hasta tener esta cantidad
 let flechas = FLECHAS_INICIALES;
 let muertes = 0; // en toda la partida: se muestra en el HUD y en el final
+const muertesNivel = {}; // nivel -> muertes en este nivel (para la pantalla de GAME OVER)
 let personajeId = 'arquera'; // personaje elegido en la pantalla de selección
 // volver a intentarlo: rápido, para que una trampa divertida no se vuelva agotadora
 const REINTENTO_MS = 1100;   // al morir: se ve la caída y la burla, y se reaparece en el punto de control
 const GAME_OVER_MS = 2200;   // sin vidas: un poco más (el mensaje explica qué se perdió)
 const SALTAR_ESPERA_MS = 400; // desde aquí, cualquier tecla o toque reaparece al instante
+// GAME OVER (sin corazones): se vuelve al INICIO del nivel. La pantalla dice cuántas veces moriste y
+// se burla un poco; "Reintentar" (o cualquier tecla) vuelve a empezar al instante
+const BURLAS_GAME_OVER = ['El Rey Troll se ríe de ti', 'El troll ya te conoce', 'Nada es lo que parece',
+    '¿Seguro que viste la trampa?', 'Una más… solo una más', 'El bosque guarda tus huesos'];
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
@@ -220,6 +235,7 @@ const config = {
             preload() { mostrarCarga(this, ZOOM); preload.call(this); },
             create() {
                 prepararAnimaciones(this);
+                if (atajoDesarrollo(this)) return; // (solo en desarrollo: ?nivel=3 entra directo al nivel 3)
                 crearTitulo(this, {
                     zoom: ZOOM,
                     alJugar: () => this.scene.start('seleccion'),
@@ -394,6 +410,47 @@ iniciarNoche({
     },
     volverASala: () => volverASala(),
 });
+// estrellas y mapa de mundos (mundos.js): jugar un nivel ya alcanzado
+configurarMundos({
+    nivelMaximo: () => nivelMaximo(),
+    jugar: n => {
+        nivelActual = Phaser.Math.Clamp(n, 0, TOTAL_NIVELES - 1);
+        reiniciarMinas(); reiniciarMisiones(); reiniciarMonedasNivel();
+        vidaJefeGuardada = null;
+        runaNivel = -1;
+        vidas = VIDAS_INICIALES = vidasTotales();
+        scoreInicioNivel = score;
+        checkpointX = null;
+        guardarPartida();
+        juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
+        juego.scene.start('juego');
+    },
+});
+// trampas falsas de los niveles infinitos (falsas.js)
+configurarFalsas({ mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms) });
+// misiones de los niveles infinitos (misiones.js)
+configurarMisiones({
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+    crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo), // (acertijo equivocado en niveles altos)
+});
+// misiones y mecanismos del nivel 3, las Minas (minas.js)
+configurarMinas({
+    killgesi: scene => killgesi(scene, 'rival'), // (la dinamita: ni el escudo lo evita)
+    crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo),
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+    dañarEnemigo: (scene, e, n) => dañarEnemigo(scene, e, n),
+    soltarCorazon: (scene, x, y) => soltarCorazon(scene, x, y),
+    // el cofre secreto: un poder legendario de un solo uso (tecla V)
+    orbe: scene => {
+        if (darOrbe(scene, 'supernova')) mostrarMensaje(scene, `🔍 ¡UN COFRE SECRETO!\nV: ${scene.orbe.nombre} (un uso)`, 1800);
+    },
+});
+// mecanismos del nivel 2, las Catacumbas (catacumbas.js)
+configurarCatacumbas({
+    killgesi: scene => killgesi(scene, 'rival'), // (aplastado, quemado o mordido: ni el escudo lo evita)
+    crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo),
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+});
 // mecanismos de las Ruinas del Abismo (abismo.js)
 iniciarAbismo({
     killgesi: scene => killgesi(scene),
@@ -556,7 +613,8 @@ function preload() {
     // (los enemigos se cargan al entrar a cada nivel: ver precargarNivel)
     cargarCastillos(this);
     cargarMazmorra(this);
-    precargarCriptas(this); // (losas, escaleras y objetos del mapa de las Criptas: Noche del Troll)
+    precargarCriptas(this);
+    this.load.image('portada', 'assets/portada.jpg'); // (la imagen de la pantalla de título) // (losas, escaleras y objetos del mapa de las Criptas: Noche del Troll)
 
 
 
@@ -601,9 +659,10 @@ function preload() {
 
 // al entrar a un nivel: carga solo los enemigos que usa y suelta los demás (memoria en celulares)
 function precargarNivel() {
-    cargarEnemigos(this, arenaActiva() ? [] : enemigosDelNivel(NIVELES[nivelActual])); // (en la arena no hay enemigos)
+    cargarEnemigos(this, arenaActiva() ? [] : enemigosDelNivel(nivelPorIndice(nivelActual))); // (en la arena no hay enemigos)
     // solo los efectos de los poderes equipados (en la arena, también los de los orbes)
-    cargarPoderes(this, [...equipados(personajeId).filter(Boolean), ...(arenaActiva() ? PODERES_ORBE : [])]);
+    cargarPoderes(this, [...equipados(personajeId).filter(Boolean), ...(arenaActiva() ? PODERES_ORBE : []),
+        ...(!arenaActiva() && nivelPorIndice(nivelActual)?.estilo === 'minas' ? ['supernova'] : [])]); // (nivel 3: el cofre secreto)
     if (this.load.list.size) mostrarCarga(this, ZOOM);
 }
 
@@ -624,10 +683,11 @@ function create() {
     this.noche = noche;
     this.esFantasma = false; // (troll.js: un héroe que murió en la noche)
     // (las Ruinas del Abismo tienen sus trampas puestas a mano: prepararNivelFijo en azar.js)
-    const delNivel = enEquipo ? nivelEnEquipo(nivelActual) : NIVELES[nivelActual];
+    const delNivel = enEquipo ? nivelEnEquipo(nivelActual) : nivelPorIndice(nivelActual);
     const nivel = arena ? nivelArena() : noche ? nivelDeNoche(inicioNoche()) : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
         : delNivel.fija ? prepararNivelFijo(delNivel, semillaEnLinea(nivelActual))
-        : aleatorizarNivel(delNivel, nivelActual, nivelActual === 0 ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
+        // (las reglas de trampas al azar llegan hasta las del nivel 6: los infinitos ya traen las suyas)
+        : aleatorizarNivel(delNivel, Math.min(nivelActual, 5), nivelActual === 0 && delNivel.amano ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
     if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
@@ -688,9 +748,17 @@ function create() {
 
     crearFondo(this, nivel);
     crearFondoAbismo(this, nivel); // (solo la pista de las Ruinas del Abismo: volcanes y ruinas)
+    this.fondoHasta = this.children.list.length; // (el decorado de fondo de los mapas nuevos va aquí: alFondo)
 
     // estalactitas, hongos, antorchas y la puerta de entrada (detrás de todo lo jugable)
-    const nivel1 = nivelActual === 0 && !arena && !noche; // (la parte hecha a mano del nivel 1)
+    // (la parte hecha a mano del nivel 1 de antes: solo si el nivel 1 es ese)
+    const nivel1 = nivelActual === 0 && !arena && !noche && !!NIVELES[0].amano;
+    this.nivel1AMano = nivel1;
+    // suelos y plataformas de ladrillo medieval (el nivel 1 de las Afueras): ver vestirSuelo en mazmorra.js
+    this.estiloMedieval = ['afueras', 'catacumbas', 'minas', 'infinito'].includes(nivel.estilo);
+    this.murosPropios = ['afueras', 'catacumbas', 'minas'].includes(nivel.estilo); // (esos niveles dibujan sus muros)
+    this.minas = nivel.estilo === 'minas';
+    this.catacumbas = nivel.estilo === 'catacumbas';
     const rangosSuelo = [...(nivel.suelo || []), ...(nivel1 ? [[0, 1106]] : [])];
     // (sinDecorado: el mapa pone todo lo suyo, como las Criptas de la Noche del Troll)
     decorarNivel(this, nivel, arena ? 0 : nivelActual, x => !nivel.sinDecorado && rangosSuelo.some(([a, b]) => x > a + 40 && x < b - 40));
@@ -719,6 +787,21 @@ function create() {
     ).fillRect(-200, SUELO_Y + 12, nivel.ancho + 400, SUBSUELO);
     if (nivel1) construirNivel1(this);
     construirNivel(this, nivel);
+    if (nivel.estilo === 'afueras') { this.metaNivel = nivel.meta; decorarAfueras(this); }
+    this.catEscalones = null;
+    if (this.catacumbas) crearCatacumbas(this); // (nivel 2: escalera-rampa, puertas, techo que baja…)
+    this.minasJaulas = null;
+    this.misionesNivel = null;
+    // niveles infinitos: misiones que abren la meta (misiones.js)
+    this.falsas = null;
+    if (esInfinito(nivelActual) && !arena && !noche && pista == null) {
+        crearMisiones(this, nivel, nivelActual, nivelActual - NIVELES.length);
+        // trampas falsas (falsas.js), lejos de las misiones y los acertijos
+        const ocupados = (this.misionesNivel || []).flatMap(m => [m.desde, m.hasta, m.pista, ...(m.cosas || []).map(c => c.x),
+            ...(m.palancas || []).map(p => p.x), ...(m.runas || []).map(p => p.x)]).filter(x => x != null);
+        crearFalsas(this, nivel, nivelActual, nivelActual - NIVELES.length, ocupados);
+    }
+    if (this.minas) crearMinas(this); // (nivel 3: misiones, sellos, carro, dinamita…)
     crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
 
     // monedas (las que quedan detrás del punto de control no reaparecen: ya se guardaron al pasar)
@@ -760,7 +843,7 @@ function create() {
     this.soltarCorazonArena = (x, y) => soltarCorazon(this, x, y);
     this.faltaSalud = () => this.salud < SALUD_MAXIMA || vidas < VIDAS_INICIALES;
     this.jefe = null;
-    if (!arena && !noche && pista == null) prepararJefe(this, nivel, nivelActual); // (las pistas y la noche no tienen jefe)
+    if (!arena && !noche && pista == null && !nivel.sinJefe) prepararJefe(this, nivel, nivelActual); // (las pistas y la noche no tienen jefe)
 
     // con una sola vida se escucha un latido
     this.time.addEvent({
@@ -907,7 +990,7 @@ function create() {
     this.estadoPoder = ranura => estadoPoder(this, ranura); // (para los botones táctiles)
     // (en el celular los poderes V y B ya se ven en sus botones: el HUD del juego se esconde)
     if (movil) this.hudPoderes?.forEach(h => [h.fondo, h.icono, h.sombra, h.letra].forEach(o => o?.setVisible(false)));
-    this.nivelText = this.add.text(VISTA.width - (movil ? 14 : 20), movil ? 10 : 15, movil ? `${nivelActual + 1}/${NIVELES.length}` : `Nivel ${nivelActual + 1}/${NIVELES.length}`, estiloHud)
+    this.nivelText = this.add.text(VISTA.width - (movil ? 14 : 20), movil ? 10 : 15, movil ? `${nivelActual + 1}` : `Nivel ${nivelActual + 1}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
     if (arena) {
@@ -1078,9 +1161,21 @@ function prepararAnimaciones(scene) {
 //   derecha: sus datos y, al pie, 🎨 personalizar junto a "Jugar con ..."
 //   abajo: todos los héroes en miniatura
 // Botones de al menos 34 px de alto (se tocan con el dedo); en el celular no se muestran las teclas.
-const HEROE = { x: 225, pie: 298, escala: 3.1 };
-const MINI = { y: 338, w: 60, h: 44, paso: 68 };
-const PANEL = { x: 440, y: 54, w: 336, h: 252 };
+// "Elige tu héroe" al estilo de la selección de operador de los shooters: la LISTA de héroes a la
+// izquierda, el héroe GRANDE al centro con un haz de luz y anillos a sus pies, y a la derecha el nombre
+// enorme, sus ESTADÍSTICAS en barras, sus habilidades y el botón "DESPLEGAR"
+const HEROE = { x: 318, pie: 306, escala: 3.1 };
+const LISTA = { x: 14, y: 56, w: 150, h: 29, paso: 31 };
+const PANEL = { x: 484, y: 56, w: 292, h: 276 };
+const ESTADISTICAS = ['VELOCIDAD', 'SALTO', 'ALCANCE', 'DEFENSA'];
+// de 0 a 1, según cómo es cada héroe (personajes.js)
+function estadisticasDe(pj) {
+    const h = Object.values(pj.habilidades);
+    const lejos = h.filter(x => x.tipo === 'proyectil' || x.tipo === 'rayo').length;
+    const defensa = h.filter(x => ['escudo', 'voltereta', 'embestida'].includes(x.tipo)).length + (pj.id === 'espadachin' ? 1 : 0);
+    const c = v => Phaser.Math.Clamp(v, 0.15, 1);
+    return [c(((pj.velocidad ?? 1) - 0.9) / 0.32), c(((pj.salto ?? 480) - 450) / 100 + (pj.dobleSalto ? 0.3 : 0)), c(0.25 + lejos * 0.35), c(0.3 + defensa * 0.3)];
+}
 // símbolos de las habilidades en el celular (los mismos de los botones táctiles: tactil.js)
 const SIMBOLO_HAB = { espacio: '⚔', x: '✦', c: '❖' };
 
@@ -1098,23 +1193,36 @@ function botonSel(scene, { x, y, w, h, texto, tam = 12, color = '#eef1f7', fondo
     return { texto: t };
 }
 
+const reducirMovimientoSel = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
 function crearSeleccion() {
     prepararAnimaciones(this);
     this.cameras.main.setOrigin(0).setZoom(ZOOM);
     resplandor(this);
 
-    // fondo: degradado azul noche, estrellas y el castillo apenas visible
+    // fondo: la portada del juego a pantalla completa, oscurecida (el héroe y el panel resaltan encima),
+    // con un velo que se oscurece hacia los bordes y estrellas; sin la portada, el degradado de antes
     this.add.graphics().fillGradientStyle(0x141b38, 0x141b38, 0x05060c, 0x05060c, 1).fillRect(0, 0, VISTA.width, VISTA.height);
+    if (this.textures.exists('portada')) {
+        const img = this.add.image(VISTA.width / 2, VISTA.height / 2, 'portada').setTint(0x6a74a0).setAlpha(0.55);
+        const esc = Math.max(VISTA.width / img.width, VISTA.height / img.height) * 1.08;
+        img.setScale(esc);
+        if (!reducirMovimientoSel()) this.tweens.add({ targets: img, scale: esc * 1.05, yoyo: true, repeat: -1, duration: 14000, ease: 'Sine.inOut' });
+        this.add.graphics().fillGradientStyle(0x05060c, 0x05060c, 0x05060c, 0x05060c, 0.55, 0.55, 0.9, 0.9).fillRect(0, 0, VISTA.width, VISTA.height);
+    } else {
+        this.add.image(VISTA.width - 120, VISTA.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(0.5).setTint(0x161b30).setAlpha(0.8);
+    }
     for (let i = 0; i < 50; i++) {
         this.add.circle(Phaser.Math.Between(0, VISTA.width), Phaser.Math.Between(0, 220), Math.random() < 0.15 ? 1.1 : 0.6, 0xdfe4ff, Phaser.Math.FloatBetween(0.2, 0.7));
     }
-    this.add.image(VISTA.width - 120, VISTA.height + 10, 'castillo_28').setOrigin(0.5, 1).setScale(0.5).setTint(0x161b30).setAlpha(0.8);
     crearNieblaSeleccion(this);
     this.nieblaAlta.setDepth(1).setTint(0x8b9cff).setAlpha(0.15); // niebla lavanda (antes verde)
     this.nieblaBaja.setTint(0x8b9cff).setAlpha(0.22);
 
     // ---- barra de arriba ----
-    this.add.text(VISTA.width / 2, 27, 'Elige tu héroe', { fontSize: '18px', fill: '#fff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
+    this.add.text(VISTA.width / 2, 22, 'S E L E C C I O N A   T U   H É R O E', { fontSize: '11px', fill: '#ffffff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
+    this.add.graphics().setDepth(5).lineStyle(1, 0x9fc0ff, 0.5).lineBetween(VISTA.width / 2 - 120, 34, VISTA.width / 2 + 120, 34)
+        .fillStyle(0x9fc0ff, 1).fillRect(VISTA.width / 2 - 3, 32, 6, 4);
     botonSel(this, { x: 14, y: 10, w: 36, h: 34, texto: '⌂', tam: 16, alTocar: () => this.scene.start('titulo') });
     // tu perfil: nivel (progreso.js) y barra de experiencia
     const pr = progresoJugador();
@@ -1140,6 +1248,10 @@ function crearSeleccion() {
         .setOrigin(0.5).setAlpha(0.05).setDepth(2);
     e.piso = this.add.image(HEROE.x, HEROE.pie, 'resplandor').setScale(1.9, 0.35).setAlpha(0.5).setBlendMode('ADD').setDepth(3);
     e.sombra = this.add.ellipse(HEROE.x, HEROE.pie, 110, 16, 0x000000, 0.45).setDepth(3);
+    // un haz de luz desde arriba y dos anillos a sus pies (del color del héroe: marcarSeleccion)
+    e.haz = this.add.graphics().setDepth(1.9).setBlendMode('ADD');
+    e.anillos = this.add.graphics().setDepth(3.1);
+    if (!reducirMovimientoSel()) this.tweens.add({ targets: e.anillos, alpha: 0.45, yoyo: true, repeat: -1, duration: 1400, ease: 'Sine.inOut' });
     e.sprite = this.add.sprite(HEROE.x, HEROE.pie + 4, `${animSel(this, PERSONAJES[this.indiceSel])}-idle`).setOrigin(0.5, 1)
         .setScale(HEROE.escala / resDe(PERSONAJES[this.indiceSel])).setDepth(4).setInteractive({ useHandCursor: true });
     e.sprite.on('pointerdown', () => empezarJuego(this, true));
@@ -1155,50 +1267,42 @@ function crearSeleccion() {
             if (lucirse) e.sprite.anims.play(`${animSel(this, pj)}-${lucirse}`, true);
         },
     });
-    // flechas a los lados del héroe para cambiarlo (la tira de abajo no lleva otras: una sola forma, sin repetir)
-    const cambiar = paso => {
-        this.indiceSel = (this.indiceSel + paso + PERSONAJES.length) % PERSONAJES.length;
-        marcarSeleccion(this);
-        this.sound.play('menu_mover', { volume: 0.5 });
-    };
-    [-1, 1].forEach(lado => {
-        const x = HEROE.x + lado * 168;
-        const boton = this.add.circle(x, HEROE.pie - 120, 22, 0x0d1220, 0.55).setStrokeStyle(1.5, 0xffffff, 0.3).setDepth(5)
-            .setInteractive({ useHandCursor: true });
-        this.add.text(x + lado, HEROE.pie - 122, lado < 0 ? '‹' : '›', { fontSize: '30px', color: '#ffffff', fontStyle: '700' }).setOrigin(0.5).setDepth(5);
-        boton.on('pointerover', () => boton.setFillStyle(0xffffff, 0.2));
-        boton.on('pointerout', () => boton.setFillStyle(0x0d1220, 0.55));
-        boton.on('pointerdown', () => { if (!this.tiendaAbierta) cambiar(lado); });
-    });
+    // (se cambia de héroe con la lista de la izquierda o con las flechas del teclado)
 
-    // ---- datos del héroe (derecha), sobre un panel de vidrio ----
+    // ---- datos del héroe (derecha): panel de vidrio con la esquina cortada y una franja de su color ----
     const P = PANEL, tactil = esTactil();
-    this.add.graphics().setDepth(4).fillStyle(0x0d1220, 0.78).fillRoundedRect(P.x, P.y, P.w, P.h, 18)
-        .lineStyle(1, 0xffffff, 0.1).strokeRoundedRect(P.x, P.y, P.w, P.h, 18);
-    const X = P.x + 22;
+    const C = 18; // la esquina cortada (arriba a la derecha)
+    this.add.graphics().setDepth(4).fillStyle(0x060913, 0.86)
+        .fillPoints([{ x: P.x, y: P.y }, { x: P.x + P.w - C, y: P.y }, { x: P.x + P.w, y: P.y + C }, { x: P.x + P.w, y: P.y + P.h }, { x: P.x, y: P.y + P.h }], true)
+        .lineStyle(1, 0x9fc0ff, 0.35)
+        .strokePoints([{ x: P.x, y: P.y }, { x: P.x + P.w - C, y: P.y }, { x: P.x + P.w, y: P.y + C }, { x: P.x + P.w, y: P.y + P.h }, { x: P.x, y: P.y + P.h }], true);
+    this.franjaSel = this.add.graphics().setDepth(4.5);
+    const X = P.x + 18;
     this.detalle = {
-        nombre: this.add.text(X, P.y + 30, '', { fontSize: '28px', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5),
-        titulo: this.add.text(X, P.y + 57, '', { fontSize: '12px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5),
-        pasiva: this.add.text(X, P.y + 81, '', { fontSize: '11px', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: { x: 8, y: 4 } })
+        nombre: this.add.text(X, P.y + 26, '', { fontSize: '30px', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5),
+        titulo: this.add.text(X, P.y + 52, '', { fontSize: '10px', color: '#9aa3bf', fontStyle: '600' }).setOrigin(0, 0.5).setDepth(5),
+        pasiva: this.add.text(X, P.y + 72, '', { fontSize: '10px', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: { x: 7, y: 3 } })
             .setOrigin(0, 0.5).setDepth(5),
-        frase: this.add.text(X, P.y + 106, '', { fontSize: '11px', color: '#7f88a6', fontStyle: 'italic', wordWrap: { width: P.w - 44 } })
-            .setOrigin(0, 0.5).setDepth(5),
+        frase: this.add.text(0, 0, '').setVisible(false),
+        // estadísticas: nombre y barra (las barras se pintan en marcarSeleccion)
+        estad: ESTADISTICAS.map((n, i) => this.add.text(X, P.y + 94 + i * 14, n, { fontSize: '8px', color: '#8a93b0', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5)),
+        barras: this.add.graphics().setDepth(5),
         // habilidades: en la PC su tecla; en el celular el símbolo de su botón
-        teclas: ['espacio', 'x', 'c'].map((k, i) => this.add.text(X, P.y + 132 + i * 23, tactil ? SIMBOLO_HAB[k] : k === 'espacio' ? 'ESPACIO' : k.toUpperCase(), {
-            fontSize: tactil ? '12px' : '9px', fontStyle: '700', color: '#c9d0e6', backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: { x: tactil ? 7 : 6, y: 3 },
+        teclas: ['espacio', 'x', 'c'].map((k, i) => this.add.text(X, P.y + 160 + i * 19, tactil ? SIMBOLO_HAB[k] : k === 'espacio' ? 'ESPACIO' : k.toUpperCase(), {
+            fontSize: tactil ? '11px' : '8px', fontStyle: '700', color: '#c9d0e6', backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: { x: tactil ? 6 : 5, y: 2 },
         }).setOrigin(0, 0.5).setDepth(5)),
-        poderes: [0, 1, 2].map(i => this.add.text(X + (tactil ? 36 : 74), P.y + 132 + i * 23, '', { fontSize: '12px', color: '#eef1f7' })
+        poderes: [0, 1, 2].map(i => this.add.text(X + (tactil ? 32 : 64), P.y + 160 + i * 19, '', { fontSize: '11px', color: '#eef1f7' })
             .setOrigin(0, 0.5).setDepth(5)),
     };
 
     // al pie del panel: 🎨 personalizar (vestidor) y el botón para jugar, del color del héroe (marcarSeleccion)
-    const pie = P.y + P.h - 50;
-    botonSel(this, { x: X, y: pie, w: 40, h: 38, texto: '🎨', tam: 16, alTocar: () => this.abrirVestidorSel() });
-    const B = { x: X + 48, y: pie, w: P.w - 44 - 48, h: 38 };
+    const pie = P.y + P.h - 48;
+    botonSel(this, { x: X, y: pie, w: 40, h: 36, texto: '🎨', tam: 16, alTocar: () => this.abrirVestidorSel() });
+    const B = { x: X + 48, y: pie, w: P.w - 36 - 48, h: 36 };
     this.botonElegir = {
         ...B,
         fondo: this.add.graphics().setDepth(5),
-        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2, '', { fontSize: '14px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(6),
+        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2, '', { fontSize: '13px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(6),
         encima: false,
     };
     const zonaElegir = this.add.zone(B.x + B.w / 2, B.y + B.h / 2, B.w, B.h).setDepth(7).setInteractive({ useHandCursor: true });
@@ -1206,37 +1310,43 @@ function crearSeleccion() {
     zonaElegir.on('pointerout', () => { this.botonElegir.encima = false; pintarBotonElegir(this); });
     zonaElegir.on('pointerdown', () => { if (!this.tiendaAbierta) empezarJuego(this, true); });
 
-    // ---- todos los héroes en miniatura (abajo) ----
-    const x0 = VISTA.width / 2 - ((PERSONAJES.length - 1) * MINI.paso) / 2;
+    // ---- la lista de héroes (izquierda): cada fila con su retrato, nombre y clase ----
+    this.add.text(LISTA.x + 2, LISTA.y - 8, `HÉROES · ${PERSONAJES.length}`, { fontSize: '8px', color: '#8a93b0', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5);
     this.tarjetas = PERSONAJES.map((pj, i) => {
-        const x = x0 + i * MINI.paso;
+        const y = LISTA.y + i * LISTA.paso;
         const fondo = this.add.graphics().setDepth(5);
-        const sprite = this.add.sprite(x, MINI.y + MINI.h / 2 + 2, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.62 / resDe(pj)).setDepth(6);
-        const zona = this.add.zone(x, MINI.y, MINI.w, MINI.h).setDepth(7).setInteractive({ useHandCursor: true });
+        // (retrato: el personaje recortado a la altura de la fila)
+        const sprite = this.add.sprite(LISTA.x + 20, y + LISTA.h + 7, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.36 / resDe(pj)).setDepth(6);
+        sprite.setCrop(0, 0, sprite.width, sprite.height - 30 * resDe(pj));
+        const nombre = this.add.text(LISTA.x + 40, y + 10, pj.nombre.toUpperCase(), { fontSize: '10px', fontStyle: '700', color: '#eef1f7' }).setOrigin(0, 0.5).setDepth(6);
+        const sub = this.add.text(LISTA.x + 40, y + 21, pj.titulo, { fontSize: '8px', color: '#8a93b0' }).setOrigin(0, 0.5).setDepth(6);
+        const zona = this.add.zone(LISTA.x + LISTA.w / 2, y + LISTA.h / 2, LISTA.w, LISTA.h).setDepth(7).setInteractive({ useHandCursor: true });
         zona.on('pointerdown', () => {
             if (this.tiendaAbierta) return;
             if (this.indiceSel === i) empezarJuego(this, true);
             else { this.indiceSel = i; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
         });
-        return { fondo, x, sprite, pj };
+        return { fondo, y, sprite, nombre, sub, pj };
     });
 
     if (this.partida) {
         // partida guardada: dónde sigue y, a la derecha, empezar de cero (pide un segundo toque para confirmar)
         const n = this.partida.nivel;
-        this.add.text(X, pie - 14, `💾 Nivel ${n + 1}: ${NIVELES[n].nombre}`, { fontSize: '10px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5);
-        const boton = this.add.text(P.x + P.w - 22, pie - 14, '↺ Empezar de cero', {
-            fontSize: '10px', fontStyle: '600', color: '#ff8a94', backgroundColor: 'rgba(255, 107, 120, 0.14)', padding: { x: 8, y: 4 },
+        // (cortado si es largo: que no llegue al botón de la derecha)
+        const lugar = `💾 Nivel ${n + 1}: ${nivelPorIndice(n).nombre}`;
+        this.add.text(X, pie - 14, lugar.length > 28 ? `${lugar.slice(0, 27)}…` : lugar, { fontSize: '9px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5);
+        const boton = this.add.text(P.x + P.w - 18, pie - 14, '↺ De cero', {
+            fontSize: '9px', fontStyle: '600', color: '#ff8a94', backgroundColor: 'rgba(255, 107, 120, 0.14)', padding: { x: 8, y: 4 },
         }).setOrigin(1, 0.5).setDepth(5).setInteractive({ useHandCursor: true });
         let confirmar = false;
         boton.on('pointerdown', () => {
             if (this.tiendaAbierta) return;
             if (!confirmar) {
                 confirmar = true;
-                boton.setText('¿Seguro? Toca otra vez').setBackgroundColor('rgba(255, 107, 120, 0.32)');
+                boton.setText('¿Seguro? Otra vez').setBackgroundColor('rgba(255, 107, 120, 0.32)');
                 this.sound.play('vacio', { volume: 0.5 });
                 this.time.delayedCall(3000, () => {
-                    if (boton.active) { confirmar = false; boton.setText('↺ Empezar de cero').setBackgroundColor('rgba(255, 107, 120, 0.14)'); }
+                    if (boton.active) { confirmar = false; boton.setText('↺ De cero').setBackgroundColor('rgba(255, 107, 120, 0.14)'); }
                 });
             } else {
                 empezarJuego(this, false);
@@ -1246,8 +1356,8 @@ function crearSeleccion() {
     // ayuda de teclado (solo en la PC)
     if (!tactil) {
         const ayuda = this.partida
-            ? `← → elegir  ·  Enter: continuar en el nivel ${this.partida.nivel + 1}  ·  N: nueva partida  ·  V: personalizar  ·  T: tienda`
-            : '← → elegir  ·  Enter o Espacio: jugar  ·  V: personalizar  ·  T: tienda  ·  F: pantalla completa';
+            ? `↑ ↓ elegir  ·  Enter: continuar en el nivel ${this.partida.nivel + 1}  ·  N: nueva partida  ·  V: personalizar  ·  T: tienda  ·  M: mundos`
+            : '↑ ↓ elegir  ·  Enter: desplegar  ·  V: personalizar  ·  T: tienda  ·  M: mundos';
         this.add.text(VISTA.width / 2, 371, ayuda, { fontSize: '8px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
     }
 
@@ -1278,7 +1388,7 @@ function crearSeleccion() {
             marcarSeleccion(this, true); // (la cantidad de corazones puede haber cambiado)
         });
     };
-    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N', tienda: 'T', vestir: 'V' });
+    this.teclasSel = this.input.keyboard.addKeys({ izq: 'LEFT', der: 'RIGHT', enter: 'ENTER', espacio: 'SPACE', nueva: 'N', tienda: 'T', vestir: 'V', mapa: 'M', arriba: 'UP', abajo: 'DOWN' });
     marcarSeleccion(this, true);
 }
 
@@ -1301,14 +1411,30 @@ function resplandor(scene) {
 
 function marcarSeleccion(scene, inicio = false) {
     const pj = PERSONAJES[scene.indiceSel], h = pj.habilidades, d = scene.detalle, e = scene.escenario;
-    // miniaturas: la elegida con el borde de su color
+    // la lista: el elegido, con una franja de su color a la izquierda y la fila inclinada que sobresale
     scene.tarjetas.forEach((t, i) => {
-        const elegido = i === scene.indiceSel;
+        const elegido = i === scene.indiceSel, L = LISTA, extra = elegido ? 8 : 0;
         t.fondo.clear()
-            .fillStyle(elegido ? 0x1a2240 : 0x0d1220, elegido ? 0.92 : 0.6).fillRoundedRect(t.x - MINI.w / 2, MINI.y - MINI.h / 2, MINI.w, MINI.h, 12)
-            .lineStyle(elegido ? 2 : 1, elegido ? t.pj.color : 0xffffff, elegido ? 1 : 0.1)
-            .strokeRoundedRect(t.x - MINI.w / 2, MINI.y - MINI.h / 2, MINI.w, MINI.h, 12);
-        t.sprite.setAlpha(elegido ? 1 : 0.55);
+            .fillStyle(elegido ? t.pj.color : 0x0a0e1c, elegido ? 0.28 : 0.62)
+            .fillPoints([{ x: L.x, y: t.y }, { x: L.x + L.w + extra, y: t.y }, { x: L.x + L.w + extra - 8, y: t.y + L.h }, { x: L.x, y: t.y + L.h }], true)
+            .lineStyle(1, elegido ? t.pj.color : 0xffffff, elegido ? 0.9 : 0.08)
+            .strokePoints([{ x: L.x, y: t.y }, { x: L.x + L.w + extra, y: t.y }, { x: L.x + L.w + extra - 8, y: t.y + L.h }, { x: L.x, y: t.y + L.h }], true);
+        if (elegido) t.fondo.fillStyle(t.pj.color, 1).fillRect(L.x, t.y, 3, L.h);
+        t.sprite.setAlpha(elegido ? 1 : 0.5);
+        t.nombre.setColor(elegido ? '#ffffff' : '#aab2cc');
+    });
+    // el haz de luz y los anillos del color del héroe
+    e.haz.clear().fillGradientStyle(pj.color, pj.color, pj.color, pj.color, 0, 0, 0.22, 0.22).fillRect(HEROE.x - 70, 40, 140, HEROE.pie - 40);
+    e.anillos.clear().lineStyle(2, pj.color, 0.8).strokeEllipse(HEROE.x, HEROE.pie, 150, 24)
+        .lineStyle(1, pj.color, 0.4).strokeEllipse(HEROE.x, HEROE.pie, 210, 34);
+    // la franja del panel y las barras de estadísticas
+    scene.franjaSel.clear().fillStyle(pj.color, 1).fillRect(PANEL.x, PANEL.y, 4, PANEL.h);
+    const X0 = PANEL.x + 18 + 70, W = PANEL.w - 18 - 70 - 22;
+    d.barras.clear();
+    estadisticasDe(pj).forEach((v, i) => {
+        const y = PANEL.y + 94 + i * 14 - 3;
+        d.barras.fillStyle(0xffffff, 0.1).fillRect(X0, y, W, 6);
+        for (let k = 0; k < 10; k++) if (k / 10 < v) d.barras.fillStyle(pj.color, 1).fillRect(X0 + k * W / 10, y, W / 10 - 2, 6);
     });
     // héroe grande: entra con un salto y se queda quieto
     e.sprite.anims.play(`${animSel(scene, pj)}-${inicio ? 'idle' : 'jump'}`, true);
@@ -1324,10 +1450,10 @@ function marcarSeleccion(scene, inicio = false) {
         e.marca.setAlpha(0);
         scene.tweens.add({ targets: e.marca, alpha: 0.05, duration: 400 });
     }
-    d.nombre.setText(pj.nombre).setColor(colorTexto(pj));
+    d.nombre.setText(pj.nombre.toUpperCase()).setColor(colorTexto(pj));
     // maestría del héroe (progreso.js): estrellas y, al máximo, su título
     const m = maestria(pj.id);
-    d.titulo.setText(`${tituloHeroe(pj.id) || pj.titulo} · ⭐ Maestría ${m}${m >= MAESTRIA_MAX ? ' (máx.)' : ''}`);
+    d.titulo.setText(`${(tituloHeroe(pj.id) || pj.titulo).toUpperCase()}  ·  ⭐ MAESTRÍA ${m}${m >= MAESTRIA_MAX ? ' (MÁX.)' : ''}`);
     d.pasiva.setText(`★ ${pj.pasiva}`);
     d.frase.setText(`"${pj.frase}"`);
     const mejorado = personajeConMejoras(pj).habilidades;
@@ -1339,8 +1465,9 @@ function marcarSeleccion(scene, inicio = false) {
 function pintarBotonElegir(scene) {
     const b = scene.botonElegir, pj = PERSONAJES[scene.indiceSel];
     const color = b.encima ? Phaser.Display.Color.ValueToColor(pj.color).lighten(12).color : pj.color;
-    b.fondo.clear().fillStyle(color, 1).fillRoundedRect(b.x, b.y, b.w, b.h, b.h / 2);
-    b.texto.setText(`${scene.partida ? 'Continuar' : 'Jugar'} con ${pj.nombre}  →`);
+    const pts = [{ x: b.x + 10, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x + b.w - 10, y: b.y + b.h }, { x: b.x, y: b.y + b.h }];
+    b.fondo.clear().fillStyle(color, 1).fillPoints(pts, true).lineStyle(1, 0xffffff, b.encima ? 0.8 : 0.35).strokePoints(pts, true);
+    b.texto.setText(scene.partida ? `CONTINUAR · NIVEL ${scene.partida.nivel + 1}  ▶` : 'DESPLEGAR  ▶');
 }
 
 function actualizarSeleccion(time) {
@@ -1349,10 +1476,13 @@ function actualizarSeleccion(time) {
     if (this.tiendaAbierta) return; // con la tienda abierta, las teclas son de la tienda
     if (JD(k.tienda)) { this.abrirTiendaSel(); return; }
     if (JD(k.vestir)) { this.abrirVestidorSel(); return; }
+    if (JD(k.arriba)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
+    if (JD(k.abajo)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.izq)) { this.indiceSel = (this.indiceSel + PERSONAJES.length - 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.der)) { this.indiceSel = (this.indiceSel + 1) % PERSONAJES.length; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
     if (JD(k.enter) || JD(k.espacio)) empezarJuego(this, true);
     if (JD(k.nueva) && this.partida) empezarJuego(this, false);
+    if (JD(k.mapa) && !mapaAbierto()) { personajeId = PERSONAJES[this.indiceSel].id; abrirMapa({}); } // (mapa de mundos)
 }
 
 // continuar = true: sigue en el nivel guardado (si hay); false: partida nueva desde el nivel 1
@@ -1368,7 +1498,26 @@ function empezarJuego(scene, continuar = true) {
     scene.scene.start('juego');
 }
 
+// ATAJO DE DESARROLLO: abre el juego con ?nivel=N (1 = el primero) y entra directo a ese nivel, sin
+// título, historia ni elegir personaje. ?personaje=mago elige con quién. Solo funciona en tu computadora
+// (localhost / 127.0.0.1 / archivo): en itch.io o en el celular no hace nada.
+function atajoDesarrollo(scene) {
+    let q;
+    try { q = new URLSearchParams(location.search); } catch (_e) { return false; }
+    const local = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+    const n = Number(q.get('nivel'));
+    if (!local || !Number.isInteger(n) || n < 1) return false;
+    reiniciarPartida();
+    nivelActual = Phaser.Math.Clamp(n - 1, 0, TOTAL_NIVELES - 1);
+    const pj = q.get('personaje');
+    if (PERSONAJES.some(p => p.id === pj)) personajeId = pj;
+    console.info(`[desarrollo] directo al nivel ${nivelActual + 1}: ${nivelPorIndice(nivelActual).nombre} (${personajeId})`);
+    scene.scene.start('juego');
+    return true;
+}
+
 function reiniciarPartida() {
+    reiniciarMinas(); reiniciarMisiones(); reiniciarMonedasNivel();
     vidaJefeGuardada = null;
     vidas = VIDAS_INICIALES = vidasTotales();
     runaNivel = -1;
@@ -1391,7 +1540,7 @@ function guardarPartida() {
 function leerPartida() {
     try {
         const p = JSON.parse(localStorage.getItem(CLAVE_GUARDADO));
-        if (p && Number.isInteger(p.nivel) && p.nivel >= 0 && p.nivel < NIVELES.length) return p;
+        if (p && Number.isInteger(p.nivel) && p.nivel >= 0 && p.nivel < TOTAL_NIVELES) return p;
     } catch (_e) { /* guardado dañado o no disponible */ }
     return null;
 }
@@ -1402,6 +1551,7 @@ function borrarPartida() {
 
 // sigue desde el comienzo del nivel guardado, con las vidas llenas
 function continuarPartida(p) {
+    reiniciarMinas(); reiniciarMisiones(); reiniciarMonedasNivel();
     vidaJefeGuardada = null;
     vidas = VIDAS_INICIALES = vidasTotales();
     runaNivel = -1;
@@ -1733,6 +1883,7 @@ function construirNivel(scene, nivel) {
         const plataforma = scene.moviles.create(x, y, 'mz_plataforma');
         // tronco que flota en la lava (nivel 1): mismo tamaño, otra textura
         if (tipo === 'tronco') { texturasBosque(scene); plataforma.setTexture('tronco_rio'); }
+        if (tipo === 'carro') { texturasMinas(scene); plataforma.setTexture('min_carro'); } // (nivel 3: el carro de mina)
         plataforma.eje = eje;
         plataforma.vel = vel;
         if (eje === 'x') {
@@ -2489,6 +2640,8 @@ function ejecutarHabilidad(scene, h) {
             if (Phaser.Geom.Intersects.RectangleToRectangle(zona, re)) dañarEnemigo(scene, e, daño, h.congela);
         });
         golpearJefeEnZona(scene, zona, daño, apiJefe);
+        if (scene.misionesNivel) golpeMisiones(scene, zona, 'ataque');
+        if (scene.minas) golpeMinas(scene, zona, 'ataque'); // (nivel 3: jaulas, cristales y dinamita)
         if (h.ambosLados) {
             // el torbellino se ve como un anillo que se abre alrededor
             const anillo = scene.add.ellipse(b.center.x, b.center.y, ancho * 0.6, b.height * 0.7).setStrokeStyle(3, 0xdfe8ff, 0.9).setDepth(20);
@@ -2662,6 +2815,7 @@ function collectCoin(_mascotaGesi, coin) {
     this.sound.play('moneda');
     addToScore(100, coin, this);
     sumarABolsa(this);
+    if (!this.carrera && !enLinea()) contarMoneda(nivelActual); // (estrella de las monedas: mundos.js)
     if (this.carrera) tomeMonedaCarrera(coin); // (en la carrera, la que tomo ya no está para los demás)
 }
 
@@ -2774,7 +2928,7 @@ function encenderFaro(scene) {
 
 function completarNivel(mascotaGesi) {
     // metaRemota: otro jugador llegó a la meta (en línea): se completa aunque aquí el jefe siga vivo
-    if (this.nivelTerminado || mascotaGesi.isDead || (!this.metaRemota && jefeBloqueaMeta(this))) return;
+    if (this.nivelTerminado || mascotaGesi.isDead || (!this.metaRemota && (jefeBloqueaMeta(this) || misionesBloquean(this)))) return;
     this.nivelTerminado = true;
     if (!this.metaRemota) avisarMeta();
 
@@ -2785,6 +2939,7 @@ function completarNivel(mascotaGesi) {
     this.musicaBatalla?.stop();
     this.sound.play('victoria');
     encenderFaro(this);
+    if (this.minas) resultadosMinas(this, muertesNivel[nivelActual] || 0); // (nivel 3: misiones y secretos)
     // carrera: llegar es avisar (gana el primero); no hay premios del nivel ni se pasa al siguiente
     // (las monedas juntadas desde el último punto de control sí se guardan)
     if (this.carrera) { guardarBolsa(this); llegarMetaCarrera(this); return; }
@@ -2798,10 +2953,13 @@ function completarNivel(mascotaGesi) {
     this.time.delayedCall(900, () => ganarXP(XP.nivel + (primeraVez ? XP.nivelPrimera : 0), this.pj.id, { victoria: true }));
     if (premio) this.time.delayedCall(1700, () => mostrarMensaje(this, `¡NUEVO PODER!\n${premio.nombre}\n(equípalo en la Tienda › Poderes)`, 2200));
 
-    const ultimo = nivelActual === NIVELES.length - 1;
+    const ultimo = nivelActual === TOTAL_NIVELES - 1;
+    // estrellas (mundos.js): terminar, sin morir y el 80 % de las monedas
+    const est = enLinea() ? null : ganarEstrellas(nivelActual, muertesNivel[nivelActual] || 0, (nivelPorIndice(nivelActual).monedas || []).length);
+    const linea = est ? `\n${textoEstrellas(est.estrellas)}${est.estrellas > est.antes && est.antes ? '  ¡RÉCORD!' : ''}` : '';
     mostrarMensaje(this, ultimo
         ? `¡GANASTE EL JUEGO!\nPuntaje: ${score}`
-        : `¡NIVEL ${nivelActual + 1} COMPLETADO!`);
+        : `¡NIVEL ${nivelActual + 1} COMPLETADO!${linea}`);
 
     this.time.delayedCall(ultimo ? 6000 : 3500, () => {
         if (ultimo) {
@@ -2813,13 +2971,18 @@ function completarNivel(mascotaGesi) {
             return;
         }
         nivelActual++;
+        reiniciarMinas(); reiniciarMisiones(); reiniciarMonedasNivel();
         vidaJefeGuardada = null;
         runaNivel = -1;
         scoreInicioNivel = score;
         checkpointX = null;
         guardarPartida();
-        // el personaje camina por el mapa hasta el siguiente nivel
-        this.scene.start('mapa', { desde: nivelActual - 1, hasta: nivelActual });
+        // el personaje camina por el mapa hasta el siguiente nivel (el mapa dibuja los hechos a mano;
+        // en los niveles infinitos se pasa directo al siguiente)
+        // (en los infinitos: el mapa de mundos, con el botón del siguiente nivel; mundos.js)
+        if (esInfinito(nivelActual) && !enLinea()) abrirMapa({ siguiente: nivelActual });
+        else if (esInfinito(nivelActual)) this.scene.start('juego');
+        else this.scene.start('mapa', { desde: nivelActual - 1, hasta: nivelActual });
     });
 }
 
@@ -2959,6 +3122,10 @@ function actualizarJugador(time, delta) {
     moverLava(this, time);
     actualizarCarrera(this); // (la barra de avance sigue aunque estés muerto o en la cuenta regresiva)
     if (this.noche) actualizarNoche(this, time);
+    if (this.catacumbas) actualizarCatacumbas(this, time); // (el techo y la lava siguen aunque estés muerto)
+    if (this.minas) actualizarMinas(this, time);
+    if (this.misionesNivel) actualizarMisiones(this, time);
+    if (this.falsas) actualizarFalsas(this);
 
     if (this.mascotaGesi.isDead) return;
 
@@ -3072,7 +3239,7 @@ function actualizarJugador(time, delta) {
         killgesi(this, 'caida');
     }
 
-    if (nivelActual === 0 && !this.arena && !this.noche) trampasNivel1(this);
+    if (this.nivel1AMano) trampasNivel1(this);
     if (tiene('iman')) atraerMonedas(this);
     actualizarEstela(this);
     actualizarPoderes(this, time, delta);
@@ -3082,7 +3249,7 @@ function actualizarJugador(time, delta) {
     actualizarAbismo(this);
     // en línea las trampas también se activan cuando pasa otro jugador (sin hacerte daño a ti)
     fantasmas(this).forEach(f => comoJugador(this, f, () => {
-        if (nivelActual === 0 && !this.arena && !this.noche) trampasNivel1(this);
+        if (this.nivel1AMano) trampasNivel1(this);
         actualizarTrampas(this);
         actualizarSorpresas(this, apiSorpresas);
     }));
@@ -3219,6 +3386,7 @@ function killgesi(game, causa, daño = 20, origenX) {
 
     vidas = Math.max(0, vidas - 1);
     muertes++;
+    muertesNivel[nivelActual] = (muertesNivel[nivelActual] || 0) + 1;
     game.muertesText?.setText(`☠ ${muertes}`);
     if (game.muertesText) game.tweens.add({ targets: game.muertesText, scale: 1.4, yoyo: true, duration: 140 });
     actualizarCorazones(game);
@@ -3226,9 +3394,15 @@ function killgesi(game, causa, daño = 20, origenX) {
     score = scoreInicioNivel;
 
 
+    if (vidas <= 0 && !enLinea()) {
+        // sin corazones: GAME OVER y de vuelta al INICIO del nivel (con las vidas llenas): se pierden
+        // los puntos, las monedas sin guardar y el daño hecho al jefe
+        game.time.delayedCall(600, () => sound.play('game_over', { volume: 0.7 }));
+        game.time.delayedCall(700, () => pantallaGameOver(game));
+        return;
+    }
     if (vidas <= 0) {
-        // sin corazones: GAME OVER, pero NO se repite todo el nivel: se vuelve al último punto de
-        // control con las vidas llenas y se pierden los puntos ganados en el nivel
+        // (en línea: el grupo sigue junto, así que se vuelve al último punto de control como siempre)
         mostrarMensaje(game, 'GAME OVER\nPierdes los puntos del nivel', GAME_OVER_MS);
         game.time.delayedCall(600, () => sound.play('game_over', { volume: 0.7 }));
         reaparecer(game, GAME_OVER_MS, () => {
@@ -3243,6 +3417,49 @@ function killgesi(game, causa, daño = 20, origenX) {
     mostrarMensaje(game, game.bolsa ? `${burla}\n◉ -${game.bolsa} sin guardar` : burla, REINTENTO_MS);
     // vuelve a aparecer en el último punto de control
     reaparecer(game, REINTENTO_MS);
+}
+
+// la pantalla de GAME OVER: cuántas veces moriste, una burla y "Reintentar" (desde el inicio del nivel)
+function pantallaGameOver(game) {
+    if (!game.scene.isActive()) return;
+    document.querySelector('.game-over')?.remove();
+    const capa = document.createElement('div');
+    capa.className = 'menu-capa game-over';
+    const n = muertesNivel[nivelActual] || 0;
+    capa.innerHTML = `
+        <div class="menu-panel arena-fin" role="dialog" aria-modal="true" aria-labelledby="game-over-titulo">
+            <h2 id="game-over-titulo">💀 GAME OVER</h2>
+            <p class="game-over-muertes">Moriste <b>${n}</b> ${n === 1 ? 'vez' : 'veces'} en este nivel</p>
+            <p class="game-over-burla">${BURLAS_GAME_OVER[Math.floor(Math.random() * BURLAS_GAME_OVER.length)]} 👹</p>
+            <p class="menu-nota">Vuelves al inicio del nivel</p>
+            <button type="button" class="menu-boton sala-empezar" data-reintentar>↻ Reintentar</button>
+        </div>`;
+    document.getElementById('game').append(capa);
+    let hecho = false;
+    const reintentar = () => {
+        if (hecho) return;
+        hecho = true;
+        document.removeEventListener('keydown', tecla, true);
+        capa.remove();
+        vidas = VIDAS_INICIALES;
+        score = scoreInicioNivel;
+        checkpointX = null;
+        vidaJefeGuardada = null;
+        reiniciarMinas(); reiniciarMisiones(); reiniciarMonedasNivel(); // (GAME OVER: las misiones vuelven a empezar)
+        guardarPartida();
+        if (game.scene.isActive()) game.scene.restart();
+    };
+    // cualquier tecla reintenta (pasado un instante: la que se venía apretando no cuenta)
+    const desde = performance.now() + 500;
+    const tecla = e => {
+        if (e.repeat || performance.now() < desde) return;
+        e.preventDefault();
+        e.stopPropagation();
+        reintentar();
+    };
+    document.addEventListener('keydown', tecla, true);
+    capa.querySelector('[data-reintentar]').addEventListener('click', reintentar);
+    capa.querySelector('[data-reintentar]').focus();
 }
 
 // reaparece en el último punto de control después de 'espera' ms; pasado un instante, cualquier

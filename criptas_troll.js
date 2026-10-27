@@ -21,6 +21,7 @@
 // Recursos: Medieval Pixel Art de CraftPix (assets/criptas, ver su licencia).
 
 import { SUELO_Y } from "./niveles.js"
+import { alFondo } from "./mazmorra.js"
 
 const S = SUELO_Y;            // 332: el piso de las Catacumbas
 const ANCHO = 3600;
@@ -149,6 +150,7 @@ const ESCALA = 2 / 3; // (las baldosas miden 48: a 32 como los bloques del juego
 const FONDO = 0.05;
 const pared = (scene, x0, y0, x1, y1, tile, prof = FONDO) => {
     const t = scene.add.tileSprite(x0, y0, x1 - x0, y1 - y0, C + tile).setOrigin(0).setTileScale(ESCALA).setDepth(prof);
+    if (prof < 1) alFondo(scene, t); // (paredes del fondo: detrás de enemigos y poderes)
     // (el fondo, más oscuro: así se ve bien por dónde se camina)
     if (prof === FONDO) t.setTint(0x5a5a70);
     return t;
@@ -158,7 +160,11 @@ function dibujarLosa(scene, x0, x1, arriba, grosor, tope, relleno) {
     pared(scene, x0, arriba + 10, x1, arriba + grosor, relleno, 1);
     pared(scene, x0, arriba, x1, arriba + 16, tope, 1.1);
 }
-const objeto = (scene, n, x, pie, escala = 1, prof = 5) => scene.add.image(x, pie, C + n).setOrigin(0.5, 1).setScale(escala).setDepth(prof);
+// (los muebles van al fondo: detrás de enemigos, poderes y monedas; los que deben ir delante, prof ≥ 30)
+const objeto = (scene, n, x, pie, escala = 1, prof = 5) => {
+    const o = scene.add.image(x, pie, C + n).setOrigin(0.5, 1).setScale(escala).setDepth(prof);
+    return prof < 30 ? alFondo(scene, o) : o;
+};
 
 function texturasCriptas(scene) {
     if (scene.textures.exists('cr_lapida')) return;
