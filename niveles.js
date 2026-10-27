@@ -641,6 +641,18 @@ function nivelInfinito(i) {
         especiales,
     });
     n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)); // más rápidos en cada nivel
+    // más enemigos: uno cada 'paso' px de suelo firme (más juntos en cada nivel), con tope por los celulares
+    const paso = Math.max(300, 620 - k * 3);
+    const huecos = [...n.lava, ...n.falsos];
+    const fin = n.meta - (conJefe ? 1500 : 500);
+    const tope = 110;
+    (n.suelo || []).forEach(([a, b]) => {
+        for (let x = Math.max(a + 120, 900); x < Math.min(b - 120, fin) && n.enemigos.length < tope; x += paso) {
+            if (huecos.some(([h0, h1]) => x > h0 - 120 && x < h1 + 120)) continue;
+            if (n.enemigos.some(e => Math.abs((Array.isArray(e) ? e[0] : e) - x) < 160)) continue;
+            n.enemigos.push(Math.round(x + r() * 60));
+        }
+    });
     n.estilo = 'infinito';
     n.sinJefe = !conJefe;
     n.mundo = mundo;

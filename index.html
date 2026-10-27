@@ -2093,6 +2093,17 @@
         .portada-barra { position: relative; width: min(320px, 60%); height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.12); }
         .portada-barra i { display: block; width: 0; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4f7bff, #9fd8ff); box-shadow: 0 0 12px #6f9bff; transition: width 0.2s; }
         .portada-carga p { position: relative; margin: 10px 0 0; font: 600 13px var(--letra); color: #c9d6ff; letter-spacing: 0.08em; text-shadow: 0 2px 6px #000; }
+        /* botón para reportar un cuerpo (troll.js) */
+        .noche-reportar {
+            position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 90px); z-index: 11;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; width: 84px; height: 84px; border-radius: 50%;
+            font: 800 11px var(--letra); letter-spacing: 0.04em; color: #fff; cursor: pointer; touch-action: none;
+            background: radial-gradient(circle at 50% 35%, #ff5a6a, #b0182c); border: 3px solid #ffd0d6;
+            box-shadow: 0 0 22px rgba(255, 60, 80, 0.75); animation: noche-latido 0.9s ease-in-out infinite;
+        }
+        .noche-reportar span { font-size: 24px; line-height: 1; }
+        .noche-reportar small { font-size: 9px; opacity: 0.75; }
+        .noche-reportar[hidden] { display: none; }
         .noche-marca.heroe { --rol: #ffcf5a; }
         .noche-marca.troll { --rol: #ff4d5e; }
         @keyframes noche-entra { from { opacity: 0; } to { opacity: 1; } }

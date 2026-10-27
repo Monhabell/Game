@@ -311,6 +311,7 @@ export function terminarNoche() {
     quitarBarraTroll();
     quitarLista();
     quitarFlechas();
+    quitarReportar();
     capaAtaque?.remove();
     capaAtaque = null;
 }
@@ -359,7 +360,7 @@ export function actualizarNoche(scene, time) {
     if (soyTroll()) actualizarTroll(scene, time);
     actualizarEncargos(scene, time);
     revisarPuertas(scene, time);
-    if (scene.esFantasma) flotar(scene);
+    if (scene.esFantasma) { flotar(scene); mostrarReportar(false); }
     else { revisarCuerpos(scene); revisarCampana(scene, time); }
 }
 
@@ -1108,14 +1109,50 @@ function dibujarCuerpo(scene, c) {
 }
 
 // un vivo pasa junto a un cuerpo que nadie encontró: se avisa a todos
+// el cuerpo se queda donde cayó hasta que alguien lo REPORTA: junto a él aparece el botón "📢 REPORTAR"
+// (o la tecla R) y eso llama al Juicio. Pasar al lado sin reportar no avisa a nadie (el troll también
+// puede pasar de largo… o reportar su propia víctima para parecer inocente)
 function revisarCuerpos(scene) {
     const g = scene.mascotaGesi;
-    if (!g || g.isDead || noche.ganador) return;
-    const c = noche.cuerpos.find(c => !c.hallado && c.id !== red.tuId && Math.abs(g.x - c.x) < HALLAR && Math.abs(g.y - c.y) < HALLAR);
+    const c = !g || g.isDead || noche.ganador || juicioActivo() ? null
+        : noche.cuerpos.find(c => !c.hallado && c.id !== red.tuId && Math.abs(g.x - c.x) < HALLAR && Math.abs(g.y - c.y) < HALLAR);
+    noche.cuerpoCerca = c?.id ?? null;
+    mostrarReportar(!!c);
+}
+function reportar() {
+    const scene = escenaNoche();
+    const id = noche?.cuerpoCerca;
+    if (!scene || id == null || juicioActivo() || scene.esFantasma) return;
+    const c = noche.cuerpos.find(c => c.id === id && !c.hallado);
     if (!c) return;
+    noche.cuerpoCerca = null;
+    mostrarReportar(false);
     enviarEvento('nocheHallazgo', { id: c.id });
     hallazgo(red.tuId, c.id);
-    abrirJuicio('cuerpo', c.id); // (encontrar un cuerpo llama al Juicio)
+    abrirJuicio('cuerpo', c.id);
+}
+let botonReportar = null, teclaReportar = null;
+function mostrarReportar(si) {
+    if (!si) { botonReportar?.setAttribute('hidden', ''); return; }
+    if (!botonReportar) {
+        botonReportar = document.createElement('button');
+        botonReportar.type = 'button';
+        botonReportar.className = 'noche-reportar';
+        botonReportar.innerHTML = '<span aria-hidden="true">📢</span>REPORTAR<small>R</small>';
+        botonReportar.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); reportar(); });
+        document.getElementById('game').append(botonReportar);
+        teclaReportar = e => {
+            if (!e.repeat && e.key.toLowerCase() === 'r' && !e.target.closest?.('input, textarea, select') && !botonReportar?.hidden) reportar();
+        };
+        document.addEventListener('keydown', teclaReportar);
+    }
+    botonReportar.removeAttribute('hidden');
+}
+function quitarReportar() {
+    botonReportar?.remove();
+    botonReportar = null;
+    if (teclaReportar) document.removeEventListener('keydown', teclaReportar);
+    teclaReportar = null;
 }
 function hallazgo(quien, id) {
     const c = noche.cuerpos.find(c => c.id === id);
@@ -1195,6 +1232,7 @@ function revisarCampana(scene, time) {
 // empieza el Juicio: todo se detiene (sin apagón, sin nada a medio preparar)
 function pausarPorJuicio() {
     if (!noche) return;
+    mostrarReportar(false);
     noche.pausaDesde = Date.now();
     noche.apagonHasta = 0;
     noche.canal = null;

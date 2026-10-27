@@ -2059,6 +2059,14 @@ function haySueloEn(scene, x) {
     });
 }
 
+// hay piso en x a la altura 'pie' (suelo, plataforma o muro; no lava ni suelo falso)
+function pisoEn(scene, x, pie) {
+    return scene.floor.getChildren().some(p => {
+        const b = p.body;
+        return p.active && b && b.enable && !p.esFalso && !p.esGotero && x > b.left && x < b.right && Math.abs(b.top - pie) < 8;
+    }) || scene.moviles.getChildren().some(m => m.body && x > m.body.left && x < m.body.right && Math.abs(m.body.top - pie) < 10);
+}
+
 // Enemigo que cae del cielo: primero se corre si cae pegado a otro; después espera su turno
 // (uno cada PAUSA_APARICIONES y no más de MAXIMO_CERCA a la vez cerca del jugador).
 // Su sombra avisa dónde va a aterrizar.
@@ -2284,6 +2292,12 @@ function actualizarEnemigo(scene, enemy, time) {
     // caminar y dar la vuelta en las paredes
     if (eb.blocked.left) { enemy.setVelocityX(enemy.velBase); }
     else if (eb.blocked.right) { enemy.setVelocityX(-enemy.velBase); }
+    // …y en el borde del suelo (si no, se tiran a la lava antes de que llegues). Se mira cada 150 ms
+    else if (eb.blocked.down && time > (enemy.proxBorde || 0)) {
+        enemy.proxBorde = time + 150;
+        const dir = Math.sign(eb.velocity.x);
+        if (dir && !pisoEn(scene, dir > 0 ? eb.right + 8 : eb.left - 8, eb.bottom)) enemy.setVelocityX(-dir * enemy.velBase);
+    }
     if (Math.abs(eb.velocity.x) > 1) enemy.flipX = eb.velocity.x < 0;
 
     if (!gesiVivo || time < enemy.proxAtaque || Math.abs(dy) > 60) return;
