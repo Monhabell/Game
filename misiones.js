@@ -174,6 +174,13 @@ export function planearMisiones(nivel, i, k) {
     });
 
     const todo = [...plan, ...acertijosPlan];
+    // si el nivel tiene una cueva inundada (agua.js), un prisionero está en el fondo, cerca de la entrada
+    const rescate = todo.find(m => m.tipo === 'rescatar');
+    if (rescate && nivel.agua?.length) {
+        const [a] = nivel.agua[0];
+        rescate.cosas[rescate.cosas.length - 1] = { ...rescate.cosas[rescate.cosas.length - 1], x: a + 90 };
+        rescate.ayuda = 'uno está bajo el agua 🫧';
+    }
     // los textos (y los íconos) de la historia del nivel
     if (propio) todo.forEach(m => { m.texto = propio.textos?.[m.tipo] ?? m.texto; m.icono = propio.iconos?.[m.tipo] ?? m.icono; });
     return todo;
@@ -200,6 +207,7 @@ function lugaresLibres(nivel) {
         ...(nivel.muros || []).map(([x, , w]) => [x, x + w]),
         ...(nivel.techos || []).map(([a, b]) => [a, b]),
         ...(nivel.moviles || []).map(([x]) => [x - 140, x + 140]),
+        ...(nivel.agua || []).map(([a, b]) => [a - 200, b + 200]), // (las cuevas inundadas)
     ];
     const xs = [];
     (nivel.suelo || []).forEach(([a, b]) => {

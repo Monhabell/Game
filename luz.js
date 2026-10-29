@@ -18,6 +18,12 @@
 // nivel.braseros: [x, …] (sobre el suelo)
 // De afuera (troll.js): scene.lucesExtra() → [{ x, y, r, color, fuerza }] luces que cambian (las antorchas
 // encendidas, el altar) y scene.luzOscurecer (0 a 1): más oscuro (el apagón del troll, las catacumbas)
+//
+// MODO TÚNEL (todos los demás niveles): si el nivel no es oscuro pero tiene túneles, sótanos o pisos de
+// losas (zonasTunel), la misma oscuridad aparece SOLO bajo techo: al entrar se oscurece en ~0,5 s y te
+// queda la luz de tu antorcha (que en los túneles no se gasta); al salir vuelve a aclararse. Adentro hay
+// antorchas en la pared cada tanto y los rayos de las grietas del techo. Cuanto más alto el nivel, más
+// oscuro (de penumbra a casi negro).
 
 import { SUELO_Y } from "./alcance.js"
 
@@ -29,16 +35,31 @@ const RADIO_ANTORCHA = [110, 300]; // radio de tu luz (antorcha vacía, llena)
 const RADIO_BRASERO = 300, RADIO_LAVA = 190, RADIO_PARED = 210;
 const CERCA_BRASERO = 55;
 const REDIBUJAR_MS = 33;        // la capa se repinta ~30 veces por segundo (no en cada cuadro)
+const ENTRA_TUNEL_MS = 500;     // lo que tarda en oscurecerse (o aclararse) al entrar (o salir) de un túnel
+const ANTORCHA_TUNEL = 520;     // px entre las antorchas de la pared dentro de un túnel
 
-export function crearLuz(scene, nivel, resolucion) {
+// los lugares bajo techo de un nivel: [x0, x1, abajo] (abajo: donde termina el techo)
+export function zonasTunel(nivel) {
+    return [
+        ...(nivel.techos || []).map(([a, b, abajo]) => [a, b, abajo]),
+        ...(nivel.losas || []).map(([a, b, arriba, grosor]) => [a, b, arriba + (grosor ?? 30)]),
+    ].filter(([a, b]) => b - a >= 200);
+}
+
+// indice: el número de nivel (los túneles son más oscuros en los niveles altos)
+export function crearLuz(scene, nivel, resolucion, indice = 0) {
     scene.luz = null;
     scene.sombrasPj = scene.add.graphics().setDepth(32.9); // (sombras bajo los pies: detrás de los personajes)
-    if (!nivel.luz) return;
+    const tuneles = nivel.luz ? [] : zonasTunel(nivel);
+    if (!nivel.luz && !tuneles.length) return;
     texturas(scene);
-    // la oscuridad de siempre (ambiente.js) se apaga: esta la reemplaza. Y la niebla también: debajo de
-    // la luz blanquea todo y la noche se ve lechosa, sin contraste
-    scene.oscuridad?.setVisible(false);
-    [...(scene.capasNiebla || []).map(c => c.capa), scene.nieblaDensa, scene.nieblaAlta, scene.nieblaBaja].forEach(o => o?.setVisible(false));
+    const config = nivel.luz || { oscuridad: Math.min(0.95, 0.82 + indice * 0.0004), sinGasto: true }; // (como las catacumbas; casi negro en los niveles altos)
+    if (nivel.luz) {
+        // la oscuridad de siempre (ambiente.js) se apaga: esta la reemplaza. Y la niebla también: debajo de
+        // la luz blanquea todo y la noche se ve lechosa, sin contraste
+        scene.oscuridad?.setVisible(false);
+        [...(scene.capasNiebla || []).map(c => c.capa), scene.nieblaDensa, scene.nieblaAlta, scene.nieblaBaja].forEach(o => o?.setVisible(false));
+    }
     const w = Math.ceil(ANCHO * RESOLUCION_CAPA), h = Math.ceil(ALTO * RESOLUCION_CAPA);
     const capa = scene.add.renderTexture(0, 0, w, h).setOrigin(0).setScrollFactor(0).setDepth(40).setScale(1 / RESOLUCION_CAPA)
         .setBlendMode(Phaser.BlendModes.MULTIPLY);
@@ -59,6 +80,15 @@ export function crearLuz(scene, nivel, resolucion) {
         fijas.push(luz);
         return { x, palo, fuego, brillo, luz, prendido: false };
     });
+    // túneles: antorchas en la pared cada tanto (las primeras, a la entrada)
+    tuneles.forEach(([a, b, abajo]) => {
+        for (let x = a + 140; x < b - 60; x += ANTORCHA_TUNEL) {
+            if ((nivel.agua || []).some(([a0, a1]) => x > a0 - 20 && x < a1 + 20)) continue; // (bajo el agua no hay antorchas)
+            const y = Math.min(SUELO_Y - 90, abajo + 50);
+            scene.add.image(x, y, 'cr_torch').setOrigin(0.5, 1).setDepth(2).setScale(0.9);
+            fijas.push({ x, y: y - 14, r: RADIO_PARED * 0.85, color: 0xffa050, fuerza: 0.8 });
+        }
+    });
     // rayos de luz por las grietas de los techos (los sótanos y túneles)
     (nivel.techos || []).forEach(([a, b, abajo]) => {
         for (let x = a + 160; x < b - 100; x += 380) {
@@ -70,10 +100,12 @@ export function crearLuz(scene, nivel, resolucion) {
     const barra = scene.add.text(ANCHO / 2, 44, '', { fontSize: '11px', fontStyle: '700', color: '#ffc94a', stroke: '#000', strokeThickness: 3 })
         .setOrigin(0.5).setScrollFactor(0).setDepth(50);
     // (penumbra azul: lo lejano se ve como siluetas, no negro)
-    const n = Math.min(200, Math.round(38 + 255 * (1 - nivel.luz.oscuridad) * 1.6));
+    const n = Math.min(200, Math.round(38 + 255 * (1 - config.oscuridad) * 1.6));
     const noche = Phaser.Display.Color.GetColor(Math.round(n * 0.5), Math.round(n * 0.62), Math.min(255, Math.round(n * 1.15)));
-    scene.luz = { nivel, capa, pincel, calida, fijas, braseros, barra, noche, sinGasto: !!nivel.luz.sinGasto, antorcha: 1, oscuridad: nivel.luz.oscuridad, sombras: !!nivel.luz.sombras,
-        resolucion, ultimo: 0, avisoVacia: false };
+    scene.luz = { nivel, capa, pincel, calida, fijas, braseros, barra, noche, sinGasto: !!config.sinGasto, antorcha: 1, oscuridad: config.oscuridad, sombras: !!config.sombras,
+        resolucion, ultimo: 0, avisoVacia: false,
+        tuneles: tuneles.length ? tuneles : null, adentro: tuneles.length ? 0 : 1 }; // (adentro: 0 afuera … 1 bajo techo)
+    if (tuneles.length) { capa.setAlpha(0).setVisible(false); calida.setAlpha(0); }
 }
 
 function texturas(scene) {
@@ -127,6 +159,14 @@ export function actualizarLuz(scene, time, delta) {
     const texto = L.sinGasto ? '' : `🔦 ${'▮'.repeat(lleno)}${'▯'.repeat(8 - lleno)}`;
     if (L.barra.text !== texto) L.barra.setText(texto).setColor(L.antorcha < 0.2 ? '#ff6b6b' : '#ffc94a');
 
+    // modo túnel: la oscuridad va y viene al entrar y salir de abajo de un techo
+    if (L.tuneles) {
+        const cx = g?.body?.center.x ?? 0, arriba = g?.body?.top ?? 0;
+        const bajoTecho = !!g && L.tuneles.some(([a, b, abajo]) => cx > a && cx < b && arriba > abajo - 20);
+        L.adentro = Phaser.Math.Clamp(L.adentro + (bajoTecho ? 1 : -1) * delta / ENTRA_TUNEL_MS, 0, 1);
+        L.capa.setVisible(L.adentro > 0).setAlpha(L.adentro);
+        if (L.adentro <= 0) { L.calida.setAlpha(0); return; } // (afuera no se dibuja nada: no gasta)
+    }
     if (time - L.ultimo < REDIBUJAR_MS) return;
     L.ultimo = time;
     const cam = scene.cameras.main, z = cam.zoom / L.resolucion, k = RESOLUCION_CAPA;
@@ -136,7 +176,7 @@ export function actualizarLuz(scene, time, delta) {
     const parpadeo = 1 + Math.sin(time / 80) * 0.03 + Math.sin(time / 33) * 0.02;
     // (más oscuro: el apagón del troll achica tu luz y apaga la noche)
     const oscurecer = Phaser.Math.Clamp(scene.luzOscurecer || 0, 0, 1);
-    const radioTuyo = (RADIO_ANTORCHA[0] + (RADIO_ANTORCHA[1] - RADIO_ANTORCHA[0]) * L.antorcha) * parpadeo * (1 - 0.45 * oscurecer);
+    const radioTuyo = (RADIO_ANTORCHA[0] + (RADIO_ANTORCHA[1] - RADIO_ANTORCHA[0]) * L.antorcha) * parpadeo * (1 - 0.45 * oscurecer) * (L.tuneles ? 0.72 : 1); // (en los túneles, tu luz es más chica)
     const luces = g ? [{ x: g.body?.center.x ?? g.x, y: g.body?.center.y ?? g.y, r: radioTuyo, color: 0xffc27a, fuerza: 0.55 + 0.45 * L.antorcha }] : [];
     [...L.fijas, ...(scene.lucesExtra?.() || [])].filter(f => f.r > 0 && f.x > v.x - f.r && f.x < v.right + f.r && f.y > v.y - f.r && f.y < v.bottom + f.r)
         .sort((a, b) => Math.abs(a.x - luces[0]?.x) - Math.abs(b.x - luces[0]?.x))
@@ -153,7 +193,7 @@ export function actualizarLuz(scene, time, delta) {
     });
     // la luz cálida de la antorcha (naranja) sobre tu personaje y la de los braseros: el contraste
     // cálido / frío es lo que se siente como luz de verdad
-    if (g && L.calida) L.calida.setPosition(luces[0].x, luces[0].y - 6).setScale(radioTuyo / 160).setAlpha(0.12 + 0.12 * L.antorcha);
+    if (g && L.calida) L.calida.setPosition(luces[0].x, luces[0].y - 6).setScale(radioTuyo / 160).setAlpha((0.12 + 0.12 * L.antorcha) * L.adentro);
     // enemigos sombra: solo se ven con luz
     if (L.sombras) scene.enemies.getChildren().forEach(e => {
         if (!e.active || e.isDead || !e.body) return;

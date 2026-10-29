@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "web": "node scripts/copiar-web.mjs",
+    "probar": "echo Abre: http://localhost:8099/index.html?nivel=24^&personaje=caballera && python -m http.server 8099",
     "sync": "npm run web && npx cap sync android",
     "apk": "powershell -ExecutionPolicy Bypass -File scripts/construir-apk.ps1",
     "llave": "powershell -ExecutionPolicy Bypass -File scripts/crear-llave.ps1",

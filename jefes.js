@@ -26,6 +26,7 @@
 //   crearEnemigo(scene, x, y, tipo) }
 
 import { zoomCamara, RESOLUCION } from "./ajustes.js"
+import { agregarAgua, agregarBurbujas, nivelDeAgua, quitarAgua } from "./agua.js"
 
 // En línea (scene.redJefe, ver multijugador.js): el troll lo maneja el ANFITRIÓN. Su pantalla decide
 // a quién persigue (al jugador más cercano de la sala) y qué ataque usa, y avisa cada ataque
@@ -67,7 +68,7 @@ const AVISOS = {
     salto: ['↑', '#ffd27a'], embestida: ['»', '#ff5555'], roca: ['●', '#ffb070'],
     rugido: ['!!', '#ff5555'], terremoto: ['≈', '#ff5555'],
     rayo: ['ϟ', '#9fe8ff'], fuego: ['^^', '#ff8a3d'], hielo: ['✱', '#bff0ff'], veneno: ['~', '#9aff7a'],
-    esfuma: ['?', '#c79aff'], vendaval: ['≫', '#e8e0c0'], invocar: ['+', '#ffd27a'],
+    esfuma: ['?', '#c79aff'], vendaval: ['≫', '#e8e0c0'], invocar: ['+', '#ffd27a'], inundar: ['≈≈', '#5ab4ff'],
 };
 // lo que se anuncia al empezar la pelea con un jefe de tema (su ataque propio)
 const LECCIONES = {
@@ -78,6 +79,7 @@ const LECCIONES = {
     esfuma: 'SE ESFUMA: aparece detrás de ti. ¡Date vuelta!',
     vendaval: 'VENDAVAL: te empuja hacia él. Corre en contra.',
     invocar: 'INVOCA AYUDANTES: acaba con ellos o te rodean.',
+    inundar: 'INUNDA LA ARENA: nada, busca las burbujas y no te quedes sin aire.',
 };
 // el jefe de cada tema: [nombre, troll (1 verde con cuero, 2 oscuro con escamas, 3 pálido con pieles), color, ataques propios]
 const JEFES_TEMA = {
@@ -96,7 +98,7 @@ const JEFES_TEMA = {
     'El Castillo Sangriento': ['EL CONDE TROLL', 3, 0xff8080, ['esfuma']],
     'El Glaciar Eterno': ['EL TROLL GLACIAL', 2, 0xc0e8ff, ['hielo']],
     'El Mar de Niebla': ['EL TROLL FANTASMA', 3, 0xd0d8e8, ['esfuma']],
-    'La Ciudad Hundida': ['EL TROLL AHOGADO', 2, 0x80e0d0, ['veneno']],
+    'La Ciudad Hundida': ['EL TROLL AHOGADO', 2, 0x80e0d0, ['inundar', 'veneno']],
     'El Volcán Dormido': ['EL TROLL DE MAGMA', 1, 0xff7040, ['fuego']],
     'La Biblioteca Maldita': ['EL TROLL BIBLIOTECARIO', 3, 0xd0b090, ['invocar']],
     'La Selva Embrujada': ['EL TROLL DE LA SELVA', 1, 0x90e090, ['veneno']],
@@ -106,7 +108,7 @@ const JEFES_TEMA = {
     'El Templo del Sol Negro': ['EL SACERDOTE TROLL', 3, 0xffd870, ['rayo']],
     'El Corazón del Volcán': ['EL SEÑOR DEL VOLCÁN', 1, 0xff5030, ['fuego']],
     'El Reino de Caramelo Podrido': ['EL TROLL GOLOSO', 1, 0xffb0d8, ['invocar']],
-    'El Cementerio de Barcos': ['EL CAPITÁN TROLL', 2, 0x90b8b0, ['rayo']],
+    'El Cementerio de Barcos': ['EL CAPITÁN TROLL', 2, 0x90b8b0, ['inundar', 'rayo']],
     'Las Cumbres de la Tormenta': ['EL TITÁN DE LA TORMENTA', 3, 0x98a8d0, ['rayo', 'vendaval']],
     'El Fin del Mundo': ['EL TROLL DEL FIN', 2, 0xc0a0ff, ['esfuma', 'rayo', 'fuego']],
 };
@@ -506,6 +508,7 @@ function derrotar(scene, api) {
     const j = scene.jefe, s = j.sprite;
     j.estado = 'derrotado';
     j.derrotado = true;
+    if (j.inundada) { quitarAgua(scene, j.inundada); j.inundada = null; } // (si estaba inundada, el agua se va)
     scene.peleaJefe = false;
     scene.camaraArena = null;
     scene.tweens.add({ targets: scene.cameras.main, zoom: zoomCamara(), delay: 1500, duration: 900, ease: 'Sine.inOut' });
@@ -950,6 +953,17 @@ Object.assign(ESPECIALES, {
         avisar(scene, 'vendaval', datos);
         vendaval(scene, datos.x);
     },
+    // inunda la arena un rato (agua.js): hay que nadar y respirar en las burbujas mientras pelea
+    inundar(scene) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        if (j.inundada) return;
+        aviso(scene, s, 'inundar');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-attack`, true);
+        j.ocupadoHasta = scene.time.now + 1200;
+        avisar(scene, 'inundar');
+        inundarArena(scene);
+    },
     // invoca dos ayudantes (los enemigos del nivel)
     invocar(scene, api) {
         const j = scene.jefe, s = j.sprite, d = j.datos;
@@ -968,6 +982,25 @@ Object.assign(ESPECIALES, {
         });
     },
 });
+
+// el agua sube en la arena, se queda un rato (con dos columnas de burbujas) y baja
+const INUNDADA_MS = 7500, SUPERFICIE_ARENA = 150;
+function inundarArena(scene) {
+    const j = scene.jefe;
+    if (j.inundada) return;
+    rugir(scene);
+    const zona = agregarAgua(scene, j.arenaIni, j.arenaFin, SUELO_Y);
+    j.inundada = zona;
+    scene.tweens.addCounter({ from: SUELO_Y, to: SUPERFICIE_ARENA, duration: 1400, ease: 'Sine.out',
+        onUpdate: tw => nivelDeAgua(zona, tw.getValue()),
+        onComplete: () => { if (j.inundada === zona) [j.arenaIni + 160, j.arenaFin - 160].forEach(x => agregarBurbujas(scene, x)); } });
+    scene.time.delayedCall(INUNDADA_MS, () => {
+        if (j.inundada !== zona) return;
+        scene.tweens.addCounter({ from: zona.sup, to: SUELO_Y + 30, duration: 1200, ease: 'Sine.in',
+            onUpdate: tw => nivelDeAgua(zona, tw.getValue()),
+            onComplete: () => { if (j.inundada === zona) { quitarAgua(scene, zona); j.inundada = null; } } });
+    });
+}
 
 // un rayo: círculo de aviso en el suelo y, al rato, la descarga
 function rayoCae(scene, x, api) {
@@ -1187,5 +1220,6 @@ export function efectoJefe(scene, m, api) {
         case 'veneno': nubeVeneno(scene, m.x, api); break;
         case 'vendaval': vendaval(scene, m.x); break;
         case 'esfuma': s.setAlpha(1); break;
+        case 'inundar': inundarArena(scene); break;
     }
 }

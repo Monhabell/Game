@@ -17,6 +17,7 @@ import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
 import { revisarHitos, mostrarHitos, tituloActual, proximoHito } from "./hitos.js"
+import { configurarAgua, crearAgua, actualizarNado } from "./agua.js"
 import { ganarXP, XP, progresoJugador, maestria, tituloHeroe, factorRecarga, tieneRunaMaestria, MAESTRIA_MAX, textoNivel } from "./progreso.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
 import { red, enLinea, enCarrera, enNoche, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
@@ -399,6 +400,10 @@ iniciarCarrera(juego, {
     morir: scene => killgesi(scene, 'rival'),
 });
 // ---------- La Noche del Troll (troll.js): antorchas, altar y el final ----------
+configurarAgua({
+    killgesi: (scene, causa, origenX) => killgesi(scene, causa, 20, origenX),
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+});
 iniciarNoche({
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
     crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo), // (los monstruos del troll)
@@ -964,7 +969,8 @@ function create() {
 
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
     crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivel1 ? [[1350, 2310]] : []);
-    crearLuz(this, nivel, ZOOM); // (niveles oscuros: antorcha, braseros y enemigos sombra; sombras bajo los pies)
+    crearAgua(this, nivel); // (las cuevas inundadas: nadar, aire y burbujas)
+    crearLuz(this, nivel, ZOOM, nivelActual); // (niveles oscuros: antorcha, braseros y enemigos sombra; los demás, oscuros solo en los túneles; sombras bajo los pies)
 
     // HUD (en el celular, más chico y con íconos en vez de palabras: deja ver el juego, como en los
     // juegos de celular; lo de los poderes V y B lo muestran los botones táctiles)
@@ -3252,8 +3258,12 @@ function actualizarJugador(time, delta) {
     if (JD(t.v) && !sinPoderes && !this.noche) usarPoder(this, 0);
     if (JD(t.b) && !sinPoderes && !this.noche) usarPoder(this, 1);
 
+    // bajo el agua se nada (agua.js): las brazadas reemplazan al salto
+    const nadando = actualizarNado(this, time, delta);
     if (enSuelo) this.saltosAire = 0;
-    if (aturdido) {
+    if (nadando) {
+        // (nada: agua.js ya movió al personaje)
+    } else if (aturdido) {
         // (no salta mientras está aturdido)
     } else if (this.keys.up.isDown && enSuelo) {
         // se "gasta" la pulsación: el doble salto necesita volver a presionar ↑
@@ -3270,7 +3280,7 @@ function actualizarJugador(time, delta) {
     }
 
     // cayendo: animación de caída (los héroes que la tienen)
-    if (!enSuelo && this.pj.hojas.fall && g.body.velocity.y > 120 && !this.atacando && !g.isDead &&
+    if (!nadando && !enSuelo && this.pj.hojas.fall && g.body.velocity.y > 120 && !this.atacando && !g.isDead &&
         !g.anims.currentAnim?.key.endsWith('-fall')) animar(this, 'fall');
 
     const deathThreshold = 90;

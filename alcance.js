@@ -49,6 +49,8 @@ export function superficies(nivel, sueloExtra = []) {
     // muro: columna maciza desde el suelo hasta 'arriba'; se puede pisar su cima
     muros.forEach(([x, arriba, ancho]) => s.push({ x0: x, x1: x + ancho, top: arriba, tipo: 'muro' }));
     (nivel.plataformas || []).forEach(([x, top, ancho]) => s.push({ x0: x, x1: x + ancho, top, tipo: 'plataforma' }));
+    // el agua (agua.js): se nada hasta la superficie y de ahí se sale de un salto (como pararse en ella)
+    (nivel.agua || []).forEach(([x0, x1, sup]) => s.push({ x0, x1, top: sup + 40, tipo: 'agua' }));
     // runas: la piedra se puede pisar y sus losas cuentan como plataformas (una vez activada; para
     // activarla hay que poder golpearla desde abajo, lo que comprueba la prueba de las runas)
     (nivel.runas || []).forEach(([x, y, losas]) => {

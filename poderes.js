@@ -540,6 +540,8 @@ function golpear(scene, p, e, remoto, daño = p.daño) {
     }
     // combo: este poder sobre la marca de otro elemento (si no, deja la suya)
     const elem = elementoDe(p), ahora = scene.time.now;
+    // bajo el agua (agua.js): el agua pega más y el fuego menos
+    if (scene.bajoAgua && (elem === 'agua' || elem === 'fuego')) daño = Math.max(1, (daño || 0) + (elem === 'agua' ? 1 : -1));
     const marca = e.marcaElem && ahora < e.marcaElem.hasta ? e.marcaElem.elem : null;
     const combo = comboDe(marca, elem);
     if (combo) {

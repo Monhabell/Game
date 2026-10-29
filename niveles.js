@@ -53,6 +53,7 @@ import {
     tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
     zonaSalida, zonaPuente, zonaTunel, zonaAtajo, zonaSueloMentiroso, zonaPersecucion, zonaLlegada,
     tramoSalidaEnganosa, tramoRamasTraicioneras, tramoPuenteMadera,
+    tramoInundado,
 } from "./tramos.js"
 
 export const SUELO_Y = 332;
@@ -356,7 +357,8 @@ extender(NIVELES[2], 4710, [ // Puentes: túnel, una torre y otro doble camino
     tramoLlano(300), tramoTunel(600), tramoLlano(300, { enemigos: 1 }), tramoTorre(4), tramoLlano(400),
     tramoDobleCamino(), tramoLlano(300),
 ]);
-extender(NIVELES[3], 5160, [ // Fortaleza: túneles, doble camino y una torre alta
+extender(NIVELES[3], 2100, [tramoInundado(1150, 0.72)]); // Fortaleza: el foso del castillo, inundado (agua.js)
+extender(NIVELES[3], 5160 + 1150, [ // Fortaleza: túneles, doble camino y una torre alta
     tramoLlano(300), tramoTunel(900), tramoLlano(700, { enemigos: 2 }), tramoDobleCamino(), tramoLlano(400),
     tramoTorre(6), tramoLlano(400, { enemigos: 1 }), tramoTunel(600), tramoLlano(300),
 ]);
@@ -574,6 +576,8 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
         torre4: () => especial(tramoTorre(4)), torre6: () => especial(tramoTorre(6)),
         puentesAltos: () => especial(tramoPuentesAltos()), dobleCamino: () => especial(tramoDobleCamino()),
         runa: () => especial(tramoAbismoRunico()), tunel: () => especial(tramoTunel(800)),
+        // cueva inundada (agua.js): más larga y con techos más largos en los niveles altos
+        inundado: () => especial(tramoInundado(entre(1000, 1300 + Math.round(900 * d)), d)),
     };
     // en qué tramo va cada especial: repartidos a lo largo del nivel
     const posEspecial = new Map(especiales.map((e, k) => [Math.floor(((k + 1) * tramos) / (especiales.length + 1)), e]));
@@ -799,6 +803,12 @@ function nivelInfinito(i) {
     const pool = arq.especiales ? [...arq.especiales, ...arq.especiales, ...ESPECIALES_INF] : ESPECIALES_INF;
     const especiales = [SUBIDAS[Math.floor(r() * SUBIDAS.length)], 'sotano',
         ...Array.from({ length: cuantos - 2 }, () => pool[Math.floor(r() * pool.length)])];
+    // la cueva inundada (agua.js): desde el mundo 3, cada vez más seguido (a veces dos)
+    if (k >= 13) {
+        const ri = azar(i * 6151 + 29); // (aparte: no cambia el resto del nivel)
+        if (ri() < Math.min(0.85, 0.45 + k / 1500)) especiales.push('inundado');
+        if (k > 300 && ri() < 0.3) especiales.push('inundado');
+    }
     for (let j = especiales.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [especiales[j], especiales[m]] = [especiales[m], especiales[j]]; }
     const n = generarNivel({
         nombre: `${tema.nombre} ${mundo}-${enMundo} · ${arq.nombre}${mas.arq2 ? ` ✦ ${mas.arq2.nombre}` : ''}`,
@@ -818,7 +828,7 @@ function nivelInfinito(i) {
     if (oscura) {
         n.luz = { oscuridad: Math.min(0.95, oscura.oscuridad + 0.1), sombras: !!oscura.sombras };
         n.braseros = [];
-        const huecos = [...n.lava, ...n.falsos];
+        const huecos = [...n.lava, ...n.falsos, ...(n.agua || []).map(([a, b]) => [a - 200, b + 200])];
         let proximo = 1200;
         (n.suelo || []).forEach(([a, b]) => {
             for (let x = Math.max(a + 150, proximo); x < b - 150 && x < n.meta - 400; x += 100) {
@@ -838,7 +848,7 @@ function nivelInfinito(i) {
     // sus sorpresas, repartidas por el suelo firme (más en cada nivel)
     const locuras = [...(arq.locuras || []), ...(mas.arq2?.locuras || [])];
     if (locuras.length) {
-        const huecos = [...n.lava, ...n.falsos];
+        const huecos = [...n.lava, ...n.falsos, ...(n.agua || []).map(([a, b]) => [a - 200, b + 200])];
         const libres = [];
         (n.suelo || []).forEach(([a, b]) => { for (let x = Math.max(a + 200, 1000); x < b - 200 && x < n.meta - 1500; x += 120) {
             if (!huecos.some(([h0, h1]) => x > h0 - 200 && x < h1 + 200)) libres.push(x);
@@ -857,11 +867,12 @@ function nivelInfinito(i) {
     for (let j = 0; j < persecuciones; j++) n.persecuciones.push(Math.round(1500 + (n.meta - 3500) * (j + 1) / (persecuciones + 1)));
     n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)) + mas.velExtra; // más rápidos en cada nivel
     n.vidaExtra = mas.vidaExtra; // (game.js: cada enemigo aguanta más golpes)
+    n.aireMs = Math.max(6000, 10000 - k * 4); // (agua.js: el aire dura menos en los niveles altos)
     // menos puntos de control (el último, antes del jefe o de la meta, queda siempre)
     if (mas.sinCheckpoints) n.checkpoints = n.checkpoints.filter((_c, j, t) => j % 2 === 0 || j === t.length - 1);
     // más enemigos: uno cada 'paso' px de suelo firme (más juntos en cada nivel), con tope por los celulares
     const paso = Math.max(300, 620 - k * 3);
-    const huecos = [...n.lava, ...n.falsos];
+    const huecos = [...n.lava, ...n.falsos, ...(n.agua || []).map(([a, b]) => [a - 200, b + 200])];
     const fin = n.meta - (conJefe ? 1500 : 500);
     const tope = 110;
     (n.suelo || []).forEach(([a, b]) => {

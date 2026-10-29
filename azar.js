@@ -127,7 +127,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla, nivelReal) {
     const muros = (nivel.muros || []).map(([x, , ancho]) => [x - 60, x + ancho + 220]);
     // túneles: sin trampas de suelo dentro (casi no se puede saltar) ni justo a la salida
     // (los enemigos que caen del cielo o el gigante que persigue aparecerían dentro del techo)
-    const tuneles = (nivel.techos || []).map(([a, b]) => [a - 60, b + 500]);
+    const tuneles = [...(nivel.techos || []).map(([a, b]) => [a - 60, b + 500]), ...(nivel.agua || []).map(([a, b]) => [a - 260, b + 260])]; // (y las cuevas inundadas: ni trampas ni sorpresas en el agua)
     const escaleras = (nivel.escaleras || []).map(([x, h]) => [x - 60, x + h * 32 + 60]);
     // placas y puertas de equipo: sin trampas cerca (ahí el equipo se coordina, no se esquiva)
     const mecanismos = [...(nivel.placas || []), ...(nivel.puertas || [])].map(([x]) => [x - 200, x + 200]);

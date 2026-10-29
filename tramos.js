@@ -35,6 +35,52 @@ export function tramoTunel(largo, { enemigos = 2 } = {}) {
     };
 }
 
+// cueva inundada (agua.js): se sube por dos escalones a un muro, se salta al agua y se cruza BUCEANDO bajo
+// un techo de roca. Para respirar: los huecos entre los techos (bolsas de aire, se asoma la cabeza) y las
+// columnas de burbujas en los techos largos. Al final se nada hasta arriba y se sale por el otro muro.
+// d: dificultad (0,6 a 1): techos más largos (más tiempo sin aire). Nunca más de ~560 px sin aire
+// (buceando se avanzan ~130 px/s: con 6 s de aire, alcanza con margen)
+export const SUPERFICIE_AGUA = SUELO_Y - 210;
+export function tramoInundado(largo, d = 0.6) {
+    const S = SUELO_Y, sup = SUPERFICIE_AGUA, MURO = 40, BOLSA = 110, ABRE = 150;
+    const x0 = 200, x1 = largo - 200; // el agua, entre los dos muros
+    const t = {
+        ancho: largo, suelo: [[0, largo]],
+        muros: [[x0 - MURO, sup - 6, MURO], [x1, sup - 6, MURO]],
+        // escalones para subir al muro (y para bajar del otro lado)
+        plataformas: [[20, S - 72, 60], [90, S - 144, 60], [x1 + MURO + 50, S - 144, 60], [x1 + MURO + 120, S - 72, 60]],
+        agua: [[x0, x1, sup]], techos: [], burbujas: [], monedas: [],
+        burbujasFalsas: [], criaturas: [], corrientes: [], algas: [], rejas: [],
+        carteles: [[60, 150, '🫧 AGUANTA LA RESPIRACIÓN']],
+    };
+    // los peligros llegan con la dificultad (d va de 0,6 a 1): peces, algas, medusas, corrientes, rejas y
+    // la burbuja troll. Siempre donde no dejan sin aire: la burbuja troll va en un techo corto (sin
+    // burbujas de verdad, se llega a la siguiente bolsa) y la reja, junto a una bolsa de aire
+    const largoTecho = Math.round(300 + 260 * Math.min(1, d)); // de 456 a 560
+    let a = x0 + ABRE;
+    while (a < x1 - ABRE - 120) {
+        const b = Math.min(a + largoTecho, x1 - ABRE);
+        t.techos.push([a, b, sup + 60]); // (el techo baja 60 px dentro del agua: ahí no se respira)
+        if (b - a > 380) t.burbujas.push(Math.round((a + b) / 2)); // en los largos, una columna de burbujas
+        t.monedas.push(...fila(a + 60, S - 80, Math.max(2, Math.floor((b - a - 120) / 64)), 64));
+        t.monedas.push(...fila(b + 30, sup - 26, 2)); // (en la bolsa de aire, arriba)
+        const n = t.techos.length; // (cuántos techos van, contando este)
+        if (d >= 0.65 && n % 2 === 1) t.criaturas.push([Math.round((a + b) / 2) - 90, 'pez']);
+        if (d >= 0.7 && n % 3 === 2) t.algas.push(Math.round(a + 90));
+        if (d >= 0.8 && n % 2 === 0) t.criaturas.push([Math.round((a + b) / 2) + 80, 'medusa']);
+        if (d >= 0.75 && n === 2) t.corrientes.push([a, b, n % 4 === 2 ? -1 : 1]);
+        a = b + BOLSA;
+    }
+    // la reja: en la bolsa de aire del medio; su palanca, en el fondo justo antes
+    if (d >= 0.85 && t.techos.length >= 2) {
+        const [, bm] = t.techos[0];
+        t.rejas.push([bm + BOLSA - 10, 70]);
+    }
+    // la burbuja troll: al final de la cueva (cerca de la salida, el aire nunca es problema)
+    if (d >= 0.9) t.burbujasFalsas.push(x1 - ABRE + 40);
+    return t;
+}
+
 // ascensor mirador: un primer ascensor corto (opcional) que sube a una cornisa con premio
 export function tramoAscensorMirador() {
     return {
@@ -396,7 +442,7 @@ export function tramoArgollas() {
 const CON_X = ['bloques', 'monedas', 'carcajes', 'corazones', 'cristales', 'carteles', 'monedasTrampa', 'mordedoras',
     'espiritus', 'pinchos', 'bolas', 'goteros', 'moviles', 'escaleras', 'plataformas', 'muros', 'antorchas', 'posiblesMimicos', 'arbolesGigantes', 'placas', 'puertas', 'argollas',
     'escudos', 'aplastadores', 'portales', 'zonas', 'suelosPeso'];
-const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints', 'losasDudosas', 'grietasFalsas'];
+const SOLO_X = ['plantas', 'rocas', 'estatuasFalsas', 'banderasFalsas', 'persecuciones', 'checkpoints', 'losasDudosas', 'grietasFalsas', 'burbujas', 'burbujasFalsas', 'algas'];
 const RANGOS = ['suelo', 'lava', 'falsos', 'atajos', 'cuevas', 'murosAbismo', 'puentesMadera', 'zonasTranquilas'];
 // locuras: [x, tipo, extra]; en las de lava y el túnel, extra es la x del final (también se corre)
 const LOCURAS_CON_FIN = ['ola', 'geiser', 'techoBaja'];
@@ -411,6 +457,10 @@ export function colocar(n, t, x) {
     SOLO_X.forEach(k => (t[k] || []).forEach(px => (n[k] = n[k] || []).push(px + x)));
     (t.enemigos || []).forEach(e => (n.enemigos = n.enemigos || []).push(moverEnemigo(e, x)));
     (t.techos || []).forEach(([a, b, abajo]) => (n.techos = n.techos || []).push([a + x, b + x, abajo]));
+    (t.agua || []).forEach(([a, b, sup]) => (n.agua = n.agua || []).push([a + x, b + x, sup]));
+    (t.corrientes || []).forEach(([a, b, dir]) => (n.corrientes = n.corrientes || []).push([a + x, b + x, dir]));
+    (t.criaturas || []).forEach(([cx, ...r]) => (n.criaturas = n.criaturas || []).push([cx + x, ...r]));
+    (t.rejas || []).forEach(([rx, ...r]) => (n.rejas = n.rejas || []).push([rx + x, ...r]));
     (t.runas || []).forEach(([rx, ry, losas]) => (n.runas = n.runas || []).push([rx + x, ry, losas.map(([lx, ...r]) => [lx + x, ...r])]));
     (t.emboscadas || []).forEach(([a, xs]) => (n.emboscadas = n.emboscadas || []).push([a + x, xs.map(v => v + x)]));
     (t.locuras || []).forEach(l => (n.locuras = n.locuras || []).push(moverLocura(l, x)));
@@ -430,6 +480,10 @@ export function extender(nivel, x, piezas) {
     SOLO_X.forEach(k => { nivel[k] = (nivel[k] || []).map(mover); });
     nivel.enemigos = (nivel.enemigos || []).map(e => Array.isArray(e) ? [mover(e[0]), ...e.slice(1)] : mover(e));
     nivel.techos = (nivel.techos || []).map(([a, b, abajo]) => [mover(a), mover(b), abajo]);
+    nivel.agua = (nivel.agua || []).map(([a, b, sup]) => [mover(a), mover(b), sup]);
+    nivel.corrientes = (nivel.corrientes || []).map(([a, b, dir]) => [mover(a), mover(b), dir]);
+    nivel.criaturas = (nivel.criaturas || []).map(([cx, ...r]) => [mover(cx), ...r]);
+    nivel.rejas = (nivel.rejas || []).map(([rx, ...r]) => [mover(rx), ...r]);
     nivel.runas = (nivel.runas || []).map(([rx, ry, losas]) => [mover(rx), ry, losas.map(([lx, ...r]) => [mover(lx), ...r])]);
     nivel.emboscadas = (nivel.emboscadas || []).map(([a, xs]) => [mover(a), xs.map(mover)]);
     nivel.locuras = (nivel.locuras || []).map(l => (l[0] >= x ? moverLocura(l, d) : l));
