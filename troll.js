@@ -95,6 +95,8 @@ import { resDe } from "./personajes.js"
 import { iniciarJuicio, abrirJuicio, cerrarJuicio, juicioActivo } from "./juicio.js"
 import { usarVolumenVoz } from "./voz.js"
 import { urlHoja } from "./vestidor.js"
+import { usarBotonesTroll } from "./tactil.js"
+import { APUESTAS } from "./arena.js"
 import {
     iniciarBots, empezarBots, terminarBots, crearDibujosBots, actualizarBots, botsVivos, empujarBot, matarBot, botsAlClaro, guia, usarMapaBots,
 } from "./bots.js"
@@ -113,12 +115,18 @@ const PODERES = [
     { id: 'empujon', tecla: '3', icono: '✋', nombre: 'Empujón', canal: 0, espera: 15000 },
     { id: 'apagar', tecla: '4', icono: '💨', nombre: 'Apagar', canal: 3000, espera: 60000 },
     { id: 'atacar', tecla: '5', icono: '🗡️', nombre: 'Atacar', canal: 0, espera: 30000 },
+    { id: 'monstruos', tecla: '6', icono: '🧟', nombre: 'Monstruos', canal: 0, espera: 45000 },
 ];
+// monstruos del troll: aparecen en un lugar al azar del mapa (lejos del altar); no matan, aturden
+const MONSTRUOS = ['zombie3', 'esqueleto']; // (los que todo nivel tiene cargados: enemigos.js)
+const MONSTRUOS_N = 3;
+const ATURDIDO_MS = 1800;
 const ATAQUE_MS = 1900;  // lo que dura la animación del ataque en pantalla
 const APAGON_MS = 10000;
 const CLARO_LIBRE = 300;      // px alrededor del altar donde no se pueden poner trampas (en el suelo)
 const EMPUJE_X = 55, EMPUJE_Y = 50; // qué tan pegado hay que estar para empujar
-const ENCARGOS_POR_JUGADOR = 3;
+const ENCARGOS_POR_JUGADOR = 3; // (un mapa grande pide más: M.encargosPorJugador)
+const porJugador = () => M.encargosPorJugador || ENCARGOS_POR_JUGADOR;
 const TOMAR = 26;             // px para tomar una luciérnaga o un hongo
 const HALLAR = 70;            // px para encontrar un cuerpo
 const FLOTA = 170;            // fantasma: velocidad al subir con ↑
@@ -192,6 +200,8 @@ export function iniciarNoche(ganchos) {
             case 'nocheEmpuje': if (m.para === red.tuId) empujado(m.dir); break;
             case 'nocheEmpujeBot': if (esAnfitrion()) empujarBot(m.id, m.dir, escenaNoche()?.time.now ?? 0); break;
             case 'nocheAtaque': if (m.para === red.tuId) meAtacan(m); break;
+            case 'nocheBloqueo': if (m.para === red.tuId) bloqueado(m); break;
+            case 'nocheMonstruos': if (esAnfitrion()) soltarMonstruos(m); break;
             case 'nocheAtaqueBot': if (esAnfitrion()) { const b = botsVivos().find(x => x.id === m.id); if (b) muereBot(b, b.x, b.pie); } break;
             case 'nocheZarpazo': zarpazo(Number(m.x), Number(m.y), m.dir); break;
             case 'nocheApagar': if (esAnfitrion()) apagarAntorcha(m.i); break;
@@ -257,8 +267,15 @@ export function empezarNoche({ jugadores, mapa }) {
         ganador: null,   // 'heroes' | 'troll' cuando termina
         ultimoEnvio: 0,
         enviado: '',
+        escudo: true,    // escudo de luz: aguanta un ataque del troll (se recarga con cada misión)
+        listaMini: document.body.classList.contains('movil'), // la lista de misiones, recogida
     };
-    noche.luzMeta = ENCARGOS_POR_JUGADOR * Math.max(1, noche.jugadores.length - cuantosTrolls());
+    // apuestas (sala.js): cada uno paga la suya al empezar; se reparte al final (saldarApuesta)
+    noche.apuestas = new Map(jugadores.filter(j => !j.bot && j.id >= 0)
+        .map(j => [j.id, APUESTAS.includes(Number(j.apuesta)) ? Number(j.apuesta) : 0]));
+    const mia = noche.apuestas.get(red.tuId) || 0;
+    if (mia) api.pagar(mia);
+    noche.luzMeta = porJugador() * Math.max(1, noche.jugadores.length - cuantosTrolls());
     usarVolumenVoz(volumenDe);
     empezarBots(red.bots, red.semilla);
 }
@@ -295,11 +312,13 @@ function repartirEncargos() {
     const azar = () => { a = (Math.imul(a ^ (a >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return a / 4294967296; };
     const bolsa = [...M.encargos];
     for (let i = bolsa.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [bolsa[i], bolsa[j]] = [bolsa[j], bolsa[i]]; }
-    return bolsa.slice(0, ENCARGOS_POR_JUGADOR).map(e => ({ ...e, hecho: false, tomados: [], lleva: false }));
+    return bolsa.slice(0, porJugador()).map(e => ({ ...e, hecho: false, tomados: [], lleva: false }));
 }
 
 export function terminarNoche() {
     clearTimeout(noche?.esperaFin);
+    // terminó sin saber quiénes eran los trolls: la apuesta se devuelve (si te vas antes del final, se pierde)
+    if (noche?.ganador && !noche.apuestaSaldada) api.premio(noche.apuestas.get(red.tuId) || 0);
     noche = null;
     cerrarJuicio();
     terminarBots();
@@ -330,6 +349,8 @@ export function prepararNoche(scene) {
     noche.trampas.forEach(t => dibujarTrampa(scene, t));
     scene.nocheOscuro = null;
     scene.nocheCanal = null;
+    scene.nochePisos = null; // (al reaparecer la escena es nueva: se vuelven a crear)
+    scene.nocheEscudos = null;
     if (soyTroll() && !noche.fantasma) crearBarraTroll();
     else quitarBarraTroll();
     mostrarMarca();
@@ -357,6 +378,8 @@ export function actualizarNoche(scene, time) {
     revisarAltar(scene);
     revisarTrampas(scene);
     pintarOscuridad(scene);
+    pintarEscudos(scene);
+    pintarPisos(scene);
     if (soyTroll()) actualizarTroll(scene, time);
     actualizarEncargos(scene, time);
     revisarPuertas(scene, time);
@@ -728,19 +751,127 @@ function atacar(scene) {
     } else enviarEvento('nocheAtaque', { para: v.id, pref: scene.pj?.anim, dir });
     enviarEvento('nocheZarpazo', { x: Math.round(v.x), y, dir, anonimo: true });
     zarpazo(v.x, y, dir);
+    // tenía su escudo de luz (se ve el brillo azul): se rompe, sigue vivo… y te vio
+    if (!v.bot && scene.remotos?.get(v.id)?.estado?.escudo) {
+        noche.creiEscudo = v.id;
+        api.mensaje(scene, `🛡️ ¡${nombreDe(v.id).toUpperCase()} TENÍA ESCUDO DE LUZ!\nSe rompió… y te vio`, 2200);
+        return;
+    }
     // se lanza sobre la víctima
     g.body.reset(v.x - dir * 12, g.y);
     g.setFlipX(dir < 0);
     mostrarAtaque({ atacante: scene.pj?.anim, victima: prefijo, texto: `🗡️ ¡ELIMINASTE A ${nombreDe(v.id).toUpperCase()}!`, soyTroll: true });
 }
 
-// me atacó el troll: la animación y muero (quedo como fantasma, como con una trampa)
+// me atacó el troll: la animación y muero (quedo como fantasma, como con una trampa); con escudo de
+// luz, el escudo se rompe, sigo vivo y sé quién fue
 function meAtacan(m) {
     const scene = escenaNoche(), g = scene?.mascotaGesi;
     if (!scene || !g || g.isDead || scene.esFantasma || soyTroll() || noche.ganador) return;
+    if (noche.escudo) {
+        noche.escudo = false;
+        pintarHud();
+        estallarEscudo(scene, g.body.center.x, g.body.center.y);
+        empujado(m.dir);
+        api.mensaje(scene, `🛡️ ¡TU ESCUDO DE LUZ TE SALVÓ!\nTe atacó ${nombreDe(m.de).toUpperCase()} 👹`, 3200);
+        return;
+    }
+    // (el troll creyó que tenía escudo: que sepa que no)
+    enviarEvento('nocheBloqueo', { para: m.de, murio: true });
     mostrarAtaque({ atacante: m.pref, victima: scene.pj?.anim, texto: '💀 ¡EL TROLL TE ATRAPÓ!', soyTroll: false });
     noche.atrapado = true; // (sin el aviso de "moriste": ya lo dice la animación)
     api.morir(scene);
+}
+
+// (troll) el escudo que vi ya no estaba: cayó igual
+function bloqueado(m) {
+    const scene = escenaNoche();
+    if (!scene || !m.murio || noche.creiEscudo !== m.de) return;
+    noche.creiEscudo = null;
+    api.mensaje(scene, '🗡️ ¡NO TENÍA ESCUDO: CAYÓ!', 1600);
+}
+
+// el escudo de luz se rompe: un anillo azul que estalla
+function estallarEscudo(scene, x, y) {
+    const c = scene.add.circle(x, y, 26).setStrokeStyle(4, 0x7fd8ff, 1).setDepth(45);
+    scene.tweens.add({ targets: c, scale: 2.4, alpha: 0, duration: 500, onComplete: () => c.destroy() });
+    scene.sound.play('escudo_roto', { volume: 0.7 });
+    scene.cameras.main.shake(200, 0.006);
+}
+
+// ---------- monstruos del troll ----------
+// dónde: un punto del mapa al azar (de los caminos de los bots), lejos del altar
+function lugarMonstruos() {
+    const lista = Object.entries(M.nav.nodos).filter(([, [x, pie]]) => Math.abs(x - M.altar.x) > 350 || Math.abs(pie - M.altar.pie) > 60);
+    const [id, [x, pie]] = lista[Math.floor(Math.random() * lista.length)];
+    return { x, pie, zona: M.zonaDe?.(x, pie) || id };
+}
+// (anfitrión) los crea: los enemigos los mueve él y se ven en todas las pantallas (multijugador.js)
+function soltarMonstruos(m) {
+    const scene = escenaNoche();
+    const x = Number(m.x), pie = Number(m.pie);
+    if (!scene || !noche || noche.ganador || !Number.isFinite(x) || !Number.isFinite(pie)) return;
+    for (let i = 0; i < MONSTRUOS_N; i++) {
+        const tipo = MONSTRUOS[Math.floor(Math.random() * MONSTRUOS.length)];
+        if (!scene.textures.exists(`${tipo}-walk`)) continue;
+        const ex = Phaser.Math.Clamp(x + (i - 1) * 70 + (Math.random() - 0.5) * 30, 40, M.ancho - 80);
+        api.crearEnemigo(scene, ex, pie - 2, tipo);
+    }
+}
+
+// (game.js) un monstruo me pegó: en la noche no se muere así. Empujón, aturdido un momento y, si
+// llevaba algo (la vela, el cristal…), se me cae y hay que volver a buscarlo
+export function nocheGolpe(scene, origenX) {
+    const g = scene.mascotaGesi;
+    if (!noche || !g || g.isDead || scene.time.now < (scene.aturdidoHasta || 0) + 600) return;
+    const dir = origenX != null && origenX > g.x ? -1 : 1;
+    g.setVelocity(dir * 320, -220);
+    scene.aturdidoHasta = scene.time.now + ATURDIDO_MS;
+    scene.empujadoHasta = scene.time.now + 250; // (que el empujón se vea antes de quedar quieto)
+    scene.cameras.main.shake(150, 0.005);
+    scene.sound.play('bump', { volume: 0.6 });
+    g.setTint(0xb0a0ff);
+    scene.time.delayedCall(ATURDIDO_MS, () => g.active && g.clearTint());
+    const e = misionActual();
+    if (e?.tipo === 'llevar' && e.lleva) {
+        e.lleva = false;
+        marcarMision(scene);
+        pintarLista();
+        api.mensaje(scene, `😵 ¡ATURDIDO!\nSe te cayó: ${e.icono} vuelve a buscarlo`, 2000);
+    } else api.mensaje(scene, '😵 ¡ATURDIDO!', 900);
+}
+
+// ---------- pisos (M.pisos) ----------
+// bajo tierra no se ve la superficie ni el piso de abajo (y desde arriba, nada de lo que pasa bajo
+// tierra): cada piso que no es el tuyo queda tapado. Los fantasmas lo ven todo
+const TAPA_PISO = 0.97;
+function pintarPisos(scene) {
+    if (!M.pisos) return;
+    const g = scene.mascotaGesi;
+    if (!scene.nochePisos) {
+        scene.nochePisos = M.pisos.map(([arriba, abajo]) =>
+            scene.add.rectangle(-200, arriba, M.ancho + 400, abajo - arriba, 0x06050b, 1).setOrigin(0).setDepth(44.6).setAlpha(0));
+    }
+    const pie = g?.body?.bottom ?? 0;
+    const mio = scene.esFantasma ? -1 : M.pisos.findIndex(([, abajo]) => pie <= abajo);
+    const k = Math.min(1, scene.game.loop.delta / 120);
+    scene.nochePisos.forEach((r, i) => {
+        const meta = mio < 0 || i === mio ? 0 : TAPA_PISO;
+        if (Math.abs(r.alpha - meta) > 0.01) r.setAlpha(r.alpha + (meta - r.alpha) * k);
+        else if (r.alpha !== meta) r.setAlpha(meta);
+    });
+}
+
+// el brillo del escudo de luz: el mío y el de los que se ven (el troll siempre lo muestra: así no se delata)
+function pintarEscudos(scene) {
+    scene.escudoLuz = soyTroll() || (noche.escudo && !scene.esFantasma);
+    scene.nocheEscudos ||= scene.add.graphics().setDepth(43);
+    const gr = scene.nocheEscudos.clear();
+    const t = scene.time.now / 300;
+    const anillo = (x, y) => gr.lineStyle(2, 0x7fd8ff, 0.35 + 0.15 * Math.sin(t + x)).strokeCircle(x, y, 30);
+    const g = scene.mascotaGesi;
+    if (scene.escudoLuz && g && !g.isDead) anillo(g.body.center.x, g.body.center.y);
+    scene.remotos?.forEach(r => { if (r.visible && r.estado?.escudo && !r.estado.fantasma) anillo(r.estado.cx ?? r.s.x, r.estado.cy ?? r.s.y); });
 }
 
 // en el bosque (lo ve quien esté cerca): un zarpazo rojo y unas chispas
@@ -851,6 +982,11 @@ function hacerPoder(scene, poder, canal) {
         } else if (v) enviarEvento('nocheEmpuje', { para: v.id, dir });
     } else if (poder.id === 'atacar') {
         atacar(scene);
+    } else if (poder.id === 'monstruos') {
+        const m = lugarMonstruos();
+        if (esAnfitrion()) soltarMonstruos(m);
+        else enviarEvento('nocheMonstruos', { ...m, anonimo: true });
+        api.mensaje(scene, `🧟 ¡MONSTRUOS SUELTOS!\n${m.zona}`, 1400);
     } else if (poder.id === 'apagar' && canal?.i >= 0) {
         if (esAnfitrion()) apagarAntorcha(canal.i);
         else enviarEvento('nocheApagar', { i: canal.i, anonimo: true });
@@ -881,6 +1017,9 @@ function actualizarTroll(scene, time) {
 let barraTroll = null, teclasTroll = null;
 function crearBarraTroll() {
     quitarBarraTroll();
+    // en el celular, los poderes van junto a los botones táctiles (tactil.js; se pueden mover)
+    usarBotonesTroll(id => usarPoder(PODERES.find(p => p.id === id)));
+    document.querySelector('.tactil')?.classList.add('con-troll');
     barraTroll = document.createElement('div');
     barraTroll.className = 'noche-troll';
     barraTroll.setAttribute('aria-label', 'Poderes del troll');
@@ -905,17 +1044,23 @@ function pintarBarraTroll(scene) {
     if (!barraTroll) return;
     barraTroll.pintada = scene.time.now;
     const ahora = Date.now();
+    const tactil = document.querySelector('.tactil.con-troll');
     PODERES.forEach(p => {
-        const b = barraTroll.querySelector(`[data-poder="${p.id}"]`);
         const falta = Math.max(0, (noche.espera[p.id] || 0) - ahora);
-        b.style.setProperty('--espera', String(falta / p.espera));
-        b.querySelector('i').textContent = falta ? Math.ceil(falta / 1000) : '';
         const no = motivoNo(scene, p);
-        b.classList.toggle('listo', !no);
-        b.title = `${p.nombre}${no && no !== 'esperando' ? ` · ${no}` : ''}`;
+        [barraTroll, tactil].forEach(caja => {
+            const b = caja?.querySelector(`[data-poder="${p.id}"]`);
+            if (!b) return;
+            b.style.setProperty('--espera', String(falta / p.espera));
+            b.querySelector('i').textContent = falta ? Math.ceil(falta / 1000) : '';
+            b.classList.toggle('listo', !no);
+            b.title = `${p.nombre}${no && no !== 'esperando' ? ` · ${no}` : ''}`;
+        });
     });
 }
 function quitarBarraTroll() {
+    usarBotonesTroll(null);
+    document.querySelector('.tactil')?.classList.remove('con-troll');
     barraTroll?.remove();
     barraTroll = null;
     if (teclasTroll) document.removeEventListener('keydown', teclasTroll);
@@ -1010,9 +1155,14 @@ function actualizarEncargos(scene, time) {
 function cumplir(scene, e) {
     e.hecho = true;
     scene.sound.play('punto_control', { volume: 0.4 });
+    // cada misión recarga el escudo de luz
+    const recarga = !noche.escudo;
+    noche.escudo = true;
+    if (recarga) pintarHud();
     // la siguiente misión (o, si eran todas, las antorchas)
     const sig = misionActual();
-    api.mensaje(scene, sig ? `✔ ¡MISIÓN CUMPLIDA!\nSiguiente: ${sig.icono} ${sig.texto}` : '✔ ¡MISIONES LISTAS!\nAhora: ayuda con las antorchas 🔥', 2200);
+    api.mensaje(scene, (sig ? `✔ ¡MISIÓN CUMPLIDA!\nSiguiente: ${sig.icono} ${sig.texto}` : '✔ ¡MISIONES LISTAS!\nAhora: ayuda con las antorchas 🔥') +
+        (recarga ? '\n🛡️ Escudo de luz recargado' : ''), 2200);
     marcarMision(scene);
     pintarLista();
     if (soyTroll()) return;
@@ -1043,6 +1193,13 @@ function crearLista() {
     lista = document.createElement('div');
     lista.className = 'noche-lista';
     lista.setAttribute('aria-live', 'polite');
+    lista.setAttribute('role', 'button');
+    lista.title = 'Toca para abrir o cerrar';
+    lista.addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        noche.listaMini = !noche.listaMini;
+        pintarLista();
+    });
     document.getElementById('game').append(lista);
     pintarLista();
 }
@@ -1054,18 +1211,19 @@ function pintarLista() {
     if (actual) {
         const progreso = actual.tipo === 'recoger' ? ` <em>${actual.tomados.length}/${actual.puntos.length}</em>`
             : actual.tipo === 'llevar' ? ` <em>${pasoDe(actual) + 1}/2</em>` : '';
-        html = `<b>${titulo} ${n} de ${total}</b>
+        html = `<b>${titulo} ${n} de ${total}<u>${noche.listaMini ? '▾' : '▴'}</u></b>
             <p class="actual">${actual.icono} ${escapar(actual.texto)}${progreso}</p>
             <p class="paso">👉 ${escapar(actual.pasos?.[pasoDe(actual)] || actual.zona)}</p>`;
     } else {
         // misiones listas: lo que sigue es lo de todos
         const faltan = M.antorchas.filter((_a, i) => !noche.fuego[i].lit).map(a => a.id);
-        html = `<b>✅ Misiones listas</b><p class="paso">👉 ${faltan.length
+        html = `<b>✅ Misiones listas<u>${noche.listaMini ? '▾' : '▴'}</u></b><p class="paso">👉 ${faltan.length
             ? `Ayuda a encender las antorchas 🔥 (faltan ${faltan.join(', ')}): quédate junto a una`
             : soyTroll() ? '¡Las 4 antorchas están encendidas! Que no lleguen al altar 👹' : '¡Las 4 antorchas están encendidas! Corre al altar 🌅 del claro'}</p>`;
     }
     html += noche.encargos.filter(e => e !== actual).map(e => `<p class="${e.hecho ? 'hecho' : 'bloq'}">${e.hecho ? '✔' : '🔒'} ${escapar(e.texto)}</p>`).join('');
     lista.innerHTML = html;
+    lista.classList.toggle('mini', !!noche.listaMini);
 }
 function quitarLista() {
     lista?.remove();
@@ -1441,7 +1599,9 @@ function pintarHud() {
     hud.innerHTML = `<span>🔥 ${n}/${M.antorchas.length}</span>` + M.antorchas.map((a, i) =>
         `<b class="${noche.fuego[i].lit ? 'lit' : ''}" title="${a.nombre}">${a.id}</b>`).join('') +
         `<span class="noche-luz" title="Luz del alba: ${noche.luz} de ${noche.luzMeta} encargos" role="img" aria-label="Luz del alba ${Math.round(luz * 100)}%">☀️<em><u style="width:${luz * 100}%"></u></em></span>` +
-        '<span class="noche-tiempo" title="Lo que queda de noche"></span>';
+        '<span class="noche-tiempo" title="Lo que queda de noche"></span>' +
+        (noche.fantasma ? '' : `<span class="noche-escudo${noche.escudo ? '' : ' roto'}" title="${noche.escudo
+            ? 'Escudo de luz: aguanta un ataque del troll' : 'Escudo de luz roto: cumple una misión para recargarlo'}">🛡️</span>`);
     pintarTiempo();
 }
 function quitarHud() {
@@ -1469,6 +1629,11 @@ function mostrarRevelacion() {
         <p class="noche-revela-mision">${troll
             ? 'Pon trampas sin que te vean y finge ser un héroe. Que no te descubran en el Juicio.'
             : `Enciende las Antorchas del Sol y llega al amanecer. ${trolls > 1 ? 'Hay 2 trolls' : 'Hay 1 troll'} entre ustedes.`}</p>
+        <ul class="noche-revela-ayuda">${troll
+            ? `<li>🗡️ Atacar · ✋ Empujar · 🕳️ Trampa · 🌑 Apagón · 💨 Apagar antorcha · 🧟 Soltar monstruos</li>
+               <li>🛡️ El brillo azul es el escudo de luz: aguanta un ataque tuyo y esa víctima sabrá que fuiste tú. Ataca a quien ya no lo tenga.</li>`
+            : `<li>🛡️ Tu escudo de luz aguanta un ataque del troll (y verás quién fue). Cada misión lo recarga.</li>
+               <li>⚔️ Tus ataques sirven contra los monstruos que suelte el troll: no matan, pero aturden y te tiran lo que lleves.</li>`}</ul>
         ${troll && compas.length ? `<p class="noche-revela-compas">Tu compañero troll: <b>${compas.map(escapar).join(', ')}</b></p>` : ''}
         <ul class="noche-revela-grupo">${noche.jugadores.map(j => tarjeta(j, troll)).join('')}</ul>
         <p class="noche-revela-nota">Toca para empezar</p>`;
@@ -1534,6 +1699,9 @@ function mostrarFin() {
         return `<li class="${esTroll ? 'troll' : ''} ${j.id === red.tuId ? 'yo' : ''}" style="--c:${colorDe(j.id)}">
             <b>${escapar(j.id === red.tuId ? 'Tú' : j.nombre)}</b><span>${rol}</span><small>${estado}</small></li>`;
     }).join('');
+    const apuesta = saldarApuesta(reales && noche.trollsReales ? reales : null, gane);
+    const textoApuesta = !apuesta ? '🎲 Apuesta: esperando el resultado…'
+        : apuesta.mia ? `🎲 Apuesta ◉ ${apuesta.mia}: ${apuesta.neto > 0 ? `ganaste +${apuesta.neto}` : apuesta.neto < 0 ? `perdiste ${-apuesta.neto}` : 'te la devolvieron'}` : '';
     const nombresTroll = reales ? noche.jugadores.filter(j => reales.has(j.id)).map(j => (j.id === red.tuId ? 'tú' : j.nombre)) : [];
     const anfitrion = esAnfitrion();
     capaFin = document.createElement('div');
@@ -1545,6 +1713,7 @@ function mostrarFin() {
             ${nombresTroll.length ? `<p class="noche-fin-troll">${nombresTroll.length > 1 ? 'Los trolls eran' : nombresTroll[0] === 'tú' ? 'El troll eras' : 'El troll era'} <b>${escapar(nombresTroll.join(' y '))}</b></p>` : ''}
             <ul class="noche-fin-lista">${filas}</ul>
             <p class="carrera-premio">◉ +${premio.monedas}${premio.detalle ? ` <small>(${escapar(premio.detalle)})</small>` : ''} · +${premio.xp} XP</p>
+            ${textoApuesta ? `<p class="carrera-premio">${textoApuesta}</p>` : ''}
             <div class="noche-fin-botones">
                 ${anfitrion ? '<button type="button" class="menu-boton sala-empezar" data-fin="otra">↻ Otra noche</button><button type="button" class="menu-boton" data-fin="sala">☰ Sala</button>'
                     : '<p class="menu-nota">Esperando al anfitrión…</p>'}
@@ -1565,6 +1734,22 @@ function mostrarFin() {
 }
 
 // monedas y XP (una sola vez por noche)
+// la apuesta: gana tu bando y te llevas la tuya más lo que apostó el bando que perdió (repartido según
+// cuánto apostó cada ganador). Si nadie del bando ganador apostó, a los que perdieron se les devuelve.
+// reales: quiénes eran los trolls (lo dice el servidor al final); sin eso todavía no se puede
+function saldarApuesta(reales, gane) {
+    if (noche.apuestaSaldada) return noche.apuestaSaldada;
+    const mia = noche.apuestas.get(red.tuId) || 0;
+    if (!mia) return (noche.apuestaSaldada = { mia: 0, neto: 0 });
+    if (!reales) return null;
+    const ganaTroll = noche.ganador === 'troll';
+    let pozo = 0, deGanadores = 0;
+    noche.apuestas.forEach((a, id) => { if (reales.has(id) === ganaTroll) deGanadores += a; else pozo += a; });
+    const cobro = gane ? mia + Math.floor(pozo * mia / deGanadores) : deGanadores > 0 ? 0 : mia;
+    if (cobro) api.premio(cobro);
+    return (noche.apuestaSaldada = { mia, neto: cobro - mia });
+}
+
 function darPremio(gane) {
     if (noche.premiado) return noche.premiado;
     const encargos = soyTroll() ? 0 : noche.encargos.filter(e => e.hecho).length;

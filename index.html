@@ -537,6 +537,25 @@
             white-space: nowrap;
         }
         .tactil.editando .t-editor { display: flex; }
+        /* poderes del troll (Noche del Troll, solo el troll): ATACAR y EMPUJAR junto a SALTAR, los demás en una fila abajo */
+        .t-troll { display: none; overflow: hidden; border-color: rgba(255, 77, 94, 0.55); background: rgba(40, 8, 14, 0.55); opacity: 0.6; }
+        .tactil.con-troll .t-troll, .tactil.editando .t-troll { display: flex; }
+        .tactil.con-troll .t-esp { display: none; }
+        .t-troll.listo { opacity: 1; box-shadow: 0 0 12px rgba(255, 77, 94, 0.5); }
+        .t-troll b { font-size: 20px; line-height: 1; }
+        .t-troll small { font-size: 7px; opacity: 0.85; }
+        .t-troll i { position: absolute; z-index: 1; font: 700 14px var(--letra); font-style: normal; color: #fff; text-shadow: 0 1px 3px #000; }
+        .t-troll::after {
+            content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); pointer-events: none;
+            transform-origin: bottom; transform: scaleY(var(--espera, 0));
+        }
+        .t-acciones [data-poder="atacar"] { --cx: 34px; --cy: 150px; --d: 60px; }
+        .t-acciones [data-poder="empujon"] { --cx: 150px; --cy: 30px; --d: 50px; }
+        .t-troll-fila {
+            position: absolute; right: calc(var(--t-borde-der) + 250px * var(--t-escala, 1)); bottom: calc(var(--t-borde-abajo) - 14px);
+            display: flex; gap: 8px; transform: scale(var(--t-escala, 1)); transform-origin: right bottom;
+        }
+        .t-troll-fila .t-btn { width: 46px; height: 46px; border-radius: 14px; pointer-events: auto; }
         .t-editor .menu-boton { min-height: 34px; padding: 0 12px; font-size: 12px; }
 
         /* ---------- sala de espera del multijugador (sala.js) ---------- */
@@ -1907,11 +1926,14 @@
         .noche-troll small { position: absolute; left: 5px; top: 3px; font: 600 10px var(--letra); opacity: 0.7; }
         .noche-troll i { position: absolute; z-index: 1; font: 700 14px var(--letra); font-style: normal; text-shadow: 0 1px 3px #000; }
         .noche-troll button:focus-visible { outline: 2px solid #ffcf5a; outline-offset: 2px; }
+        body.movil .noche-troll { display: none; } /* (en el celular están con los botones táctiles) */
+        .noche-revela-ayuda { margin: 8px auto 0; padding: 0; max-width: 460px; list-style: none; font-size: 11px; line-height: 1.45; opacity: 0.85; }
+        .noche-revela-ayuda li { margin-top: 4px; }
         .noche-luz { display: flex; align-items: center; gap: 5px; margin-left: 4px; }
         .noche-luz em { display: block; width: 64px; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, 0.12); }
         .noche-luz u { display: block; height: 100%; background: linear-gradient(90deg, #ff9a3d, #ffe066); transition: width 0.4s ease-out; }
         .noche-lista {
-            position: absolute; left: max(10px, env(safe-area-inset-left)); top: 120px; z-index: 9; max-width: 230px; pointer-events: none;
+            position: absolute; left: max(10px, env(safe-area-inset-left)); top: 120px; z-index: 9; max-width: 210px; cursor: pointer;
             padding: 8px 10px; border-radius: 12px; font: 500 11px/1.35 var(--letra); color: #eef1f7;
             background: rgba(10, 13, 22, 0.66); border: 1px solid rgba(255, 255, 255, 0.1);
         }
@@ -1926,8 +1948,20 @@
         }
         .noche-lista p.bloq { opacity: 0.5; font-size: 10px; }
         .noche-lista small { display: block; padding-left: 18px; font-size: 10px; opacity: 0.6; }
+        /* recogida (se toca para abrir o cerrar): solo el título y la misión de ahora en una línea */
+        .noche-lista.mini { padding: 5px 9px; max-width: 200px; }
+        .noche-lista.mini b { margin: 0; font-size: 10px; }
+        .noche-lista.mini p.actual { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .noche-lista.mini p.paso, .noche-lista.mini p.bloq, .noche-lista.mini p.hecho { display: none; }
+        .noche-lista b u { float: right; margin-left: 8px; text-decoration: none; opacity: 0.6; font-weight: 500; }
+        .noche-hud .noche-escudo { font-size: 15px; filter: drop-shadow(0 0 4px rgba(95, 208, 255, 0.9)); }
+        .noche-hud .noche-escudo.roto { filter: grayscale(1); opacity: 0.4; }
         .noche-marca.fantasma { --rol: #9fd8ff; }
-        @media (max-height: 500px) { .noche-lista { top: 84px; max-width: 190px; font-size: 10px; } }
+        @media (max-height: 500px) {
+            .noche-lista { top: 62px; max-width: 170px; font-size: 9px; padding: 6px 8px; }
+            .noche-lista p.actual { font-size: 11px; }
+            .noche-lista p.paso { font-size: 9px; padding: 4px 6px; }
+        }
         /* el Juicio (juicio.js) */
         .juicio {
             position: absolute; inset: 0; z-index: 13; display: grid; place-items: center; padding: 10px;

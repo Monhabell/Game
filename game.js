@@ -29,7 +29,7 @@ import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
     actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
 } from "./arena.js"
-import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, inicioNoche, relojNoche, nivelDeNoche, NIVEL_NOCHE } from "./troll.js"
+import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, nocheGolpe, inicioNoche, relojNoche, nivelDeNoche, NIVEL_NOCHE } from "./troll.js"
 import { precargarCriptas } from "./criptas_troll.js"
 import { decorarAfueras } from "./afueras.js"
 import { configurarCatacumbas, crearCatacumbas, actualizarCatacumbas } from "./catacumbas.js"
@@ -399,6 +399,8 @@ iniciarCarrera(juego, {
 // ---------- La Noche del Troll (troll.js): antorchas, altar y el final ----------
 iniciarNoche({
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+    crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo), // (los monstruos del troll)
+    pagar: n => gastarMonedas(n), // (la apuesta de la noche)
     // una trampa del troll: mueres (ni el escudo ni las defensas lo evitan)
     morir: scene => killgesi(scene, 'rival'),
     premio: n => sumarMonedas(n),
@@ -735,7 +737,7 @@ function create() {
     this.lentoHasta = 0;     // carrera: ralentizado (corre a la mitad y salta menos)
     this.silenciadoHasta = 0; // carrera: bloqueado (no puede usar ataques ni poderes)
     this.recogiendoFlechas = 0;
-    this.tieneEscudo = true; // cada vida empieza con escudo (aguanta un golpe)
+    this.tieneEscudo = !noche; // cada vida empieza con escudo (aguanta un golpe; en la noche, el escudo de luz de troll.js)
     this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = (nivel.velEnemigos ?? 50) * factorEnemigos(); // la dificultad los acelera o frena
@@ -992,6 +994,13 @@ function create() {
     this.estadoPoder = ranura => estadoPoder(this, ranura); // (para los botones táctiles)
     // (en el celular los poderes V y B ya se ven en sus botones: el HUD del juego se esconde)
     if (movil) this.hudPoderes?.forEach(h => [h.fondo, h.icono, h.sombra, h.letra].forEach(o => o?.setVisible(false)));
+    // Noche del Troll: sin corazones, sin el escudo de siempre (troll.js tiene su escudo de luz) y sin
+    // los poderes V y B (son para los rivales de la carrera y la arena)
+    if (noche) {
+        [...this.corazones, this.iconoEscudo, this.barraEscudo, this.barraEscudoFondo, this.textoEscudo].forEach(o => o?.setVisible(false));
+        this.hudPoderes?.forEach(h => [h.fondo, h.icono, h.sombra, h.letra].forEach(o => o?.setVisible(false)));
+        this.estadoPoder = () => null;
+    }
     this.nivelText = this.add.text(VISTA.width - (movil ? 14 : 20), movil ? 10 : 15, movil ? `${nivelActual + 1}` : `Nivel ${nivelActual + 1}`, estiloHud)
         .setOrigin(1, 0).setScrollFactor(0).setDepth(50);
 
@@ -3131,7 +3140,7 @@ function update(time, delta) {
 
 function actualizarJugador(time, delta) {
     moverCamara(this);
-    actualizarEscudo(this, texto => mostrarMensaje(this, texto, 900));
+    if (!this.noche) actualizarEscudo(this, texto => mostrarMensaje(this, texto, 900));
     actualizarJefe(this, this.time.now, apiJefe);
     actualizarMundo(this);
     actualizarAmbiente(this, time, this.mascotaGesi);
@@ -3226,8 +3235,8 @@ function actualizarJugador(time, delta) {
     if (JD(t.espacio) && !sinPoderes) usarHabilidad(this, 'espacio');
     if (JD(t.x) && !sinPoderes) usarHabilidad(this, 'x');
     if (JD(t.c) && !sinPoderes) usarHabilidad(this, 'c');
-    if (JD(t.v) && !sinPoderes) usarPoder(this, 0);
-    if (JD(t.b) && !sinPoderes) usarPoder(this, 1);
+    if (JD(t.v) && !sinPoderes && !this.noche) usarPoder(this, 0);
+    if (JD(t.b) && !sinPoderes && !this.noche) usarPoder(this, 1);
 
     if (enSuelo) this.saltosAire = 0;
     if (aturdido) {
@@ -3346,6 +3355,8 @@ function usarRunaDeReserva(game) {
 function killgesi(game, causa, daño = 20, origenX) {
     if (game.soloActivar) return; // trampa o enemigo revisado con otro jugador (fantasma): el daño no es aquí
     if (game.esFantasma) return;  // (Noche del Troll: los fantasmas no mueren)
+    // Noche del Troll: no hay vidas. Un monstruo aturde (troll.js); solo matan el troll y la lava
+    if (game.noche && causa !== 'caida' && causa !== 'rival') { nocheGolpe(game, origenX); return; }
     const { mascotaGesi, scene, sound } = game;
     if (mascotaGesi.isDead || game.nivelTerminado) return;
     // cayó al foso estando atado: la cadena lo atrapa y el equipo puede rescatarlo (cadena.js)

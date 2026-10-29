@@ -11,6 +11,8 @@
 //   el botón destella cuando vuelve a estar listo.
 // - Cada control se puede mover (⚙ → Botones táctiles → Mover botones): se arrastra y queda guardado
 //   en los ajustes como un corrimiento en fracciones de la pantalla (así sirve en cualquier celular).
+// - La Noche del Troll (troll.js): el troll tiene sus poderes aquí. ATACAR y EMPUJAR junto a SALTAR (en el
+//   lugar de V y B, que en la noche no se usan) y los demás en una fila abajo. También se pueden mover.
 
 import { ajustes, guardarAjustes } from "./ajustes.js"
 
@@ -26,6 +28,18 @@ let editar = null, terminar = null;
 export const editarBotones = alTerminar => editar ? editar(alTerminar) : alTerminar?.();
 // si se estaban moviendo los botones, termina (para el botón "atrás" de Android) y avisa si lo hizo
 export const terminarEdicion = () => !!terminar?.();
+
+// poderes del troll (los mismos de troll.js): los dos primeros van junto a SALTAR
+const PODERES_TROLL = [
+    { id: 'atacar', icono: '🗡️', nombre: 'Atacar' }, { id: 'empujon', icono: '✋', nombre: 'Empujar' },
+    { id: 'trampa', icono: '🕳️', nombre: 'Trampa' }, { id: 'apagon', icono: '🌑', nombre: 'Apagón' },
+    { id: 'apagar', icono: '💨', nombre: 'Apagar' }, { id: 'monstruos', icono: '🧟', nombre: 'Monstruos' },
+];
+const botonTroll = p => `<button type="button" class="t-btn t-movible t-troll" data-poder="${p.id}" data-id="troll-${p.id}" aria-label="${p.nombre}">
+    <b>${p.icono}</b><small>${p.nombre}</small><i aria-hidden="true"></i></button>`;
+// troll.js: qué hacer al tocar un poder del troll
+let alPoderTroll = null;
+export const usarBotonesTroll = fn => { alPoderTroll = fn; };
 
 export function iniciarTactil(juego) {
     if (!esTactil()) return;
@@ -56,7 +70,9 @@ export function iniciarTactil(juego) {
             <button type="button" class="t-btn t-movible t-hab" data-tecla="x"><b>✦</b><small></small></button>
             <button type="button" class="t-btn t-movible t-salto" data-tecla="arriba" aria-label="Saltar"><b>▲</b></button>
             <button type="button" class="t-btn t-movible t-hab t-ataque" data-tecla="espacio"><b>⚔</b><small></small></button>
+            ${PODERES_TROLL.slice(0, 2).map(botonTroll).join('')}
         </div>
+        <div class="t-troll-fila">${PODERES_TROLL.slice(2).map(botonTroll).join('')}</div>
         <button type="button" class="t-btn t-movible t-anclar" data-tecla="abajo"><b>⚓</b><small>ANCLAR</small></button>
         <div class="t-editor">
             <span>Arrastra los botones</span>
@@ -66,7 +82,17 @@ export function iniciarTactil(juego) {
     document.getElementById('game').appendChild(capa);
 
     // ---------- botones: se mantienen presionados mientras el dedo esté encima ----------
-    capa.querySelectorAll('.t-btn').forEach(b => {
+    capa.querySelectorAll('.t-btn[data-poder]').forEach(b => {
+        b.addEventListener('pointerdown', e => {
+            if (editando()) return;
+            e.preventDefault();
+            b.classList.add('activo');
+            alPoderTroll?.(b.dataset.poder);
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => b.addEventListener(t, () => b.classList.remove('activo')));
+        b.addEventListener('contextmenu', e => e.preventDefault());
+    });
+    capa.querySelectorAll('.t-btn[data-tecla]').forEach(b => {
         const codigo = TECLA[b.dataset.tecla];
         const bajar = e => { if (editando()) return; e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.classList.add('activo'); tecla(codigo, true); };
         const subir = e => { e.preventDefault(); b.classList.remove('activo'); tecla(codigo, false); };

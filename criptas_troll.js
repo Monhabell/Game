@@ -7,6 +7,11 @@
 //  CRIPTAS            E1↘ 📜📜📜 Bodega   🕹️ Sala de cadenas  🚪P1 [POZO]  [E2↓] → Cripta del rey
 //  CATACUMBAS  🔥C Osario 🕯️ 🚪P2  ~lava~  🗝️ cofre   (cae el pozo)  🔥D Sala del eco (de a dos)  ↙E2
 //
+//  ALA ESTE (pasando la torre del vigía):
+//  SUPERFICIE  ⛪ Capilla 💎   🚪P3   🗿 Jardín de las gárgolas   🪙 Pozo de los deseos
+//  CRIPTAS     (desde la Cripta del rey →) 📕 Biblioteca prohibida 📕 📕  [E3↓]
+//  MINA        Mina abandonada 💎 cristales  🚪P3  ↙E3   (solo se llega por E3 o por la puerta P3)
+//
 // El motor solo crece hacia ARRIBA desde el suelo (y = 332): por eso la superficie está arriba de todo
 // (y = −268) y los submundos debajo. Cada piso es una LOSA de ladrillo (física en game.js: 'losas'; el
 // dibujo, aquí). Las escaleras son escalones de 40 px que bajan 33 px cada uno ('oculta': solo física,
@@ -14,7 +19,10 @@
 // y la losa de arriba tiene un hueco sobre los primeros escalones (para subir sin chocar la cabeza).
 //   E1: de la superficie a las Criptas (baja a la derecha).  E2: de las Criptas a las Catacumbas (baja a la
 //   izquierda, desde la Cripta del rey).  POZO: un hueco en las dos losas, solo para bajar.
-//   PUERTAS MÁGICAS 🚪 (troll.js): P1 superficie ⇄ Criptas, P2 superficie ⇄ Catacumbas (quieto un momento).
+//   E3: de la Biblioteca a la Mina (baja a la izquierda, desde el muro del fondo).
+//   PUERTAS MÁGICAS 🚪 (troll.js): P1 superficie ⇄ Criptas, P2 superficie ⇄ Catacumbas, P3 superficie ⇄ Mina
+//   (quieto un momento).
+// PISOS (troll.js): desde un piso no se ve lo que pasa en los otros (bajo tierra no hay ventanas).
 // Las Catacumbas son OSCURAS: solo se ve cerca de cada uno (troll.js).
 // El CIELO: las dos torres siguen en zigzag hasta el Puente de las Almas (tablas que flotan de torre a
 // torre) y la Isla del cielo en el medio, justo sobre el altar: de ahí uno se puede dejar caer al altar.
@@ -24,7 +32,7 @@ import { SUELO_Y } from "./niveles.js"
 import { alFondo } from "./mazmorra.js"
 
 const S = SUELO_Y;            // 332: el piso de las Catacumbas
-const ANCHO = 3600;
+const ANCHO = 5400;
 const GROSOR = 40;            // grosor de cada losa
 const Y1 = S - 300;           // 32: el piso de las Criptas
 const Y0 = Y1 - 300;          // −268: la superficie
@@ -51,16 +59,20 @@ function escalones(x0, arriba, dir) {
 }
 const E1 = { x: 600, dir: 1, hueco: [600, 780] };     // bajada de la superficie a las Criptas
 const E2 = { x: 3200, dir: -1, hueco: [3020, 3200] }; // bajada de las Criptas a las Catacumbas
+const E3 = { x: 4960, dir: -1, hueco: [4780, 4960] }; // bajada de la Biblioteca a la Mina
 const POZO = [2400, 2480];
+const ESTE = 3600; // donde empieza el ala este (pasando la Cripta del rey)
 const LAVA = [1480, 1680];
 
 // losas: [x0, x1, arriba, grosor]
 const LOSAS = [
     [E1.hueco[1], POZO[0], Y0, GROSOR], [POZO[1], ANCHO, Y0, GROSOR],   // superficie
     [600, POZO[0], Y1, GROSOR], [POZO[1], E2.hueco[0], Y1, GROSOR],     // piso de las Criptas
+    [ESTE, E3.hueco[0], Y1, GROSOR],                                    // la Biblioteca (ala este)
 ];
-// muros macizos (desde el piso de abajo): a la izquierda debajo del campanario, a la derecha la Cripta del rey
-const MUROS = [[0, Y0, 600], [3200, Y1, 400]];
+// muros macizos (desde el piso de abajo): a la izquierda debajo del campanario, la Cripta del rey y el
+// fondo del ala este
+const MUROS = [[0, Y0, 600], [3200, Y1, ESTE - 3200], [E3.x, Y1, ANCHO - E3.x]];
 // plataformas de las torres (campanario y vigía): [x, arriba, ancho]
 const TORRES = [
     [430, T1, 100], [180, T2, 220], [430, T3, 100], [250, T4, 120], [430, CIELO, 100],          // campanario
@@ -77,6 +89,7 @@ const ALTAR = { x: 1650, pie: Y0 };
 const PUERTAS = [
     { id: 'P1', nombre: 'Puerta de la cripta', a: { x: 2150, pie: Y0 }, b: { x: 2150, pie: Y1 }, textoA: 'A LAS CRIPTAS ↓', textoB: 'A LA SUPERFICIE ↑' },
     { id: 'P2', nombre: 'Puerta del osario', a: { x: 1150, pie: Y0 }, b: { x: 1150, pie: S }, textoA: 'A LAS CATACUMBAS ↓', textoB: 'A LA SUPERFICIE ↑' },
+    { id: 'P3', nombre: 'Puerta de la mina', a: { x: 4400, pie: Y0 }, b: { x: 4300, pie: S }, textoA: 'A LA MINA ↓', textoB: 'A LA SUPERFICIE ↑' },
 ];
 
 const ENCARGOS = [
@@ -102,6 +115,20 @@ const ENCARGOS = [
         desde: { x: 860, pie: S }, hasta: { x: 1770, pie: Y0 }, visible: true,
         pasos: ['Baja a las Catacumbas (la puerta 🚪 junto al altar lleva directo) y toma una vela 🕯️ del osario',
             'Sube con la vela (la puerta 🚪 del osario te lleva arriba) y déjala en el candelabro junto al altar 🌅'] },
+    // ala este
+    { id: 'libros', tipo: 'recoger', icono: '📕', texto: 'Junta 3 libros de la Biblioteca prohibida', zona: 'Criptas (ala este)',
+        puntos: [[3800, Y1 - 20], [4150, Y1 - 20], [4550, Y1 - 20]],
+        pasos: ['Baja a las Criptas y sigue a la derecha pasando la Cripta del rey (o sube por la escalera de la mina): junta los 3 libros 📕 de la Biblioteca'] },
+    { id: 'gargola', tipo: 'quieto', icono: '🗿', texto: 'Despierta la gárgola del jardín', zona: 'Superficie (ala este)',
+        x: 4700, pie: Y0, ms: 2000, visible: true,
+        pasos: ['Camina por la superficie a la derecha, pasando la torre del vigía, hasta el Jardín de las gárgolas y quédate quieto junto a la gárgola 🗿'] },
+    { id: 'cristal', tipo: 'llevar', icono: '💎', texto: 'Lleva un cristal de la mina a la capilla', zona: 'Mina → Capilla',
+        desde: { x: 4050, pie: S }, hasta: { x: 3850, pie: Y0 }, visible: true,
+        pasos: ['Entra por la puerta de la mina 🚪 (superficie, ala este) y toma un cristal 💎 de la Mina abandonada',
+            'Sube con el cristal (la misma puerta 🚪 te lleva arriba) y ponlo en el altar de la Capilla ⛪'] },
+    { id: 'deseos', tipo: 'quieto', icono: '🪙', texto: 'Echa una moneda al pozo de los deseos', zona: 'Superficie (ala este)',
+        x: 5150, pie: Y0, ms: 1800, visible: true,
+        pasos: ['Ve hasta el final de la superficie, a la derecha del todo, y quédate quieto junto al pozo de los deseos 🪙'] },
 ];
 
 // el nivel (game.js): inicio, dónde aparece (el fantasma, donde cayó); si no, junto al altar
@@ -118,7 +145,7 @@ function nivelCriptas(inicio = null) {
         meta: ANCHO,
         inicio: inicio || [ALTAR.x - 150, Y0 - 80],
         mezcla: [],
-        suelo: [[600, LAVA[0]], [LAVA[1], 3200]],
+        suelo: [[600, LAVA[0]], [LAVA[1], 3200], [ESTE, ANCHO]],
         lava: [LAVA],
         muros: MUROS,
         losas: LOSAS,
@@ -128,6 +155,7 @@ function nivelCriptas(inicio = null) {
             [ISLA.x0, ISLA.arriba, ISLA.x1 - ISLA.x0, 'oculta'],
             ...escalones(E1.x, Y0, E1.dir),
             ...escalones(E2.x, Y1, E2.dir),
+            ...escalones(E3.x, Y1, E3.dir),
         ],
         escaleras: [], moviles: [], techos: [],
         enemigos: [], plantas: [], espiritus: [], checkpoints: [], monedas: [],
@@ -184,17 +212,20 @@ function texturasCriptas(scene) {
 function decorar(scene, h) {
     texturasCriptas(scene);
     // fondos: las Criptas (ladrillo) y las Catacumbas (más oscuro); el cielo queda solo arriba
-    pared(scene, 600, Y0 + GROSOR - 4, 3600, Y1 + GROSOR, 'tile136');
+    pared(scene, 600, Y0 + GROSOR - 4, E3.x, Y1 + GROSOR, 'tile136');
     pared(scene, 600, Y1 + GROSOR - 4, 3200, S, 'tile153'); // (hasta el piso: no tapa la lava)
+    pared(scene, ESTE, Y1 + GROSOR - 4, E3.x, S, 'tile153'); // la Mina
     // muros macizos y losas
     pared(scene, 0, Y0 + 10, 600, S + 60, 'tile93', 0.9);
     pared(scene, 0, Y0, 600, Y0 + 16, 'tile9', 1.1);
-    pared(scene, 3200, Y1 + 10, 3600, S + 60, 'tile93', 0.9);
-    pared(scene, 3200, Y1, 3600, Y1 + 16, 'tile75', 1.1);
+    pared(scene, 3200, Y1 + 10, ESTE, S + 60, 'tile93', 0.9);
+    pared(scene, 3200, Y1, ESTE, Y1 + 16, 'tile75', 1.1);
+    pared(scene, E3.x, Y1 + 10, ANCHO, S + 60, 'tile93', 0.9);
+    pared(scene, E3.x, Y1, ANCHO, Y1 + 16, 'tile75', 1.1);
     LOSAS.forEach(([x0, x1, arriba, grosor]) => dibujarLosa(scene, x0, x1, arriba, grosor,
         arriba === Y0 ? 'tile9' : 'tile75', arriba === Y0 ? 'tile4' : 'tile93'));
     // el piso de las Catacumbas
-    [[600, LAVA[0]], [LAVA[1], 3200]].forEach(([x0, x1]) => { pared(scene, x0, S + 10, x1, S + 60, 'tile93', 1); pared(scene, x0, S, x1, S + 16, 'tile75', 1.1); });
+    [[600, LAVA[0]], [LAVA[1], 3200], [ESTE, E3.x]].forEach(([x0, x1]) => { pared(scene, x0, S + 10, x1, S + 60, 'tile93', 1); pared(scene, x0, S, x1, S + 16, 'tile75', 1.1); });
     // torres: el cuerpo de ladrillo y las cornisas
     pared(scene, 190, CIELO + 60, 390, Y0, 'tile93', 0.2);
     pared(scene, 3200, CIELO + 60, 3440, Y0, 'tile93', 0.2);
@@ -213,7 +244,7 @@ function decorar(scene, h) {
     objeto(scene, 'window', 3320, T2 + 120, 1, 0.3);
     TORRES.forEach(([x, y, w]) => pared(scene, x, y, x + w, y + 16, 'tile53', 1.1));
     // escalones
-    [...escalones(E1.x, Y0, E1.dir), ...escalones(E2.x, Y1, E2.dir)].forEach(([x, y, w]) => pared(scene, x, y, x + w, y + 16, 'tile53', 1.1));
+    [...escalones(E1.x, Y0, E1.dir), ...escalones(E2.x, Y1, E2.dir), ...escalones(E3.x, Y1, E3.dir)].forEach(([x, y, w]) => pared(scene, x, y, x + w, y + 16, 'tile53', 1.1));
     // superficie: tumbas y faroles
     [760, 980, 1270, 2300, 2650, 2780, 2950].forEach((x, i) => scene.add.image(x, Y0, 'cr_lapida').setOrigin(0.5, 1).setDepth(2).setFlipX(i % 2 === 1));
     // criptas: bodega, cadenas, escudos, ventanas y antorchas en la pared
@@ -225,6 +256,7 @@ function decorar(scene, h) {
         scene.add.image(x, y - 22, 'brillo').setDepth(41).setScale(1.6).setTint(0xffa040).setAlpha(0.28).setBlendMode('ADD');
     });
     objeto(scene, 'chest_closed', 3420, Y1, 1.4, 2); // (la Cripta del rey)
+    decorarEste(scene, h);
     // las cosas de los encargos que ve todo el mundo
     const camp = ENCARGOS.find(e => e.id === 'campanario');
     scene.nocheCampana = scene.add.text(camp.x, camp.pie - 46, '🔔', { fontSize: '22px' }).setOrigin(0.5, 1).setDepth(8);
@@ -255,6 +287,53 @@ function decorar(scene, h) {
     h.letrero(scene, 3280, T4 - 20, '↑ AL CIELO');
 }
 
+// el ala este: capilla, jardín de las gárgolas y pozo de los deseos arriba; la Biblioteca y la Mina abajo
+function decorarEste(scene, h) {
+    // superficie: la capilla (ventanas y su altar), lápidas, el jardín y el pozo
+    pared(scene, 3700, Y0 - 190, 4000, Y0, 'tile93', 0.2);
+    objeto(scene, 'window', 3780, Y0 - 90, 1, 0.3);
+    objeto(scene, 'window', 3920, Y0 - 90, 1, 0.3);
+    objeto(scene, 'door3', 3990, Y0, 1, 0.3);
+    const cri = ENCARGOS.find(e => e.id === 'cristal');
+    scene.add.rectangle(cri.hasta.x, cri.hasta.pie, 44, 26, 0x6e6a80).setOrigin(0.5, 1).setDepth(6).setStrokeStyle(2, 0x3d3a4c);
+    scene.esteCristal = scene.add.text(cri.hasta.x, cri.hasta.pie - 26, '💎', { fontSize: '16px' }).setOrigin(0.5, 1).setDepth(8)
+        .setVisible(h.visibles.has('cristal'));
+    scene.esteCapilla = scene.add.image(cri.hasta.x, cri.hasta.pie - 60, 'brillo').setDepth(41).setScale(3).setTint(0x9fe6ff)
+        .setBlendMode('ADD').setAlpha(h.visibles.has('cristal') ? 0.5 : 0);
+    [4150, 4250, 4560, 4880, 5000].forEach((x, i) => scene.add.image(x, Y0, 'cr_lapida').setOrigin(0.5, 1).setDepth(2).setFlipX(i % 2 === 0));
+    const gar = ENCARGOS.find(e => e.id === 'gargola');
+    scene.add.rectangle(gar.x, gar.pie, 40, 30, 0x55526a).setOrigin(0.5, 1).setDepth(6);
+    scene.esteGargola = scene.add.text(gar.x, gar.pie - 28, '🗿', { fontSize: '30px' }).setOrigin(0.5, 1).setDepth(7);
+    scene.esteOjos = scene.add.image(gar.x, gar.pie - 52, 'brillo').setDepth(41).setScale(1.2).setTint(0xff4d5e)
+        .setBlendMode('ADD').setAlpha(h.visibles.has('gargola') ? 0.7 : 0);
+    const des = ENCARGOS.find(e => e.id === 'deseos');
+    const pozo = scene.add.graphics().setDepth(6);
+    pozo.fillStyle(0x6e6a80).fillRect(des.x - 30, des.pie - 30, 60, 30).fillStyle(0x3d3a4c).fillRect(des.x - 34, des.pie - 34, 68, 6);
+    pozo.fillStyle(0x4a3420).fillRect(des.x - 28, des.pie - 80, 5, 48).fillRect(des.x + 23, des.pie - 80, 5, 48).fillRect(des.x - 30, des.pie - 84, 60, 6);
+    scene.estePozo = scene.add.image(des.x, des.pie - 40, 'brillo').setDepth(41).setScale(1.6).setTint(0xffd27a)
+        .setBlendMode('ADD').setAlpha(h.visibles.has('deseos') ? 0.5 : 0);
+    // la Biblioteca: estantes (cajas y jarrones) y ventanitas
+    [[3700, 'box'], [3740, 'box'], [3950, 'vase'], [4000, 'box'], [4300, 'barrel'], [4650, 'box'], [4690, 'vase']].forEach(([x, n]) => objeto(scene, n, x, Y1, 1, 2));
+    [3880, 4250, 4620].forEach(x => objeto(scene, 'window_small', x, Y1 - 110, 1, 0.3));
+    // la Mina: barriles, cadenas, cristales y antorchas
+    [[3680, 'barrel'], [3760, 'barrel'], [4500, 'box'], [4540, 'barrel']].forEach(([x, n]) => objeto(scene, n, x, S, 1, 2));
+    [3850, 4400].forEach((x, i) => objeto(scene, i ? 'chain2' : 'chain1', x, S - 150, 1, 0.3).setOrigin(0.5, 0));
+    [3900, 4150, 4250].forEach(x => scene.add.text(x, S - 4, '💎', { fontSize: '12px' }).setOrigin(0.5, 1).setDepth(3).setAlpha(0.6));
+    scene.add.text(cri.desde.x, cri.desde.pie, '💎', { fontSize: '16px' }).setOrigin(0.5, 1).setDepth(8);
+    [[3950, Y1 - 100], [4450, Y1 - 100], [3800, S - 110], [4350, S - 110]].forEach(([x, y]) => {
+        objeto(scene, 'torch', x, y, 1, 0.3);
+        scene.add.image(x, y - 22, 'brillo').setDepth(41).setScale(1.6).setTint(0xffa040).setAlpha(0.28).setBlendMode('ADD');
+    });
+    // letreros
+    h.letrero(scene, ESTE - 60, Y0 - 6, 'ALA ESTE →');
+    h.letrero(scene, 3850, Y0 - 200, 'CAPILLA');
+    h.letrero(scene, 4700, Y0 - 110, 'JARDÍN DE LAS GÁRGOLAS');
+    h.letrero(scene, 5150, Y0 - 100, 'POZO DE LOS DESEOS');
+    h.letrero(scene, 4150, Y1 - 160, 'BIBLIOTECA PROHIBIDA');
+    h.letrero(scene, 4860, Y1 - 6, 'MINA ↓ (escalera)');
+    h.letrero(scene, 4100, S - 130, 'MINA ABANDONADA');
+}
+
 function visible(scene, id) {
     if (id === 'campanario' && scene.nocheCampana) {
         scene.tweens.add({ targets: scene.nocheCampana, angle: { from: -25, to: 25 }, yoyo: true, repeat: 5, duration: 120, onComplete: () => scene.nocheCampana.setAngle(0) });
@@ -271,6 +350,22 @@ function visible(scene, id) {
         scene.tweens.add({ targets: scene.criptaFarol, alpha: { from: 0, to: 0.6 }, duration: 700 });
         scene.sound.play('punto_control', { volume: 0.6, rate: 1.5 });
         return '🏮 ¡SE ENCENDIÓ EL FAROL DEL CIELO!';
+    }
+    if (id === 'gargola' && scene.esteGargola) {
+        scene.tweens.add({ targets: scene.esteOjos, alpha: { from: 0, to: 0.7 }, duration: 500 });
+        scene.tweens.add({ targets: scene.esteGargola, y: scene.esteGargola.y - 6, yoyo: true, repeat: 3, duration: 90 });
+        scene.sound.play('romper', { volume: 0.6, rate: 0.5 });
+        return '🗿 ¡LA GÁRGOLA DEL JARDÍN ABRIÓ LOS OJOS!';
+    }
+    if (id === 'cristal' && scene.esteCristal) {
+        scene.esteCristal.setVisible(true);
+        scene.tweens.add({ targets: scene.esteCapilla, alpha: { from: 0, to: 0.5 }, duration: 700 });
+        return '💎 ¡LA CAPILLA BRILLA CON UN CRISTAL!';
+    }
+    if (id === 'deseos' && scene.estePozo) {
+        scene.tweens.add({ targets: scene.estePozo, alpha: { from: 0, to: 0.5 }, duration: 600 });
+        scene.sound.play('moneda', { volume: 0.6, rate: 0.8 });
+        return '🪙 ¡ALGUIEN PIDIÓ UN DESEO EN EL POZO!';
     }
     if (id === 'vela' && scene.criptaVela) {
         scene.criptaVela.setVisible(true);
@@ -289,6 +384,10 @@ const NAV = {
         antA: [240, T2], aTop: [300, T2], campanario: [350, T2], aStep: [480, T1], s0: [520, Y0], sE1: [590, Y0], sE1R: [800, Y0],
         flor1: [900, Y0], sP2: [1150, Y0], flor2: [1300, Y0], juicio: [1420, Y0], altar: [ALTAR.x, Y0], cand: [1770, Y0], sP1: [2150, Y0],
         pozoS: [2380, Y0], pozoSR: [2500, Y0], flor3: [2700, Y0], vBase: [3000, Y0], vStep: [3110, T1], vTop: [3260, T2], antB: [3400, T2],
+        // ala este: superficie, Biblioteca y Mina
+        sEste: [ESTE, Y0], capilla: [3850, Y0], sP3: [4400, Y0], gargola: [4700, Y0], deseos: [5150, Y0],
+        bib0: [3700, Y1], libro1: [3800, Y1], libro2: [4150, Y1], libro3: [4550, Y1], cE3: [4740, Y1], eTop: [5060, Y1],
+        mina0: [3700, S], cristal: [4050, S], kP3: [4300, S], kE3: [4600, S],
         // cielo: el zigzag de cada torre, las tablas del puente y la isla
         aS3: [480, T3], aS4: [310, T4], aCielo: [480, CIELO], vS3: [3110, T3], vS4: [3280, T4], vCielo: [3110, CIELO],
         ...Object.fromEntries(PUENTE.map(([x, y], i) => [`t${i}`, [x + 55, y]])),
@@ -318,13 +417,18 @@ const NAV = {
         ...cadena(['antC', 'vela', 'kP2', 'lavaI'], 'camina'),
         ['lavaI', 'lavaD', 'salta'],
         ...cadena(['lavaD', 'cofre', 'kPozo', 'antD', 'kE2'], 'camina'),
-        ['sP1', 'cP1', 'puerta'], ['sP2', 'kP2', 'puerta'],
+        ['sP1', 'cP1', 'puerta'], ['sP2', 'kP2', 'puerta'], ['sP3', 'kP3', 'puerta'],
+        ['vBase', 'sEste', 'camina'], ...cadena(['sEste', 'capilla', 'sP3', 'gargola', 'deseos'], 'camina'),
+        ['rey', 'bib0', 'camina'], ...cadena(['bib0', 'libro1', 'libro2', 'libro3', 'cE3'], 'camina'),
+        ['cE3', 'eTop', 'salta'], ['eTop', 'kE3', 'escalera'],
+        ...cadena(['mina0', 'cristal', 'kP3', 'kE3'], 'camina'),
         ['pozoS', 'kPozo', 'caer'], ['pozoC', 'kPozo', 'caer'],
     ],
     ascensor: null,
     pasos: {
         campanario: ['campanario'], flores: ['flor1', 'flor2', 'flor3'], pergaminos: ['perg1', 'perg2', 'perg3'],
         palanca: ['palanca'], cofre: ['cofre'], vela: ['vela', 'cand'], farol: ['farol'],
+        libros: ['libro1', 'libro2', 'libro3'], gargola: ['gargola'], cristal: ['cristal', 'capilla'], deseos: ['deseos'],
     },
     antorchas: { A: 'antA', B: 'antB', C: 'antC', D: 'antD' },
     // un bot empujado se cae de las torres (queda en la superficie) o a la lava de las catacumbas
@@ -339,6 +443,12 @@ export const MAPA_CRIPTAS = {
     antorchas: ANTORCHAS,
     altar: ALTAR,
     encargos: ENCARGOS,
+    encargosPorJugador: 4, // (el mapa grande: 4 misiones cada uno)
+    // los pisos (troll.js): [arriba, abajo]; desde uno no se ve lo de los otros
+    pisos: [[CIELO - 800, Y0 + GROSOR], [Y0 + GROSOR, Y1 + GROSOR], [Y1 + GROSOR, S + 300]],
+    // en qué parte está un punto (el aviso de los monstruos del troll)
+    zonaDe: (x, pie) => (pie < Y0 - 20 ? 'En las torres o el cielo' : pie <= Y0 + 5 ? (x > ESTE ? 'En el ala este' : 'En la superficie')
+        : pie <= Y1 + 5 ? (x > ESTE ? 'En la Biblioteca' : 'En las Criptas') : x > ESTE ? 'En la Mina' : 'En las Catacumbas'),
     campanaJuicio: { x: 1420, pie: Y0, ms: 1200 },
     puertas: PUERTAS,
     // las Catacumbas son oscuras (por debajo de la losa de las Criptas)

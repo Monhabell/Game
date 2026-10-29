@@ -23,7 +23,7 @@
 //     equipo   { equipo }                0 (rojo) o 1 (azul), en el modo por equipos
 //     volver   {}                        (solo anfitrión) todos vuelven a la sala de espera
 //     saldo    { monedas }               cuántas monedas tiene (para la apuesta de la arena)
-//     apostar  { apuesta }               (carrera) lo que apuesta este jugador; vuelve a 'no listo'
+//     apostar  { apuesta }               (carrera y noche) lo que apuesta este jugador; vuelve a 'no listo'
 //     listo    { listo }                 (carrera) ya eligió su apuesta y está listo para correr
 //     estado / evento { ... }            se reenvía a los demás con { de: tuId } (sin 'de' si trae anonimo: true)
 //     ping     { n }                     se contesta al momento (para medir la demora en el juego)
@@ -208,6 +208,9 @@ function atender(ws, m) {
                 if (n < 2) return enviar(ws, { t: 'error', motivo: 'La carrera necesita al menos 2 jugadores' });
                 const falta = [...sala.jugadores.values()].find(j => j.id !== sala.anfitrion && !j.listo);
                 if (falta) return enviar(ws, { t: 'error', motivo: `${falta.nombre} todavía no está listo` });
+            }
+            // carrera y noche: cada uno apuesta lo suyo
+            if (sala.modo === 'carrera' || sala.modo === 'troll') {
                 const sinMonedas = [...sala.jugadores.values()].find(j => (j.monedas || 0) < (j.apuesta || 0));
                 if (sinMonedas) return enviar(ws, { t: 'error', motivo: `${sinMonedas.nombre} no tiene ${sinMonedas.apuesta} monedas para su apuesta` });
             }

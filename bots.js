@@ -137,7 +137,7 @@ function repartir(semilla, id) {
     const azar = () => { a = (Math.imul(a ^ (a >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return a / 4294967296; };
     const bolsa = M.encargos.map(e => e.id);
     for (let i = bolsa.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [bolsa[i], bolsa[j]] = [bolsa[j], bolsa[i]]; }
-    return bolsa.slice(0, 3);
+    return bolsa.slice(0, M.encargosPorJugador || 3); // (el mapa grande: 4)
 }
 
 // ---------- dibujo (todas las pantallas) ----------

@@ -239,6 +239,7 @@ function enviarMiEstado(scene, time) {
         flip: g.flipX, anim: g.anims.currentAnim?.key,
         suelo: b.blocked.down || b.touching.down, anclado: !!g.anclado, muerto: !!g.isDead,
         ...(scene.esFantasma ? { fantasma: true } : {}),
+        ...(scene.escudoLuz ? { escudo: true } : {}), // (Noche del Troll: el escudo de luz se ve)
     });
 }
 

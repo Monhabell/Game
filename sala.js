@@ -167,11 +167,11 @@ export function iniciarSala(juego, { alEmpezar }) {
                                     <button type="button" class="menu-opcion" data-equipo="1" style="--pj:${COLORES_EQUIPO[1]}">● Azul</button>
                                 </div>
                             </fieldset>
-                            <fieldset class="menu-grupo" data-solo-carrera hidden>
+                            <fieldset class="menu-grupo" data-tu-apuesta hidden>
                                 <legend>Tu apuesta</legend>
                                 <div class="menu-opciones">${APUESTAS.map(a =>
                                     `<button type="button" class="menu-opcion" data-apuesta="${a}">${a ? `◉ ${a}` : 'Nada'}</button>`).join('')}</div>
-                                <p class="menu-nota">Si ganas, cada rival te paga lo que apostaste (o lo que apostó él, si es menos)</p>
+                                <p class="menu-nota" data-nota-apuesta></p>
                                 <button type="button" class="menu-boton" data-listo>✔ Estoy listo</button>
                             </fieldset>
                         </div>
@@ -309,7 +309,8 @@ export function iniciarSala(juego, { alEmpezar }) {
     // carrera: mi apuesta (no más de lo que tengo) y "listo"
     capa.addEventListener('click', e => {
         const b = e.target.closest('[data-apuesta], [data-listo]');
-        if (!b || !red.codigo || red.modo !== 'carrera') return;
+        if (!b || !red.codigo || (red.modo !== 'carrera' && red.modo !== 'troll')) return;
+        if (b.dataset.listo != null && red.modo !== 'carrera') return;
         const yo = red.jugadores.find(j => j.id === red.tuId);
         if (b.dataset.apuesta != null) {
             const a = Number(b.dataset.apuesta);
@@ -452,6 +453,10 @@ export function iniciarSala(juego, { alEmpezar }) {
         capa.querySelectorAll('[data-solo-aventura]').forEach(el => { el.hidden = !anfitrion || red.modo !== 'aventura'; });
         capa.querySelectorAll('[data-solo-carrera]').forEach(el => { el.hidden = !carrera || (el.matches('[data-solo-anfitrion]') && !anfitrion); });
         capa.querySelectorAll('[data-solo-noche]').forEach(el => { el.hidden = !anfitrion || red.modo !== 'troll'; });
+        // la apuesta: en la carrera y en la noche (cada uno la suya)
+        $('[data-tu-apuesta]').hidden = !carrera && red.modo !== 'troll';
+        $('[data-nota-apuesta]').textContent = carrera ? 'Si ganas, cada rival te paga lo que apostaste (o lo que apostó él, si es menos)'
+            : 'Gana tu bando (héroes o troll): se reparten lo que apostó el bando que perdió, según cuánto apostó cada uno';
         // mi apuesta y mi "listo" (el anfitrión no confirma: él arranca)
         capa.querySelectorAll('[data-apuesta]').forEach(b => {
             const si = Number(b.dataset.apuesta) === (yo2?.apuesta || 0);
@@ -460,7 +465,7 @@ export function iniciarSala(juego, { alEmpezar }) {
             b.disabled = Number(b.dataset.apuesta) > saldo();
         });
         const botonListo = $('[data-listo]');
-        botonListo.hidden = anfitrion;
+        botonListo.hidden = anfitrion || !carrera;
         botonListo.classList.toggle('sala-empezar', !yo2?.listo);
         botonListo.textContent = yo2?.listo ? '✔ Listo (toca para cambiar)' : '✔ Estoy listo';
         $('[data-accion="empezar"]').hidden = !anfitrion;
