@@ -16,6 +16,12 @@
 // - MEMORIA: solo se cargan los efectos de los poderes equipados (al entrar al nivel); los de los
 //   demás jugadores en línea se cargan la primera vez que los usan.
 //
+// ELEMENTOS Y COMBOS: cada poder tiene un elemento (elementoDe: fuego, agua, hielo, rayo, tierra, arcano,
+// naturaleza o filo). Un poder deja su MARCA en el enemigo (4 s); si otro poder de OTRO elemento lo golpea
+// mientras tanto, se arma un COMBO (COMBOS: más daño, aturde, congela o explota) y la marca se gasta.
+// Cada héroe tiene una BUILD recomendada (BUILDS): dos poderes que hacen combo y le van a su estilo; la
+// tienda la muestra con un botón para equiparla.
+//
 // Contra el jefe un poder hace como mucho 2 de daño por golpe (la pelea se gana aprendiendo sus
 // patrones, no con un solo poder).
 //
@@ -61,6 +67,61 @@ export const RAREZAS = {
 
 const C = { fuego: 0xff7a3a, hielo: 0x9fe8ff, rayo: 0xfff06a, cian: 0x6fe8ff, verde: 0x7fe06a, arcano: 0xc77dff,
     rosa: 0xff7ad9, luz: 0xffe08a, tierra: 0xd09a5a, sombra: 0x8a5cff, sangre: 0xff4a4a, oro: 0xffc94a };
+
+// ---------- elementos y combos ----------
+export const ELEMENTOS = {
+    fuego: ['🔥', 'Fuego', '#ff8a3d'], agua: ['💧', 'Agua', '#5ab4ff'], hielo: ['❄️', 'Hielo', '#9fe8ff'], rayo: ['⚡', 'Rayo', '#fff06a'],
+    tierra: ['🪨', 'Tierra', '#d09a5a'], arcano: ['✨', 'Arcano', '#c77dff'], naturaleza: ['🌿', 'Naturaleza', '#7fe06a'], filo: ['⚔️', 'Filo', '#d8dce8'],
+};
+// de qué elemento es un poder (sale de cómo se ve y qué hace)
+export function elementoDe(p) {
+    const t = p.tinte;
+    if (p.congela || t === C.hielo) return 'hielo';
+    if (p.sonido === 'rayo' || t === C.rayo) return 'rayo';
+    if (t === C.verde || t === 0x6a8a3a) return 'naturaleza';
+    if (t === C.arcano || t === C.rosa || t === C.sombra || t === C.cian) return 'arcano';
+    // (por el nombre: garras de fuego, tajo ígneo, llamarada, lava, sol…)
+    const deFuego = /fuego|ígne|llama|lava|sol|dragón|meteor|nova|alba/i.test(p.nombre);
+    if (t === C.tierra || (p.temblor && !deFuego)) return 'tierra';
+    if (deFuego || p.sonido === 'fuego' || t === C.fuego || t === C.sangre || t === C.luz || (!t && p.efecto?.startsWith('fuego'))) return 'fuego';
+    if (p.efecto?.startsWith('agua')) return 'agua';
+    return 'filo';
+}
+// los combos: [nombre, daño de más, efecto] · efecto: { aturde: ms } | { congela: ms } | { explota: radio }
+// (la clave son los dos elementos en orden alfabético; con arcano, cualquiera hace RESONANCIA)
+export const COMBOS = {
+    'agua+rayo': ['¡ELECTROCUTADO!', 2, { aturde: 1200 }],
+    'hielo+tierra': ['¡HIELO ROTO!', 3, {}],
+    'filo+hielo': ['¡HIELO ROTO!', 2, {}],
+    'agua+fuego': ['¡VAPOR!', 1, { aturde: 1500 }],
+    'fuego+hielo': ['¡CHOQUE TÉRMICO!', 2, {}],
+    'fuego+rayo': ['¡SOBRECARGA!', 1, { explota: 100 }],
+    'fuego+tierra': ['¡MAGMA!', 2, {}],
+    'fuego+naturaleza': ['¡INCENDIO!', 1, { explota: 90 }],
+    'agua+hielo': ['¡CONGELACIÓN!', 1, { congela: 2500 }],
+    'agua+naturaleza': ['¡ENREDADERA!', 1, { aturde: 1800 }],
+    'rayo+tierra': ['¡TORMENTA DE ARENA!', 2, { aturde: 800 }],
+    'filo+fuego': ['¡FILO ARDIENTE!', 2, {}],
+};
+export function comboDe(a, b) {
+    if (!a || !b || a === b) return null;
+    const c = COMBOS[[a, b].sort().join('+')];
+    if (c) return c;
+    if (a === 'arcano' || b === 'arcano') return ['¡RESONANCIA!', 1, {}];
+    return null;
+}
+// la build recomendada de cada héroe: dos poderes que hacen combo y por qué le van
+export const BUILDS = {
+    arquera: ['burbujas', 'chispa', 'Desde lejos: moja con las burbujas y remata con la chispa'],
+    espadachin: ['garras_hielo', 'golpe_sismico', 'Cuerpo a cuerpo: congela de cerca y rompe con el golpe al suelo'],
+    mago: ['bola_agua', 'bola_fuego', 'Mago clásico: agua y fuego hacen vapor y los dejan aturdidos'],
+    hechicera: ['bola_fuego', 'rayo_celestial', 'Fuego y rayo del cielo: la sobrecarga explota en grupo'],
+    caballera: ['grieta_lava', 'golpe_sismico', 'Abre el suelo: lava y temblor se vuelven magma'],
+    mosquetera: ['cascada', 'copo_helado', 'Moja y congela: los deja quietos para tus disparos'],
+    paladina: ['garras_fuego', 'lanzas_hielo', 'Frío y calor: el choque térmico rompe a los duros'],
+    asesina: ['latigo', 'garras_fuego', 'Látigo de espinas y zarpazo de fuego: incendio en cadena'],
+    elfa: ['cometa_arcano', 'flecha_jade', 'Flechas mágicas que atraviesan: la resonancia suma daño'],
+};
 
 // icono: número de ícono · efecto: hoja (con tinte se usa la versión blanca teñida)
 // tipos: proyectil, rafaga, meteoro, lluvia, explosion, frente, tajo, ola, trampa, aura, iman, escudo,
@@ -458,6 +519,17 @@ const vivos = scene => [
 ];
 const centro = e => e.body.center;
 
+// el cartel del combo sobre el enemigo (con el color del primer elemento)
+function mostrarCombo(scene, e, texto, color) {
+    const c = e.body ? e.body.center : e;
+    const t = scene.add.text(c.x, c.y - 40, texto, {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '9px', color, stroke: '#000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(46).setScale(0.6);
+    scene.tweens.add({ targets: t, scale: 1.1, duration: 140, ease: 'Back.out' });
+    scene.tweens.add({ targets: t, y: t.y - 26, alpha: 0, delay: 650, duration: 450, onComplete: () => t.destroy() });
+    scene.sound.play('romper', { volume: 0.35, rate: 1.6 });
+}
+
 function golpear(scene, p, e, remoto, daño = p.daño) {
     if (remoto) return;
     if (e.rivalId != null) {
@@ -466,8 +538,25 @@ function golpear(scene, p, e, remoto, daño = p.daño) {
         api.dañar(scene, e, daño || 0, Math.max(p.congela || 0, p.aturde || 0), p.empuje ? lado * p.empuje : 0, p);
         return;
     }
-    api.dañar(scene, e, daño || 0, p.congela || 0);
+    // combo: este poder sobre la marca de otro elemento (si no, deja la suya)
+    const elem = elementoDe(p), ahora = scene.time.now;
+    const marca = e.marcaElem && ahora < e.marcaElem.hasta ? e.marcaElem.elem : null;
+    const combo = comboDe(marca, elem);
+    if (combo) {
+        e.marcaElem = null;
+        daño = (daño || 0) + combo[1];
+        mostrarCombo(scene, e, combo[0], ELEMENTOS[marca][2]);
+    } else e.marcaElem = { elem, hasta: ahora + 4000 };
+    api.dañar(scene, e, daño || 0, Math.max(p.congela || 0, combo?.[2].congela || 0));
     if (p.aturde && !e.isDead) api.congelar(scene, e, p.aturde);
+    if (combo?.[2].aturde && !e.isDead) api.congelar(scene, e, combo[2].aturde);
+    if (combo?.[2].explota) {
+        // la explosión del combo alcanza a los de alrededor
+        const c0 = centro(e), r = combo[2].explota;
+        const boom = scene.add.circle(c0.x, c0.y, 12, 0xffa040, 0.7).setDepth(44).setBlendMode('ADD');
+        scene.tweens.add({ targets: boom, scale: r / 12, alpha: 0, duration: 300, onComplete: () => boom.destroy() });
+        vivos(scene).forEach(o => { if (o !== e && o.rivalId == null && Phaser.Math.Distance.Between(c0.x, c0.y, centro(o).x, centro(o).y) < r) api.dañar(scene, o, 1, 0); });
+    }
     if (p.empuje && !e.isDead && e.body && e.def?.tipo !== 'planta') {
         const lado = Math.sign(centro(e).x - scene.mascotaGesi.body.center.x) || 1;
         e.setVelocityX(lado * p.empuje);

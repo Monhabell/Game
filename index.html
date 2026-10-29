@@ -1647,6 +1647,31 @@
         .poder-ranura kbd { font: inherit; font-weight: 800; font-size: 12px; min-width: 22px; text-align: center; padding: 4px 6px; border-radius: 7px; background: var(--acento-fuerte); color: #fff; }
         .poder-ranura .vacia { opacity: 0.5; font-style: italic; }
         .poder-filtros { display: flex; gap: 6px; flex-wrap: wrap; }
+        /* hitos (hitos.js): la tarjeta de celebración */
+        .hito-capa { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 12px; cursor: pointer;
+            background: radial-gradient(ellipse at 50% 40%, rgba(255, 201, 74, 0.25), rgba(4, 5, 12, 0.88) 70%); animation: noche-entra 0.35s ease-out; }
+        .hito-tarjeta { max-width: 420px; text-align: center; padding: 18px 22px; border-radius: 18px; color: #eef1f7; font-family: var(--letra);
+            background: rgba(14, 16, 30, 0.92); border: 2px solid #ffc94a; box-shadow: 0 0 40px rgba(255, 201, 74, 0.35); }
+        .hito-sub { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #ffd27a; }
+        .hito-icono { font-size: 56px; line-height: 1.2; margin-top: 6px; animation: hito-salta 0.9s ease-in-out infinite alternate; }
+        .hito-tarjeta h2 { margin: 2px 0 0; font-size: 26px; color: #ffe066; }
+        .hito-nuevo { margin: 0; font-size: 11px; opacity: 0.7; }
+        .hito-tarjeta ul { list-style: none; padding: 0; margin: 12px 0 0; font-size: 13px; line-height: 1.6; }
+        .hito-tarjeta small { opacity: 0.65; font-size: 10px; }
+        .hito-nota { margin: 10px 0 0; font-size: 10px; opacity: 0.55; }
+        @keyframes hito-salta { from { transform: translateY(0) scale(1); } to { transform: translateY(-6px) scale(1.08); } }
+        @media (prefers-reduced-motion: reduce) { .hito-icono { animation: none; } }
+        .poder-build {
+            display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; font-size: 12px;
+            background: rgba(255, 201, 74, 0.08); border: 1px solid rgba(255, 201, 74, 0.35); color: var(--texto, #eef1f7);
+        }
+        .poder-build > b { color: #ffd27a; font-weight: 700; }
+        .poder-build em, .poder-combo { font-style: normal; font-weight: 700; color: #ffe066; }
+        .poder-build small { flex-basis: 100%; opacity: 0.75; }
+        .poder-build .tienda-btn { margin-left: auto; width: auto; flex: 0 0 auto; min-height: 34px; padding: 0 14px; }
+        .poder-combo { margin-left: 6px; font-size: 12px; }
+        .poder-combo.nada { color: var(--texto-2, #9aa3bf); font-weight: 500; }
+        .poder-elemento { border-color: var(--elem) !important; color: var(--elem); }
         .poder-filtro {
             min-height: 34px; padding: 0 13px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
             color: var(--texto-2); background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.12); transition: background 0.15s, color 0.15s;

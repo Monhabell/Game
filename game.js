@@ -16,6 +16,7 @@ import { iniciarVoz } from "./voz.js"
 import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
+import { revisarHitos, mostrarHitos, tituloActual, proximoHito } from "./hitos.js"
 import { ganarXP, XP, progresoJugador, maestria, tituloHeroe, factorRecarga, tieneRunaMaestria, MAESTRIA_MAX, textoNivel } from "./progreso.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
 import { red, enLinea, enCarrera, enNoche, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
@@ -60,7 +61,7 @@ import { crearSenales, sombraDeCaida } from "./senales.js"
 import { crearArteOriginal } from "./arte.js"
 import { aleatorizarNivel, prepararNivelFijo, iniciarCorazonesAlAzar, iniciarEscudosAlAzar, soltarCorazon } from "./azar.js"
 import {
-    cargarJefes, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe, alterarJefe,
+    cargarJefes, trollDelNivel, crearAnimacionesJefes, prepararJefe, actualizarJefe, golpearJefeEnZona, jefeBloqueaMeta, dañarJefe, alterarJefe,
     datosJefe, recibirJefe, efectoJefe
 } from "./jefes.js"
 import { cargarSonidos, sonarCerca } from "./sonidos.js"
@@ -76,6 +77,7 @@ const apiJefe = {
     mostrarMensaje: (...a) => mostrarMensaje(...a),
     addToScore: (...a) => addToScore(...a),
     soltarEscudo: (...a) => soltarEscudo(...a),
+    crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo), // (los ayudantes de algunos jefes)
 };
 
 // poderes especiales (poderes.js): lo que necesitan del juego
@@ -652,7 +654,7 @@ function preload() {
     this.load.audio('romper', 'assets/sound/aventura/romper.mp3');
     this.load.audio('aparece', 'assets/sound/aventura/aparece.mp3');
     cargarEscudo(this);
-    cargarJefes(this);
+    cargarJefes(this, trollDelNivel(nivelPorIndice(Phaser.Math.Clamp(nivelActual, 0, TOTAL_NIVELES - 1)))); // (solo el troll del jefe de este nivel)
     cargarSonidos(this);
 
     // bolas de fuego que saltan de la lava
@@ -1250,6 +1252,10 @@ function crearSeleccion() {
     this.add.text(75, 27, String(pr.nivel), { fontSize: pr.nivel > 99 ? '9px' : '11px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(6);
     this.add.text(96, 20, textoNivel(pr.nivel), { fontSize: '10px', fontStyle: '700', color: '#ffd27a' }).setOrigin(0, 0.5).setDepth(6);
     this.add.text(216, 20, `${pr.xp}/${pr.falta} XP`, { fontSize: '8px', color: '#9aa3bf' }).setOrigin(1, 0.5).setDepth(6);
+    // tu título (hitos.js) y lo que falta para el próximo hito
+    const titulo = tituloActual(), prox = proximoHito(nivelMaximo());
+    const lineaHito = [titulo ? `${titulo.icono} ${titulo.titulo}` : '', prox ? `🏆 próximo hito: nivel ${prox.nivel} (faltan ${prox.nivel - nivelMaximo()})` : '👑 ¡todos los hitos!'].filter(Boolean).join('  ·  ');
+    this.add.text(LISTA.x + 76, LISTA.y - 8, lineaHito, { fontSize: '8px', color: '#ffd27a', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(6);
 
     // si hay partida guardada, se elige el personaje con el que se venía jugando
     this.partida = leerPartida();
@@ -2979,6 +2985,9 @@ function completarNivel(mascotaGesi) {
     const primeraVez = nivelActual + 1 > nivelMaximo();
     const premio = premioDeNivel(primeraVez);
     registrarNivel(nivelActual + 1);
+    // hitos (hitos.js): llegar al 25, 50, 100… da título, monedas, estela y a veces un legendario
+    const hitosNuevos = revisarHitos(nivelMaximo());
+    if (hitosNuevos.length) this.time.delayedCall(2600, () => mostrarHitos(hitosNuevos));
     // experiencia para el jugador y la maestría del héroe (progreso.js)
     this.time.delayedCall(900, () => ganarXP(XP.nivel + (primeraVez ? XP.nivelPrimera : 0), this.pj.id, { victoria: true }));
     if (premio) this.time.delayedCall(1700, () => mostrarMensaje(this, `¡NUEVO PODER!\n${premio.nombre}\n(equípalo en la Tienda › Poderes)`, 2200));

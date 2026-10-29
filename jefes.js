@@ -17,7 +17,13 @@
 // - la dificultad sale de aprender sus patrones, no de que tenga más vida
 // - durante la pelea el escudo no se recarga avanzando: solo aparecen cargas de escudo
 //
-// api: { killgesi(scene, daño, origenX), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y) }
+// JEFES DE LOS TEMAS (niveles infinitos): cada tema (niveles.js: TEMAS) tiene su propio jefe al final de
+// cada mundo: uno de los 3 trolls de CraftPix, teñido con su color, con su nombre y UN ataque especial
+// propio (rayos, fuego, carámbanos, veneno, se esfuma, vendaval o invoca ayudantes) además de los del
+// Rey Troll que correspondan a ese mundo. Los niveles 1 a 7 siguen siendo del Rey Troll (la historia).
+//
+// api: { killgesi(scene, daño, origenX), mostrarMensaje(scene, texto, ms), addToScore(n, origen, scene), soltarEscudo(scene, x, y),
+//   crearEnemigo(scene, x, y, tipo) }
 
 import { zoomCamara, RESOLUCION } from "./ajustes.js"
 
@@ -60,11 +66,62 @@ export const JEFES = [
 const AVISOS = {
     salto: ['↑', '#ffd27a'], embestida: ['»', '#ff5555'], roca: ['●', '#ffb070'],
     rugido: ['!!', '#ff5555'], terremoto: ['≈', '#ff5555'],
+    rayo: ['ϟ', '#9fe8ff'], fuego: ['^^', '#ff8a3d'], hielo: ['✱', '#bff0ff'], veneno: ['~', '#9aff7a'],
+    esfuma: ['?', '#c79aff'], vendaval: ['≫', '#e8e0c0'], invocar: ['+', '#ffd27a'],
 };
+// lo que se anuncia al empezar la pelea con un jefe de tema (su ataque propio)
+const LECCIONES = {
+    rayo: 'RAYOS: mira el círculo en el suelo y apártate.',
+    fuego: 'FUEGO: deja charcos ardiendo. ¡No los pises!',
+    hielo: 'CARÁMBANOS: lanza tres a la vez. Salta entre ellos.',
+    veneno: 'VENENO: su nube te sigue despacio. Aléjate.',
+    esfuma: 'SE ESFUMA: aparece detrás de ti. ¡Date vuelta!',
+    vendaval: 'VENDAVAL: te empuja hacia él. Corre en contra.',
+    invocar: 'INVOCA AYUDANTES: acaba con ellos o te rodean.',
+};
+// el jefe de cada tema: [nombre, troll (1 verde con cuero, 2 oscuro con escamas, 3 pálido con pieles), color, ataques propios]
+const JEFES_TEMA = {
+    'Las Ruinas Olvidadas': ['EL REY TROLL', 3, null, []],
+    'Las Grutas Rojas': ['EL TROLL DE LAS BRASAS', 1, 0xff9070, ['fuego']],
+    'Los Pantanos Muertos': ['EL TROLL DEL PANTANO', 2, 0x9ad080, ['veneno']],
+    'Las Forjas del Troll': ['EL HERRERO TROLL', 1, 0xffb070, ['fuego']],
+    'Las Torres del Cielo': ['EL TROLL DE LA TORMENTA', 3, 0xb0c8ff, ['rayo']],
+    'El Abismo sin Fondo': ['EL TROLL SOMBRÍO', 2, 0x9a80b0, ['esfuma']],
+    'El Bosque Helado': ['EL YETI TROLL', 3, 0xe0f0ff, ['hielo']],
+    'Las Minas de Oro': ['EL TROLL CODICIOSO', 1, 0xffe090, ['invocar']],
+    'El Desierto de Huesos': ['EL TROLL DE LOS HUESOS', 3, 0xf0d8a8, ['vendaval']],
+    'La Cripta de Cristal': ['EL GÓLEM DE CRISTAL', 2, 0xa0f0ff, ['hielo']],
+    'El Jardín de Calabazas': ['EL TROLL CALABAZA', 1, 0xffa050, ['invocar']],
+    'El Reino de los Hongos': ['EL TROLL DE LAS ESPORAS', 2, 0xd8a0ff, ['veneno']],
+    'El Castillo Sangriento': ['EL CONDE TROLL', 3, 0xff8080, ['esfuma']],
+    'El Glaciar Eterno': ['EL TROLL GLACIAL', 2, 0xc0e8ff, ['hielo']],
+    'El Mar de Niebla': ['EL TROLL FANTASMA', 3, 0xd0d8e8, ['esfuma']],
+    'La Ciudad Hundida': ['EL TROLL AHOGADO', 2, 0x80e0d0, ['veneno']],
+    'El Volcán Dormido': ['EL TROLL DE MAGMA', 1, 0xff7040, ['fuego']],
+    'La Biblioteca Maldita': ['EL TROLL BIBLIOTECARIO', 3, 0xd0b090, ['invocar']],
+    'La Selva Embrujada': ['EL TROLL DE LA SELVA', 1, 0x90e090, ['veneno']],
+    'El Nido de Arañas': ['LA REINA TROLL ARAÑA', 2, 0xb0b8a0, ['invocar']],
+    'El Bosque Otoñal': ['EL TROLL LEÑADOR', 1, 0xe0a060, ['vendaval']],
+    'La Cueva de los Ecos': ['EL TROLL DEL ECO', 2, 0x9098e0, ['rayo']],
+    'El Templo del Sol Negro': ['EL SACERDOTE TROLL', 3, 0xffd870, ['rayo']],
+    'El Corazón del Volcán': ['EL SEÑOR DEL VOLCÁN', 1, 0xff5030, ['fuego']],
+    'El Reino de Caramelo Podrido': ['EL TROLL GOLOSO', 1, 0xffb0d8, ['invocar']],
+    'El Cementerio de Barcos': ['EL CAPITÁN TROLL', 2, 0x90b8b0, ['rayo']],
+    'Las Cumbres de la Tormenta': ['EL TITÁN DE LA TORMENTA', 3, 0x98a8d0, ['rayo', 'vendaval']],
+    'El Fin del Mundo': ['EL TROLL DEL FIN', 2, 0xc0a0ff, ['esfuma', 'rayo', 'fuego']],
+};
+// el jefe de un nivel infinito (o null: los hechos a mano son del Rey Troll)
+function jefeDeTema(nivel) {
+    if (nivel?.estilo !== 'infinito' || !nivel.tema) return null;
+    return JEFES_TEMA[nivel.tema.nombre] || null;
+}
+// qué troll hay que cargar para este nivel (game.js, al cargar)
+export const trollDelNivel = nivel => jefeDeTema(nivel)?.[1] ?? 3;
 const ATURDIDO_MS = 1100; // ventana para atacarlo tras chocar contra el muro (la coraza no lo protege)
 
-// solo se cargan los trolls que usan los encuentros (cada uno ocupa ~73 MB en la tarjeta de video)
-const TROLLS = [...new Set(JEFES.map(j => j.troll))];
+// solo se carga el troll del nivel (cada uno ocupa ~73 MB en la tarjeta de video, ~18 MB el ligero): el 3
+// (el Rey Troll) siempre, porque sale en la portada y la historia; el 1 o el 2 solo en el nivel de su jefe
+const TROLLS = [1, 2, 3];
 
 // Las hojas del troll son cuadrículas de 5 x 2 cuadros de 600 x 440 (3000 x 880): antes eran tiras de
 // 6000 px y muchos celulares no cargan imágenes de más de 4096 px (el troll quedaba invisible).
@@ -74,16 +131,23 @@ export const TROLL_LIGERO = RESOLUCION <= 1.25;
 const K_TROLL = TROLL_LIGERO ? 2 : 1; // cuánto más chico es cada cuadro de la hoja
 // escala para dibujar al troll en otros lados (portada, historia, arena): igual de grande con las dos hojas
 export const escalaTroll = e => e * K_TROLL;
-export function cargarJefes(scene) {
+export function cargarJefes(scene, troll = 3) {
     TROLLS.forEach(k => Object.values(ANIMS).forEach(([archivo]) => {
-        scene.load.spritesheet(`troll${k}_${archivo}`, `assets/jefes/troll${k}_${archivo}${TROLL_LIGERO ? '_ligero' : ''}.png`,
-            { frameWidth: 600 / K_TROLL, frameHeight: 440 / K_TROLL });
+        const clave = `troll${k}_${archivo}`;
+        if (k === 3 || k === troll) {
+            if (!scene.textures.exists(clave)) scene.load.spritesheet(clave, `assets/jefes/troll${k}_${archivo}${TROLL_LIGERO ? '_ligero' : ''}.png`,
+                { frameWidth: 600 / K_TROLL, frameHeight: 440 / K_TROLL });
+        } else if (scene.textures.exists(clave)) {
+            // (el de otro mundo: se suelta para no ocupar memoria)
+            Object.keys(ANIMS).forEach(a => scene.anims.remove(`troll${k}-${a}`));
+            scene.textures.remove(clave);
+        }
     }));
 }
 
 export function crearAnimacionesJefes(scene) {
-    if (scene.anims.exists(`troll${TROLLS[0]}-idle`)) return;
     TROLLS.forEach(k => Object.entries(ANIMS).forEach(([clave, [archivo, frames, frameRate, repeat]]) => {
+        if (!scene.textures.exists(`troll${k}_${archivo}`) || scene.anims.exists(`troll${k}-${clave}`)) return;
         scene.anims.create({
             key: `troll${k}-${clave}`,
             frames: scene.anims.generateFrameNumbers(`troll${k}_${archivo}`, {
@@ -96,7 +160,21 @@ export function crearAnimacionesJefes(scene) {
 
 // prepara la arena; el jefe aparece cuando el jugador entra
 export function prepararJefe(scene, nivel, indice) {
-    const datos = JEFES[indice % JEFES.length];
+    let datos = JEFES[indice % JEFES.length];
+    let nombre = NOMBRE_JEFE;
+    // niveles infinitos: el jefe del tema (los ataques del Rey Troll de ese mundo, más los suyos)
+    const tj = jefeDeTema(nivel);
+    if (tj) {
+        const [n, troll, tinte, propios] = tj;
+        const base = JEFES[Math.min(5, Math.floor(indice / 10))];
+        nombre = n;
+        datos = {
+            ...base, troll, tinte, final: false, ataques: [...base.ataques, ...propios],
+            encuentro: Math.floor(indice / 10) + 1,
+            leccion: propios.length ? `NUEVO: ${LECCIONES[propios[0]]}` : base.leccion,
+            escala: base.escala * (troll === 3 ? 1 : 0.95),
+        };
+    }
     // en niveles altos el troll pega más fuerte y aparecen menos ayudas: en los hechos a mano sube
     // nivel a nivel (tope 15 en el nivel 16); desde el nivel 150, +1 cada 250 niveles (tope 25) y con más vida
     const k = indice < 150 ? Math.min(indice, 15) : Math.min(25, 15 + Math.floor((indice - 150) / 250));
@@ -106,7 +184,7 @@ export function prepararJefe(scene, nivel, indice) {
     scene.curacionArena = Math.max(20, 45 - 5 * k);
     const meta = nivel.meta;
     scene.jefe = {
-        datos: { ...datos, nombre: NOMBRE_JEFE }, indice,
+        datos: { ...datos, nombre }, indice,
         arenaIni: meta - ANCHO_ARENA - 50, arenaFin: meta - 50,
         estado: 'esperando', vida: scene.vidaJefeInicial ?? Math.round(datos.vida * masVida), vidaMax: Math.round(datos.vida * masVida),
         reintento: scene.vidaJefeInicial != null,
@@ -115,7 +193,7 @@ export function prepararJefe(scene, nivel, indice) {
     // antesala: un cartel de piedra (este no miente) anuncia la guarida
     const cx = meta - ANCHO_ARENA - 260;
     scene.add.rectangle(cx, (SUELO_Y + 150) / 2 + 10, 5, SUELO_Y - 160, 0x3a3440);
-    scene.add.text(cx, 150, datos.final ? 'TRONO DEL\nREY TROLL' : 'GUARIDA DEL\nREY TROLL', {
+    scene.add.text(cx, 150, datos.final ? 'TRONO DEL\nREY TROLL' : tj ? `GUARIDA DE\n${nombre}` : 'GUARIDA DEL\nREY TROLL', {
         fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#ff9a9a', align: 'center',
         backgroundColor: '#2a2230', padding: { x: 6, y: 5 },
     }).setOrigin(0.5).setDepth(42);
@@ -221,7 +299,7 @@ function empezarPelea(scene, api) {
         const nombre = scene.add.text(395, 178, d.nombre, {
             fontFamily: '"Press Start 2P", monospace', fontSize: '20px', color: '#ffe9a8', stroke: '#000', strokeThickness: 6,
         }).setOrigin(0.5).setScrollFactor(0).setDepth(72).setAlpha(0).setScale(1.6);
-        const sub = scene.add.text(395, 210, `ENCUENTRO ${d.encuentro} · ${d.leccion}`, {
+        const sub = scene.add.text(395, 210, `${d.tinte !== undefined ? `MUNDO ${d.encuentro}` : `ENCUENTRO ${d.encuentro}`} · ${d.leccion}`, {
             fontFamily: 'monospace', fontSize: '11px', color: '#ffb4b4', stroke: '#000', strokeThickness: 3,
         }).setOrigin(0.5).setScrollFactor(0).setDepth(72).setAlpha(0);
         scene.tweens.add({ targets: franja, scaleX: 1, delay: 1100, duration: 350, ease: 'Cubic.out' });
@@ -415,12 +493,13 @@ function romperCoraza(scene, j) {
     if (p) scene.tweens.add({ targets: p, y: SUELO_Y + 40, angle: j.sprite.flipX ? -70 : 70, alpha: 0, duration: 600, ease: 'Quad.in', onComplete: () => p.destroy() });
 }
 
-// rojo si está furioso, normal si no
+// rojo si está furioso; si no, el color de su tema (o normal)
 function restaurarTinte(j) {
     const s = j.sprite;
     if (!s || !s.active) return;
     s.clearTint();
     if (j.furioso) s.setTint(0xff8a8a);
+    else if (j.datos.tinte != null) s.setTint(j.datos.tinte);
 }
 
 function derrotar(scene, api) {
@@ -462,7 +541,7 @@ function derrotar(scene, api) {
     scene.cameras.main.flash(300, 255, 230, 180);
     scene.cameras.main.shake(600, 0.01);
     api.addToScore(2000, s, scene);
-    api.mostrarMensaje(scene, j.datos.final ? '¡EL REY TROLL\nCAYÓ!' : `¡VICTORIA!\nEL REY TROLL HUYE`, 2200);
+    api.mostrarMensaje(scene, j.datos.final ? '¡EL REY TROLL\nCAYÓ!' : `¡VICTORIA!\n${j.datos.nombre} HUYE`, 2200);
 
     // se va la barra y se derrumban los muros
     [j.barra, j.barraFondo, j.nombre].forEach(o => scene.tweens.add({ targets: o, alpha: 0, duration: 600, onComplete: () => o.destroy() }));
@@ -780,8 +859,193 @@ const ESPECIALES = {
     },
 };
 
-function rocaLanzada(scene, { x, y, vx, vy }) {
-    const roca = scene.balasEnemigas.create(x, y, 'mz_bloque').setScale(1.2).setTint(0x9a8f88);
+// ---------- ataques de los jefes de los temas ----------
+Object.assign(ESPECIALES, {
+    // rayos: caen del cielo; antes, un círculo en el suelo (el primero, donde estás)
+    rayo(scene, api) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        aviso(scene, s, 'rayo');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-attack`, true);
+        j.ocupadoHasta = scene.time.now + 1300;
+        const n = j.furioso ? 4 : 3;
+        for (let i = 0; i < n; i++) {
+            const x = i === 0 ? scene.mascotaGesi.body.center.x : Phaser.Math.Between(j.arenaIni + 70, j.arenaFin - 70);
+            scene.time.delayedCall(i * 260, () => {
+                if (j.estado !== 'pelea') return;
+                avisar(scene, 'rayo', { x: Math.round(x) });
+                rayoCae(scene, x, api);
+            });
+        }
+    },
+    // fuego: golpea el suelo y salen charcos ardiendo hacia el jugador
+    fuego(scene, api, dx) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        aviso(scene, s, 'fuego');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-attack`, true);
+        j.ocupadoHasta = scene.time.now + 1000;
+        const dir = Math.sign(dx) || 1;
+        [0, 1, 2].forEach(i => scene.time.delayedCall(350 + i * 220, () => {
+            if (j.estado !== 'pelea') return;
+            const x = Phaser.Math.Clamp(s.body.center.x + dir * (110 + i * 120), j.arenaIni + 40, j.arenaFin - 40);
+            avisar(scene, 'fuego', { x: Math.round(x) });
+            charcoFuego(scene, x, api);
+        }));
+    },
+    // carámbanos: tres en abanico
+    hielo(scene, _api, dx) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        aviso(scene, s, 'hielo');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-attack`, true);
+        j.ocupadoHasta = scene.time.now + 900;
+        scene.time.delayedCall(330, () => {
+            if (j.estado !== 'pelea') return;
+            [-1, 0, 1].forEach(k => {
+                const datos = { x: Math.round(s.body.center.x), y: Math.round(s.body.top + 20), vx: Math.round(dx * (0.75 + k * 0.3)), vy: -260 - k * 70, hielo: true };
+                avisar(scene, 'lanza', datos);
+                rocaLanzada(scene, datos);
+            });
+        });
+    },
+    // veneno: una nube que te sigue despacio
+    veneno(scene, api, dx) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        aviso(scene, s, 'veneno');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-hurt`, true);
+        j.ocupadoHasta = scene.time.now + 900;
+        const datos = { x: Math.round(s.body.center.x + (Math.sign(dx) || 1) * 60) };
+        avisar(scene, 'veneno', datos);
+        nubeVeneno(scene, datos.x, api);
+    },
+    // se esfuma y aparece detrás de ti (y ataca)
+    esfuma(scene, api) {
+        const j = scene.jefe, s = j.sprite, g = scene.mascotaGesi;
+        aviso(scene, s, 'esfuma');
+        s.setVelocityX(0);
+        j.ocupadoHasta = scene.time.now + 1400;
+        scene.tweens.add({ targets: s, alpha: 0, duration: 260 });
+        scene.time.delayedCall(560, () => {
+            if (j.estado !== 'pelea' || !s.active) return;
+            const detras = g.flipX ? 1 : -1; // (a la espalda: al revés de donde mira)
+            const x = Phaser.Math.Clamp(g.body.center.x + detras * 95, j.arenaIni + 100, j.arenaFin - 100);
+            s.setPosition(x, s.y);
+            s.flipX = g.body.center.x < x;
+            avisar(scene, 'esfuma', { x: Math.round(x) });
+            scene.tweens.add({ targets: s, alpha: 1, duration: 200 });
+            scene.sound.play('aparece', { volume: 0.6 });
+            garrotazo(scene, api, 380);
+        });
+    },
+    // vendaval: te arrastra hacia él un momento (corre en contra)
+    vendaval(scene) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        aviso(scene, s, 'vendaval');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-idle`, true);
+        j.ocupadoHasta = scene.time.now + 2400;
+        const datos = { x: Math.round(s.body.center.x) };
+        avisar(scene, 'vendaval', datos);
+        vendaval(scene, datos.x);
+    },
+    // invoca dos ayudantes (los enemigos del nivel)
+    invocar(scene, api) {
+        const j = scene.jefe, s = j.sprite, d = j.datos;
+        aviso(scene, s, 'invocar');
+        s.setVelocityX(0);
+        s.anims.play(`troll${d.troll}-hurt`, true);
+        j.ocupadoHasta = scene.time.now + 1100;
+        rugir(scene);
+        const enArena = scene.enemies.getChildren().filter(e => !e.isDead && e.x > j.arenaIni && e.x < j.arenaFin).length;
+        if (enArena >= 3) return;
+        [-1, 1].forEach(lado => {
+            const x = Phaser.Math.Clamp(s.body.center.x + lado * 160, j.arenaIni + 60, j.arenaFin - 90);
+            const humo = scene.add.image(x, SUELO_Y - 30, 'brillo').setDepth(37).setScale(2).setTint(0xc79aff).setBlendMode('ADD');
+            scene.tweens.add({ targets: humo, scale: 0.2, alpha: 0, duration: 600, onComplete: () => humo.destroy() });
+            if (!esReplica(scene)) api.crearEnemigo?.(scene, x, SUELO_Y - 2);
+        });
+    },
+});
+
+// un rayo: círculo de aviso en el suelo y, al rato, la descarga
+function rayoCae(scene, x, api) {
+    const circulo = scene.add.ellipse(x, SUELO_Y - 2, 56, 12).setStrokeStyle(2, 0x9fe8ff, 1).setDepth(36);
+    scene.tweens.add({ targets: circulo, scaleX: 0.5, scaleY: 0.5, yoyo: true, repeat: 2, duration: 110 });
+    scene.time.delayedCall(700, () => {
+        circulo.destroy();
+        const rayo = scene.add.rectangle(x, SUELO_Y, 18, SUELO_Y + 400, 0xdff6ff, 0.95).setOrigin(0.5, 1).setDepth(44).setBlendMode('ADD');
+        scene.tweens.add({ targets: rayo, alpha: 0, scaleX: 0.2, duration: 260, onComplete: () => rayo.destroy() });
+        scene.cameras.main.flash(70, 160, 200, 255);
+        scene.sound.play('trueno', { volume: 0.4 });
+        const gb = scene.mascotaGesi.body;
+        if (Math.abs(gb.center.x - x) < 28 && !scene.mascotaGesi.isDead) api.killgesi(scene, 20, x);
+    });
+}
+
+// un charco de fuego: chispas de aviso y, al rato, llamas que queman un rato
+function charcoFuego(scene, x, api) {
+    const aviso = scene.add.ellipse(x, SUELO_Y - 3, 70, 10, 0xff8a3d, 0.5).setDepth(36);
+    scene.tweens.add({ targets: aviso, alpha: 0.15, yoyo: true, repeat: 2, duration: 100 });
+    scene.time.delayedCall(550, () => {
+        aviso.destroy();
+        const llama = scene.add.image(x, SUELO_Y - 18, 'brillo').setDepth(36).setScale(2, 1.4).setTint(0xff6a20).setBlendMode('ADD');
+        const llama2 = scene.add.image(x, SUELO_Y - 30, 'brillo').setDepth(36).setScale(1.1, 1.6).setTint(0xffd060).setBlendMode('ADD');
+        scene.tweens.add({ targets: [llama, llama2], scaleY: '*=1.25', yoyo: true, repeat: -1, duration: 160 });
+        const quema = scene.time.addEvent({ delay: 250, repeat: 10, callback: () => {
+            const gb = scene.mascotaGesi.body;
+            if (Math.abs(gb.center.x - x) < 36 && gb.bottom > SUELO_Y - 20 && !scene.mascotaGesi.isDead) api.killgesi(scene, 12, x);
+        } });
+        scene.time.delayedCall(2700, () => {
+            quema.remove();
+            scene.tweens.add({ targets: [llama, llama2], alpha: 0, duration: 300, onComplete: () => { llama.destroy(); llama2.destroy(); } });
+        });
+    });
+}
+
+// una nube de veneno que va hacia el jugador despacio y se disuelve
+function nubeVeneno(scene, x, api) {
+    const nube = scene.add.image(x, SUELO_Y - 40, 'brillo').setDepth(37).setScale(2.2, 1.6).setTint(0x7aff5a).setAlpha(0).setBlendMode('ADD');
+    const nube2 = scene.add.image(x, SUELO_Y - 40, 'brillo').setDepth(37).setScale(1.4).setTint(0xc0ff60).setAlpha(0).setBlendMode('ADD');
+    scene.tweens.add({ targets: [nube, nube2], alpha: 0.75, duration: 400 });
+    const vida = 4200, inicio = scene.time.now;
+    const mover = scene.time.addEvent({ delay: 50, loop: true, callback: () => {
+        const g = scene.mascotaGesi, t = scene.time.now - inicio;
+        const dir = Math.sign(g.body.center.x - nube.x);
+        nube.x += dir * 3.2; nube2.x = nube.x;
+        nube2.setScale(1.4 + Math.sin(t / 150) * 0.15);
+        if (t % 500 < 50 && Math.abs(g.body.center.x - nube.x) < 46 && Math.abs(g.body.center.y - nube.y) < 60 && !g.isDead) api.killgesi(scene, 10, nube.x);
+        if (t > vida) {
+            mover.remove();
+            scene.tweens.add({ targets: [nube, nube2], alpha: 0, duration: 400, onComplete: () => { nube.destroy(); nube2.destroy(); } });
+        }
+    } });
+}
+
+// vendaval: líneas de viento y el jugador arrastrado hacia el jefe
+function vendaval(scene, x) {
+    const inicio = scene.time.now;
+    const lineas = [];
+    const arrastre = scene.time.addEvent({ delay: 30, loop: true, callback: () => {
+        const g = scene.mascotaGesi, t = scene.time.now - inicio;
+        if (t > 2000 || !scene.jefe || scene.jefe.estado !== 'pelea') {
+            arrastre.remove();
+            lineas.forEach(l => l.destroy());
+            return;
+        }
+        if (t > 350 && !g.isDead) g.x += Math.sign(x - g.x) * 2.6;
+        if (t % 120 < 30) {
+            const y = SUELO_Y - 20 - Math.random() * 160, lado = Math.random() < 0.5 ? -1 : 1;
+            const l = scene.add.rectangle(x + lado * 380, y, 60, 2, 0xe8e0c0, 0.6).setDepth(37);
+            lineas.push(l);
+            scene.tweens.add({ targets: l, x, alpha: 0, duration: 450, onComplete: () => l.destroy() });
+        }
+    } });
+}
+
+function rocaLanzada(scene, { x, y, vx, vy, hielo }) {
+    const roca = scene.balasEnemigas.create(x, y, 'mz_bloque').setScale(hielo ? 0.7 : 1.2, hielo ? 1.3 : 1.2).setTint(hielo ? 0xbff0ff : 0x9a8f88);
     roca.body.setAllowGravity(true);
     roca.body.setGravityY(300);
     roca.setVelocity(vx, vy);
@@ -918,5 +1182,10 @@ export function efectoJefe(scene, m, api) {
         case 'lanza': rocaLanzada(scene, m); break;
         case 'mareado': mareado(scene, s); break;
         case 'rugido': rugir(scene); break;
+        case 'rayo': rayoCae(scene, m.x, api); break;
+        case 'fuego': charcoFuego(scene, m.x, api); break;
+        case 'veneno': nubeVeneno(scene, m.x, api); break;
+        case 'vendaval': vendaval(scene, m.x); break;
+        case 'esfuma': s.setAlpha(1); break;
     }
 }

@@ -32,7 +32,7 @@ import { PERSONAJES } from "./personajes.js"
 import { nivelJugador } from "./progreso.js"
 import {
     PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, filtroIcono, colorDe,
-    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX,
+    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX, ELEMENTOS, elementoDe, comboDe, BUILDS,
 } from "./poderes.js"
 
 const CLAVE = 'monhabell-aventura-tienda';
@@ -118,6 +118,17 @@ export const CATALOGO = [
         id: 'aura_alba', tipo: 'cosmetico', icono: '☀', nombre: 'Aura del Alba', precio: 0, color: 0xffd27a,
         requisito: 6, descripcion: 'Premio: termina el juego y devuelve el sol a Albora.',
     },
+    // premios de los HITOS (hitos.js): llegar lejos en los 5000 niveles. color puede ser una lista
+    // (varios colores a la vez); escala y frecuencia: más grandes y más seguidas las de los hitos altos
+    { id: 'estela_explorador', tipo: 'cosmetico', icono: '🧭', nombre: 'Estela del explorador', precio: 0, color: 0x9fe0a0, requisito: 25, descripcion: 'Hito: llega al nivel 25.' },
+    { id: 'estela_escarcha', tipo: 'cosmetico', icono: '❄', nombre: 'Estela de escarcha', precio: 0, color: [0x9fe8ff, 0xffffff], requisito: 50, descripcion: 'Hito: llega al nivel 50.' },
+    { id: 'estela_dorada', tipo: 'cosmetico', icono: '🛡', nombre: 'Estela dorada', precio: 0, color: [0xffd27a, 0xffb347], escala: 0.2, requisito: 100, descripcion: 'Hito: llega al nivel 100.' },
+    { id: 'estela_sombra', tipo: 'cosmetico', icono: '🙃', nombre: 'Estela de sombra', precio: 0, color: [0x8a5cff, 0x3a2a6a], escala: 0.22, requisito: 250, descripcion: 'Hito: llega al nivel 250.' },
+    { id: 'estela_estelar', tipo: 'cosmetico', icono: '⭐', nombre: 'Estela estelar', precio: 0, color: [0xffffff, 0xfff06a, 0x9fb4ff], escala: 0.22, frecuencia: 30, requisito: 500, descripcion: 'Hito: llega al nivel 500.' },
+    { id: 'estela_tormenta', tipo: 'cosmetico', icono: '⚡', nombre: 'Estela de tormenta', precio: 0, color: [0xfff06a, 0x6fe8ff], escala: 0.24, frecuencia: 28, requisito: 1000, descripcion: 'Hito: llega al nivel 1000.' },
+    { id: 'estela_noche', tipo: 'cosmetico', icono: '🌙', nombre: 'Estela de la noche eterna', precio: 0, color: [0x3a4aff, 0xc77dff, 0x0a0a2a], escala: 0.26, frecuencia: 25, requisito: 2000, descripcion: 'Hito: llega al nivel 2000.' },
+    { id: 'estela_fantasma', tipo: 'cosmetico', icono: '💀', nombre: 'Estela fantasma', precio: 0, color: [0xd8e8ff, 0x9fd8ff], escala: 0.28, frecuencia: 22, requisito: 3500, descripcion: 'Hito: llega al nivel 3500.' },
+    { id: 'estela_arcoiris', tipo: 'cosmetico', icono: '👑', nombre: 'Estela arcoíris', precio: 0, color: [0xff4d4d, 0xffa040, 0xffe066, 0x7fe06a, 0x5ab4ff, 0xc77dff], escala: 0.3, frecuencia: 18, requisito: 5000, descripcion: 'Hito: llega al nivel 5000. Venciste a la noche.' },
 ];
 
 const porId = id => CATALOGO.find(o => o.id === id);
@@ -288,7 +299,7 @@ export function crearEstela(scene) {
     const g = scene.mascotaGesi;
     scene.estela = scene.add.particles(0, 0, 'brillo', {
         follow: g, followOffset: { x: 0, y: 10 }, speed: { min: 6, max: 24 }, lifespan: 520,
-        scale: { start: 0.16, end: 0 }, alpha: { start: 0.7, end: 0 }, tint: o.color, blendMode: 'ADD', frequency: 45,
+        scale: { start: o.escala ?? 0.16, end: 0 }, alpha: { start: 0.7, end: 0 }, tint: o.color, blendMode: 'ADD', frequency: o.frecuencia ?? 45,
     }).setDepth(g.depth - 1);
     scene.estela.emitting = false;
 }
@@ -406,8 +417,25 @@ export function iniciarTienda() {
         };
         const filtros = ['todos', 'mios', ...Object.keys(RAREZAS)].map(f => `<button type="button" class="poder-filtro ${filtro === f ? 'activo' : ''}"
             data-filtro="${f}" aria-pressed="${filtro === f}">${f === 'todos' ? 'Todos' : f === 'mios' ? 'Míos' : RAREZAS[f].nombre}</button>`).join('');
+        // la build recomendada del héroe (dos poderes que hacen combo)
+        const build = BUILDS[h.id];
+        let recomendada = '';
+        if (build) {
+            const [a, b, porque] = build, pa = PODERES.find(q => q.id === a), pb = PODERES.find(q => q.id === b);
+            const combo = comboDe(elementoDe(pa), elementoDe(pb));
+            const tiene = tienePoder(a) && tienePoder(b), puesta = eq[0] === a && eq[1] === b;
+            const nombre = p => `${ELEMENTOS[elementoDe(p)][0]} ${p.nombre}${tienePoder(p.id) ? '' : ' 🔒'}`;
+            recomendada = `<div class="poder-build"><b>⭐ Recomendado para ${h.nombre}:</b> ${nombre(pa)} + ${nombre(pb)}${combo ? ` → <em>${combo[0]}</em>` : ''}
+                <small>${porque}</small>
+                <button type="button" class="menu-boton tienda-btn" data-build="${h.id}" ${tiene && !puesta ? '' : 'disabled'}>${puesta ? '✓ Equipada' : tiene ? 'Equipar los dos' : 'Te falta alguno 🔒'}</button></div>`;
+        }
+        // el combo que hacen los dos equipados ahora
+        const pe = eq.map(id => PODERES.find(q => q.id === id));
+        const comboAhora = pe[0] && pe[1] ? comboDe(elementoDe(pe[0]), elementoDe(pe[1])) : null;
         arriba.innerHTML = `
-            <div class="poder-equipo"><b>En <span style="color:${colorHeroe}">${h.nombre}</span></b>${eq.map(ranura).join('')}</div>
+            <div class="poder-equipo"><b>En <span style="color:${colorHeroe}">${h.nombre}</span></b>${eq.map(ranura).join('')}${comboAhora
+                ? `<em class="poder-combo">Combo: ${comboAhora[0]}</em>` : pe[0] && pe[1] ? '<em class="poder-combo nada">Sin combo: prueba otro elemento</em>' : ''}</div>
+            ${recomendada}
             <div class="poder-filtros" role="group" aria-label="Filtrar poderes">${filtros}</div>`;
         const visibles = PODERES.filter(p => filtro === 'todos' || (filtro === 'mios' ? tienePoder(p.id) : p.rareza === filtro));
         lista.innerHTML = visibles.map(p => {
@@ -423,7 +451,9 @@ export function iniciarTienda() {
                 : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${RAREZAS[p.rareza].nivelMinimo} · ${moneda(precio)}</button>`
                 : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ${moneda(precio)}`}</button>`;
             // ventajas con los valores de su nivel actual (y qué gana al subir)
-            const chips = ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');
+            const [ie, ne, ce] = ELEMENTOS[elementoDe(p)];
+            const chips = `<i class="poder-ventaja poder-elemento" style="--elem:${ce}"><span aria-hidden="true">${ie}</span> ${ne}</i>` +
+                ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');
             const siguiente = costo === null ? (mio ? '<small class="poder-max">★ Nivel máximo</small>' : '')
                 : `<small class="poder-siguiente"><b>Nivel ${nv + 1}:</b> ${queGana(nv + 1)}</small>`;
             return carta({
@@ -521,6 +551,14 @@ export function iniciarTienda() {
             equiparPoder(heroe().id, b.dataset.poder, Number(b.dataset.ranura));
             pintar();
             capa.querySelector(`[data-poder="${b.dataset.poder}"][data-ranura="${b.dataset.ranura}"]`)?.focus();
+            return;
+        }
+        if (b.dataset.build) {
+            const [a, bb] = BUILDS[b.dataset.build];
+            equiparPoder(heroe().id, a, 0);
+            equiparPoder(heroe().id, bb, 1);
+            avisar('⭐ Build equipada: golpea con uno y luego con el otro para el combo', true);
+            pintar();
             return;
         }
         if (b.dataset.subirPoder) {
