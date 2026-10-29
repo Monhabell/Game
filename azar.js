@@ -16,6 +16,8 @@
 // Corazones al azar: si te falta alguna vida, de vez en cuando aparece uno delante de ti,
 // y los enemigos derrotados a veces sueltan uno.
 
+import { TROLLADAS, LUGAR_TROLLADA, TROLLADAS_INOFENSIVAS } from "./trolladas.js"
+
 const SUELO_Y = 332;
 
 // generador con semilla (mulberry32): la misma semilla da siempre el mismo reparto
@@ -75,7 +77,7 @@ const LOCURAS_POR_NIVEL = [
 ];
 const CUANTAS_LOCURAS = [7, 8, 10, 12, 15, 18];
 // remixes que no hacen daño (no cuentan como trampas)
-const INOFENSIVAS = ['monedaBuena', 'estatuaRoja', 'runaDerrumba', 'ascensor'];
+const INOFENSIVAS = ['monedaBuena', 'estatuaRoja', 'runaDerrumba', 'ascensor', ...TROLLADAS_INOFENSIVAS];
 
 export function contarTrampas(n) {
     const c = ch => (n.bloques || []).reduce((a, b) => a + [...b[2]].filter(x => x === ch).length, 0);
@@ -89,16 +91,18 @@ const BURLAS_CARTEL = ['¡SALTA AQUÍ!', 'ATAJO →', 'TODO BIEN :)', 'NO HAY TR
 
 // sueloExtra: rangos de suelo hechos a mano (nivel 1)
 // semilla: opcional; si no se pasa, se toma de la URL (?semilla=) o se elige al azar
-export function aleatorizarNivel(nivel, indice, sueloExtra = [], semilla = semillaDelIntento()) {
+// nivelReal: el número de nivel de verdad (indice llega hasta 5: las reglas de los primeros niveles);
+// con él se estrenan las trolladas
+export function aleatorizarNivel(nivel, indice, sueloExtra = [], semilla = semillaDelIntento(), nivelReal = indice) {
     rnd = crearAzar(semilla);
     try {
-        return repartirTrampas(nivel, indice, sueloExtra, semilla);
+        return repartirTrampas(nivel, indice, sueloExtra, semilla, nivelReal);
     } finally {
         rnd = Math.random; // lo demás (corazones, escudos) sigue con el azar normal
     }
 }
 
-function repartirTrampas(nivel, indice, sueloExtra, semilla) {
+function repartirTrampas(nivel, indice, sueloExtra, semilla, nivelReal) {
     const n = { ...nivel, semilla };
     const meta = nivel.meta;
     const checkpoints = nivel.checkpoints || [];
@@ -179,6 +183,24 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     };
 
     // (los cebos van primero para que siempre tengan sitio)
+    // ---------- Trolladas (trolladas.js): van PRIMERO (si no, las trampas de siempre ocupan todos los
+    // lugares). Cada nivel ESTRENA una (la más nueva que se desbloqueó) y mezcla las de antes; de 2 a 8
+    const estrenadas = Math.min(TROLLADAS.length, 1 + nivelReal);
+    const cuantasT = Math.min(8, 2 + Math.floor(nivelReal / 15));
+    const firmeT = (a, b) => [...(nivel.suelo || []), ...sueloExtra].some(([s, e]) => a >= s && b <= e);
+    const techoT = [...bloquesBajos, ...(nivel.plataformas || []).map(([x, , ancho]) => [x - 60, x + ancho + 60])];
+    const LUGAR_T = {
+        techo: () => tomar(techoT, 0, x => firmeT(x - 80, x + 80)),
+        largo: () => tomar([], 0, x => firmeT(x - 80, x + 600)),
+        normal: () => tomar([], 0, x => firmeT(x - 120, x + 120)),
+    };
+    const trolladas = [];
+    for (let k = 0; k < cuantasT; k++) {
+        const tipo = k === 0 ? TROLLADAS[estrenadas - 1] : TROLLADAS[Math.floor(rnd() * estrenadas)];
+        const x = LUGAR_T[LUGAR_TROLLADA[tipo] || 'normal']();
+        if (x !== null) trolladas.push([x, tipo]);
+    }
+
     // cebos (castigo a la codicia): un cristal tentador que, al tomarlo, esconde una trampa
     //   techo:  cae una roca donde estás (si sigues moviéndote, te salvas)
     //   mimico: el cristal es un enemigo disfrazado (te empuja, sin quitarte vida, y pelea)
@@ -245,7 +267,7 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla) {
     ];
 
     // ---------- Locuras: las trampas nuevas de cada nivel (ver locuras.js) ----------
-    n.locuras = [...(nivel.locuras || [])]; // (las que el nivel trae puestas a mano se quedan)
+    n.locuras = [...(nivel.locuras || []), ...trolladas]; // (las que el nivel trae puestas a mano se quedan)
     n.cristales = [...(nivel.cristales || [])];
     const firme = (a, b) => [...n.suelo, ...sueloExtra].some(([s, e]) => a >= s && b <= e);
     const flotantes = (nivel.plataformas || []).map(([x, , ancho]) => [x - 60, x + ancho + 60]);

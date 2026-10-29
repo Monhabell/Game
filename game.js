@@ -7,7 +7,7 @@ import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSe
 import { cargarCastillos, crearCastilloMeta } from "./castillos.js"
 import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, vestirTecho, crearLava, moverLava,
-    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero
+    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero, sueloDeTema
 } from "./mazmorra.js"
 import { iniciarTactil, esTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
@@ -690,7 +690,7 @@ function create() {
     const nivel = arena ? nivelArena() : noche ? nivelDeNoche(inicioNoche()) : pista != null ? armarPista(pista, semillaEnLinea(nivelActual))
         : delNivel.fija ? prepararNivelFijo(delNivel, semillaEnLinea(nivelActual))
         // (las reglas de trampas al azar llegan hasta las del nivel 6: los infinitos ya traen las suyas)
-        : aleatorizarNivel(delNivel, Math.min(nivelActual, 5), nivelActual === 0 && delNivel.amano ? [[600, 1106]] : [], semillaEnLinea(nivelActual));
+        : aleatorizarNivel(delNivel, Math.min(nivelActual, 5), nivelActual === 0 && delNivel.amano ? [[600, 1106]] : [], semillaEnLinea(nivelActual), nivelActual);
     if (!arena) console.info(`[trampas] nivel ${nivelActual + 1} · semilla ${nivel.semilla} (para repetir este reparto: ?semilla=${nivel.semilla})`);
     if (!enLinea()) guardarPartida(); // para no tener que volver al inicio (en línea no se pisa la partida propia)
     prepararAnimaciones(this);
@@ -741,6 +741,7 @@ function create() {
     this.saltosAire = 0;
     this.sufijo = nivel.cueva ? '_cueva' : '';
     this.velEnemigos = (nivel.velEnemigos ?? 50) * factorEnemigos(); // la dificultad los acelera o frena
+    this.vidaExtraEnemigos = nivel.vidaExtra || 0;
     // vidas según la dificultad elegida (si se bajó en medio de la partida, se recortan)
     VIDAS_INICIALES = arena ? 3 : vidasTotales();
     vidas = arena ? 3 : Math.min(vidas, VIDAS_INICIALES); // (en la arena: los corazones de la ronda, ver prepararArena)
@@ -758,8 +759,9 @@ function create() {
     const nivel1 = nivelActual === 0 && !arena && !noche && !!NIVELES[0].amano;
     this.nivel1AMano = nivel1;
     // suelos y plataformas de ladrillo medieval (el nivel 1 de las Afueras): ver vestirSuelo en mazmorra.js
-    this.estiloMedieval = ['afueras', 'catacumbas', 'minas', 'infinito'].includes(nivel.estilo);
+    this.estiloMedieval = ['afueras', 'catacumbas', 'minas', 'infinito', 'medieval'].includes(nivel.estilo);
     this.murosPropios = ['afueras', 'catacumbas', 'minas'].includes(nivel.estilo); // (esos niveles dibujan sus muros)
+    this.sueloTema = this.estiloMedieval ? sueloDeTema(this, nivel.tema) : null; // (el ladrillo o la piedra del tema, con su color)
     this.minas = nivel.estilo === 'minas';
     this.catacumbas = nivel.estilo === 'catacumbas';
     const rangosSuelo = [...(nivel.suelo || []), ...(nivel1 ? [[0, 1106]] : [])];
@@ -797,12 +799,14 @@ function create() {
     this.misionesNivel = null;
     // niveles infinitos: misiones que abren la meta (misiones.js)
     this.falsas = null;
-    if (esInfinito(nivelActual) && !arena && !noche && pista == null) {
-        crearMisiones(this, nivel, nivelActual, nivelActual - NIVELES.length);
+    // (y los niveles hechos a mano que traen las suyas: del 4 al 7)
+    if ((esInfinito(nivelActual) || nivel.misiones) && !arena && !noche && pista == null) {
+        const k = esInfinito(nivelActual) ? nivelActual - NIVELES.length : 0;
+        crearMisiones(this, nivel, nivelActual, k);
         // trampas falsas (falsas.js), lejos de las misiones y los acertijos
         const ocupados = (this.misionesNivel || []).flatMap(m => [m.desde, m.hasta, m.pista, ...(m.cosas || []).map(c => c.x),
             ...(m.palancas || []).map(p => p.x), ...(m.runas || []).map(p => p.x)]).filter(x => x != null);
-        crearFalsas(this, nivel, nivelActual, nivelActual - NIVELES.length, ocupados);
+        crearFalsas(this, nivel, nivelActual, esInfinito(nivelActual) ? k : nivel.falsas ?? 0, ocupados);
     }
     if (this.minas) crearMinas(this); // (nivel 3: misiones, sellos, carro, dinamita…)
     crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
@@ -1077,6 +1081,7 @@ function moverCamara(scene) {
     const c = scene.compa?.active ? scene.compa : null;
     const fx = c ? (g.x + c.x) / 2 : g.x, fy = c ? (g.y + c.y) / 2 : g.y;
     const dt = scene.game.loop.delta;
+    if (scene.time.now < (scene.camaraQuietaHasta || 0)) return; // (trolladas.js: la cámara se queda atrás)
     if (scene.camaraArena) {
         // (si se ve más que el nivel entero, como en la arena, queda centrada)
         cam.scrollX = anchoVista >= scene.anchoNivel ? scene.camaraArena - anchoVista / 2
@@ -2029,7 +2034,7 @@ function crearEnemigo(scene, x, y, tipo) {
         hacerReplica(enemy); // en esta pantalla lo mueve el anfitrión
         if (scene.idsCerrados && !scene.creandoReplica) descartarEnemigo(scene, enemy);
     }
-    enemy.vida = def.vida;
+    enemy.vida = def.vida + (scene.vidaExtraEnemigos || 0); // (niveles muy altos: aguantan más golpes)
     enemy.velBase = scene.velEnemigos * def.vel;
     enemy.proxAtaque = scene.time.now + 800 + Math.random() * 800;
     enemy.atacandoHasta = 0;

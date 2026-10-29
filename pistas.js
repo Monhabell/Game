@@ -71,7 +71,21 @@ const INDICE_TRAMPAS = 0;
 export const pistaDe = i => PISTAS[Math.min(Math.max(0, i | 0), PISTAS.length - 1)];
 
 // arma la pista con sus trampas para esta semilla (la misma en todas las pantallas)
+// CARRERA: menos monedas que en la aventura (se corre, no se junta): queda 1 de cada 3 filas
+const FILAS_QUE_QUEDAN = 1 / 3;
 export function armarPista(i, semilla) {
+    const n = armarPistaBase(i, semilla);
+    const r = crearAzar((semilla ^ 0x51ed27) >>> 0);
+    // una fila: monedas a la misma altura y seguidas (a menos de 60 px)
+    let fila = -1, ultima = null, queda = true;
+    const monedas = (n.monedas || []).filter(m => {
+        if (!ultima || m[1] !== ultima[1] || Math.abs(m[0] - ultima[0]) > 60) { fila++; queda = r() < FILAS_QUE_QUEDAN; }
+        ultima = m;
+        return queda;
+    });
+    return { ...n, monedas };
+}
+function armarPistaBase(i, semilla) {
     const pista = pistaDe(i);
     if (pista.nivel != null) return armarDeNivel(pista.nivel, semilla);
     const region = NIVELES[pista.region];
@@ -96,7 +110,7 @@ export function armarPista(i, semilla) {
 
     if (pista.fija) return prepararNivelFijo({ ...base, abismo: true }, semilla);
 
-    const n = aleatorizarNivel(base, INDICE_TRAMPAS, [], semilla);
+    const n = aleatorizarNivel(base, INDICE_TRAMPAS, [], semilla, 9); // (9: todas las trolladas de la primera tanda)
     // los carteles de las bifurcaciones dicen la verdad: siempre están (azar.js a veces quita carteles)
     base.carteles.forEach(c => { if (!n.carteles.some(o => o[0] === c[0] && o[2] === c[2])) n.carteles.push(c); });
     const r = crearAzar((semilla ^ 0x9e3779b9) >>> 0);
@@ -109,7 +123,7 @@ export function armarPista(i, semilla) {
 function armarDeNivel(i, semilla) {
     const nivel = NIVELES[i];
     const n = nivel.fija ? prepararNivelFijo(nivel, semilla)
-        : aleatorizarNivel(nivel, i, i === 0 ? [[600, 1106]] : [], semilla); // (el comienzo del nivel 1 está hecho a mano)
+        : aleatorizarNivel(nivel, i, i === 0 ? [[600, 1106]] : [], semilla, 9); // (el comienzo del nivel 1 está hecho a mano)
     return { ...n, meta: nivel.meta - SIN_ARENA };
 }
 

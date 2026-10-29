@@ -97,8 +97,10 @@ export function crearAnimacionesJefes(scene) {
 // prepara la arena; el jefe aparece cuando el jugador entra
 export function prepararJefe(scene, nivel, indice) {
     const datos = JEFES[indice % JEFES.length];
-    // en niveles altos el troll pega más fuerte y aparecen menos ayudas (con tope: niveles infinitos)
-    const k = Math.min(indice, 15);
+    // en niveles altos el troll pega más fuerte y aparecen menos ayudas: en los hechos a mano sube
+    // nivel a nivel (tope 15 en el nivel 16); desde el nivel 150, +1 cada 250 niveles (tope 25) y con más vida
+    const k = indice < 150 ? Math.min(indice, 15) : Math.min(25, 15 + Math.floor((indice - 150) / 250));
+    const masVida = indice < 7 ? 1 : 1 + Math.min(1, Math.floor(indice / 10) / 200); // (hasta el doble)
     scene.dañoJefe = 1 + 0.2 * k;                   // nivel 1: x1  ...  nivel 6: x2  ...  tope x4
     scene.esperaAyudas = 6000 + 2000 * k;           // nivel 1: cada 6 s  ...  nivel 6: cada 16 s
     scene.curacionArena = Math.max(20, 45 - 5 * k);
@@ -106,7 +108,7 @@ export function prepararJefe(scene, nivel, indice) {
     scene.jefe = {
         datos: { ...datos, nombre: NOMBRE_JEFE }, indice,
         arenaIni: meta - ANCHO_ARENA - 50, arenaFin: meta - 50,
-        estado: 'esperando', vida: scene.vidaJefeInicial ?? datos.vida, vidaMax: datos.vida,
+        estado: 'esperando', vida: scene.vidaJefeInicial ?? Math.round(datos.vida * masVida), vidaMax: Math.round(datos.vida * masVida),
         reintento: scene.vidaJefeInicial != null,
         derrotado: false, sprite: null, muros: [],
     };

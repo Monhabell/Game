@@ -20,6 +20,9 @@
 // Lo cumplido se guarda al morir; se borra al cambiar de nivel o con un GAME OVER (reiniciarMisiones).
 // La lista se ve a la izquierda y una flecha lleva a lo pendiente más cercano.
 //
+// Los NIVELES HECHOS A MANO (4 a 7) traen su plan en nivel.misiones: { tipos, acertijos, cant, textos, iconos }
+// (qué misiones y acertijos, en ese orden, cuántas cosas cada una y sus textos de la historia).
+//
 // api (la da game.js): { mensaje(scene, texto, ms), crearEnemigo(scene, x, y, tipo) }
 
 import { SUELO_Y } from "./alcance.js"
@@ -55,9 +58,11 @@ function azar(semilla) {
 export function planearMisiones(nivel, i, k) {
     const r = azar(i * 2654435761 + 99);
     const lvl = i + 1;
-    const cuantas = lvl <= 10 ? 1 : lvl <= 50 ? 2 : lvl <= 200 ? 3 : lvl <= 1000 ? 3 + (r() < 0.5 ? 1 : 0) : 4 + (r() < 0.5 ? 1 : 0);
-    const tipos = ['rescatar', 'encender', 'romper', 'llevar', 'contrarreloj'];
-    for (let j = tipos.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [tipos[j], tipos[m]] = [tipos[m], tipos[j]]; }
+    const propio = nivel.misiones; // (los niveles hechos a mano: su plan)
+    const cuantas = propio ? propio.tipos.length
+        : lvl <= 10 ? 1 : lvl <= 50 ? 2 : lvl <= 200 ? 3 : lvl <= 1000 ? 3 + (r() < 0.5 ? 1 : 0) : 4 + (r() < 0.5 ? 1 : 0);
+    const tipos = propio ? [...propio.tipos] : ['rescatar', 'encender', 'romper', 'llevar', 'contrarreloj'];
+    if (!propio) for (let j = tipos.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [tipos[j], tipos[m]] = [tipos[m], tipos[j]]; }
     // dónde se puede poner algo: suelo firme, lejos de los huecos, de las escaleras y de lo que haya arriba
     const libres = lugaresLibres(nivel);
     // desde/hasta: el lugar tiene que quedar entre esas x (si no hay, cualquiera)
@@ -71,21 +76,21 @@ export function planearMisiones(nivel, i, k) {
         for (let j = libres.length - 1; j >= 0; j--) if (Math.abs(libres[j] - x) < 260) libres.splice(j, 1);
         return x;
     };
-    const cant = Math.min(6, 2 + Math.floor(k / 40)); // más jaulas y cristales en cada nivel
+    const cant = propio?.cant ?? Math.min(6, 2 + Math.floor(k / 40)); // más jaulas y cristales en cada nivel
     const plan = [];
     // (los acertijos van primero: necesitan una fila de lugares libres)
     // ---------- acertijos ----------
-    const acertijos = lvl <= 20 ? 0 : lvl <= 100 ? 1 : lvl <= 500 ? 1 + (r() < 0.5 ? 1 : 0) : 2;
+    const acertijos = propio ? (propio.acertijos || []).length : lvl <= 20 ? 0 : lvl <= 100 ? 1 : lvl <= 500 ? 1 + (r() < 0.5 ? 1 : 0) : 2;
     const tramposa = lvl > 200 && r() < Math.min(0.6, (lvl - 200) / 1000); // (la pista miente: 🙃 al revés)
     const elegir = (n, total) => {
         const bolsa = SIMBOLOS.slice(0, total);
         for (let j = bolsa.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [bolsa[j], bolsa[m]] = [bolsa[m], bolsa[j]]; }
         return bolsa.slice(0, n);
     };
-    const tiposAcertijo = r() < 0.5 ? ['palancas', 'runas'] : ['runas', 'palancas'];
+    const tiposAcertijo = propio ? propio.acertijos || [] : r() < 0.5 ? ['palancas', 'runas'] : ['runas', 'palancas'];
     const acertijosPlan = [];
     for (let a = 0; a < acertijos; a++) {
-        const tipo = tiposAcertijo[a % 2];
+        const tipo = tiposAcertijo[a % tiposAcertijo.length];
         if (tipo === 'palancas') {
             const n = Math.min(6, 3 + Math.floor(k / 100));
             const SEP = 70;
@@ -114,7 +119,7 @@ export function planearMisiones(nivel, i, k) {
     }
     // de a uno: si una misión no cabe en el mapa se prueba con el tipo siguiente (y rescatar/encender
     // pueden repetirse) hasta tener las que le tocan al nivel
-    const cola = [...tipos, 'rescatar', 'encender', 'rescatar'];
+    const cola = propio ? [...tipos] : [...tipos, 'rescatar', 'encender', 'rescatar'];
     while (plan.length < cuantas && cola.length) [cola.shift()].forEach(tipo => {
         if (tipo === 'rescatar') {
             const xs = Array.from({ length: cant }, () => tomar()).filter(x => x != null);
@@ -136,19 +141,42 @@ export function planearMisiones(nivel, i, k) {
         } else if (tipo === 'llevar') {
             // el viaje es más largo en cada nivel (de ~1500 a 5000 px)
             const largo = Math.min(5000, 1500 + k * 15);
-            const a = tomar(0, nivel.meta - ANTES_META - largo), b = a != null ? tomar(a + largo * 0.8, a + largo * 1.2) : null;
+            // (los niveles hechos a mano: el altar puede estar un poco más cerca o más lejos)
+            // (los niveles hechos a mano: si no cabe, se prueba con más margen: esa misión tiene que estar)
+            const margenes = propio ? [[0.6, 2], [0.45, 3.5], [0.5, 12]] : [[0.8, 1.2]];
+            let a = null, b = null;
+            for (const [c0, c1] of margenes) {
+                const libresAntes = [...libres];
+                a = tomar(0, nivel.meta - ANTES_META - largo * c0);
+                b = a != null ? tomar(a + largo * c0, a + largo * c1) : null;
+                if (a != null && b != null) break;
+                libres.splice(0, libres.length, ...libresAntes); // (se devuelve lo tomado)
+            }
             if (a != null && b != null && b - a > 800) plan.push({ tipo, icono: '🏺', texto: 'Lleva la reliquia al altar', desde: a, hasta: b });
         } else {
             const largo = Math.min(3500, 1400 + k * 6);
-            const a = tomar(0, nivel.meta - ANTES_META - largo), b = a != null ? tomar(a + largo * 0.8, a + largo * 1.2) : null;
-            if (a == null || b == null || b - a < 900 || b - a > largo * 1.3) return;
+            // (los niveles hechos a mano: con más margen si no cabe; el tiempo sale de la distancia igual)
+            const margenes = propio ? [[0.8, 1.2], [0.6, 2], [0.6, 4]] : [[0.8, 1.2]];
+            let a = null, b = null;
+            for (const [c0, c1] of margenes) {
+                const libresAntes = [...libres];
+                a = tomar(0, nivel.meta - ANTES_META - largo * c0);
+                b = a != null ? tomar(a + largo * c0, a + largo * c1) : null;
+                if (a != null && b != null && b - a >= 900) break;
+                libres.splice(0, libres.length, ...libresAntes);
+                a = b = null;
+            }
+            if (a == null || b == null || b - a < 900 || (!propio && b - a > largo * 1.3)) return;
             // tiempo: lo que tarda alguien corriendo, con un margen que se achica en cada nivel
             const margen = Math.max(1.12, 1.6 - k / 400);
             plan.push({ tipo, icono: '⏱️', texto: 'Contrarreloj', desde: a, hasta: b, ms: Math.round((b - a) / 200 * 1000 * margen) });
         }
     });
 
-    return [...plan, ...acertijosPlan];
+    const todo = [...plan, ...acertijosPlan];
+    // los textos (y los íconos) de la historia del nivel
+    if (propio) todo.forEach(m => { m.texto = propio.textos?.[m.tipo] ?? m.texto; m.icono = propio.iconos?.[m.tipo] ?? m.icono; });
+    return todo;
 }
 
 // una fila de n lugares libres separados por sep (los toma todos); null si no hay

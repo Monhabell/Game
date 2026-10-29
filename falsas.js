@@ -28,7 +28,7 @@ function azar(semilla) {
 // ocupados: x donde ya hay algo (misiones, acertijos)
 export function crearFalsas(scene, nivel, i, k, ocupados = []) {
     const r = azar(i * 40503 + 17);
-    const cuantas = Math.min(8, 1 + Math.floor(k / 25));
+    const cuantas = Math.min(8, 1 + Math.floor(k / 25)) + Math.min(6, Math.floor(Math.sqrt(Math.max(0, k - 200) / 130))); // (más allá del 200: +1 en el ~340 … +6 en el ~4900)
     const libres = lugares(nivel).filter(x => !ocupados.some(o => Math.abs(o - x) < 220));
     const tipos = ['pinchos', 'lava', 'enemigo', 'cartel'];
     scene.falsas = [];

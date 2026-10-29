@@ -364,6 +364,46 @@ extender(NIVELES[3], 5160, [ // Fortaleza: túneles, doble camino y una torre al
 // NIVEL_3_ANTERIOR (con sus tramos ya agregados)
 export const NIVEL_3_ANTERIOR = NIVELES[2];
 NIVELES[2] = NIVEL_MINAS;
+// NIVELES 4 a 7: su recorrido de siempre, ahora en estilo medieval (ladrillo de las Criptas con el color de
+// su tema: ver TEMAS) y con MISIONES que abren la meta (misiones.js), como el nivel 3. Cada uno tiene las
+// suyas, con los textos de su historia; las trampas falsas (falsas.js) también están.
+//   4 La Fortaleza: el castillo del troll. Prisioneros en el calabozo, braseros de la muralla y las
+//     palancas del rastrillo.
+//   5 El Volcán: se baja al cráter. Cristales de fuego sobre la lava, muros de obsidiana que solo rompe un
+//     poder y el huevo de dragón que hay que llevar al altar antes de que el volcán despierte.
+//   6 El Reino de las Nubes: el cielo del troll. Faros de las nubes, las runas del viento, los
+//     prisioneros de las nubes y la carrera contra la tormenta.
+//   7 Las Ruinas del Abismo: el último trono. Todo junto: prisioneros, muros, palancas y runas.
+const MEDIEVALES = [
+    {
+        i: 3, falsas: 40,
+        tema: { nombre: 'La Fortaleza', tinte: 0x8a8aa8, suelo: 'piedra', color: 0xb8b8d0, particulas: 'polvo' },
+        misiones: { tipos: ['rescatar', 'encender'], acertijos: ['palancas'], cant: 3,
+            textos: { rescatar: 'Libera a los prisioneros del calabozo', encender: 'Enciende los braseros de la muralla', palancas: 'Las palancas del rastrillo' } },
+    },
+    {
+        i: 4, falsas: 60,
+        tema: { nombre: 'El Volcán', tinte: 0xff6a3a, color: 0x9a5a48, particulas: 'brasas', colores: [0xffd060, 0xff5020] },
+        misiones: { tipos: ['llevar', 'romper', 'encender'], cant: 3,
+            textos: { encender: 'Enciende los cristales de fuego', romper: 'Rompe los muros de obsidiana', llevar: 'Lleva el huevo de dragón al altar' },
+            iconos: { llevar: '🥚' } },
+    },
+    {
+        i: 5, falsas: 80,
+        tema: { nombre: 'El Reino de las Nubes', tinte: 0x9fb8ff, suelo: 'piedra', color: 0xd8e4ff,
+            cielo: ['#08102a', '#1a2c5a', '#3a5a9a', '#7a9ad0'], luna: 0xeaf0ff, niebla: 0xd0dcff, nieblaSuelo: 0xe0e8ff,
+            particulas: 'lluvia', relampagos: [9000, 16000] },
+        misiones: { tipos: ['contrarreloj', 'encender', 'rescatar'], acertijos: ['runas'], cant: 3,
+            textos: { encender: 'Enciende los faros de las nubes', rescatar: 'Rescata a los prisioneros del cielo', contrarreloj: 'Gánale a la tormenta', runas: 'Las runas del viento' } },
+    },
+    {
+        i: 6, falsas: 100,
+        tema: { nombre: 'Las Ruinas del Abismo', tinte: 0xa58a9a, color: 0x9a7ab0, particulas: 'ceniza', relampagos: [14000, 24000] },
+        misiones: { tipos: ['romper', 'rescatar'], acertijos: ['palancas', 'runas'], cant: 3,
+            textos: { rescatar: 'Libera a los últimos prisioneros', romper: 'Abre el paso al trono', palancas: 'Las palancas del trono', runas: 'Las runas del abismo' } },
+    },
+];
+MEDIEVALES.forEach(({ i, tema, misiones, falsas }) => Object.assign(NIVELES[i], { estilo: 'medieval', tema, misiones, falsas }));
 
 // Generador de niveles grandes a partir de "tramos" que siempre se pueden pasar.
 // Nivel 7 · Las Ruinas del Abismo: el Rey Troll huye de las Nubes al abismo y ahí espera, en su
@@ -598,18 +638,94 @@ function generarNivel({ nombre, semilla, dificultad: d, tramos, cueva = false, n
 //     (torres, túneles, puentes altos, doble camino). La forma del suelo deja de crecer en la dificultad
 //     1 (más, y los huecos ya no se podrían saltar): de ahí en adelante crecen el largo y la velocidad.
 //   - Suelos de ladrillo medieval, como los niveles nuevos; cada mundo cambia de tema.
+//   - MÁS ALLÁ (desde el nivel ~207, cuando lo de arriba ya llegó a su tope): sigue subiendo hasta el 5000,
+//     de a poco (ver masAlla): enemigos más rápidos y con más vida, enemigos más duros en la mezcla,
+//     dos personalidades juntas ("Tormenta ✦ Cuevas"), más sorpresas y menos puntos de control.
 export const TOTAL_NIVELES = 5000;
 export const NIVELES_POR_MUNDO = 10;
 export const esInfinito = i => i >= NIVELES.length;
 export const mundoDe = i => Math.floor(i / NIVELES_POR_MUNDO) + 1;
 
+// TEMAS: cada mundo (10 niveles) tiene uno, en ciclo (28 temas: el mundo 29 vuelve al primero). Cambian todo
+// lo que se ve y los enemigos (ambiente.js y mazmorra.js leen nivel.tema):
+//   cueva / nubes: bajo tierra o al aire libre · tinte: el fondo de la cueva y la decoración
+//   suelo: 'ladrillo' | 'piedra' y color: el tono del suelo (sin color, el de siempre)
+//   cielo: degradado de 4 colores (al aire libre) · luna: su color · niebla / nieblaSuelo: colores
+//   particulas: 'brasas' | 'luciernagas' | 'ceniza' | 'polvo' | 'lluvia' | 'nieve' | 'hojas' | 'esporas' |
+//     'chispas' | 'burbujas' | 'arena' | 'petalos' | 'estrellas'  ·  colores: los de las partículas
+//   relampagos: [mín, máx] ms entre relámpagos (sin esto, no hay) · mezcla: los enemigos del tema
+// (los que están al lado se alternan: afuera y bajo tierra, y colores distintos)
 const TEMAS = [
-    { nombre: 'Las Ruinas Olvidadas', nubes: true, tinte: 0x9a9ab8, mezcla: ['zombie1', 'zombie2', 'esqueleto', 'zombie3'] },
-    { nombre: 'Las Grutas Rojas', cueva: true, tinte: 0xc08070, mezcla: ['esqueleto', 'zombie3', 'alien_dark_gray', 'zombie2'] },
-    { nombre: 'Los Pantanos Muertos', nubes: true, tinte: 0x7fa080, mezcla: ['zombie2', 'alien_green', 'zombie3', 'esqueleto'] },
-    { nombre: 'Las Forjas del Troll', cueva: true, tinte: 0xb8503a, mezcla: ['alien_armor', 'esqueleto', 'zombie3', 'alien_dark_gray'] },
-    { nombre: 'Las Torres del Cielo', nubes: true, tinte: 0x9fb8ff, mezcla: ['alien_armor', 'zombie3', 'alien_green', 'esqueleto'] },
-    { nombre: 'El Abismo sin Fondo', cueva: true, tinte: 0xa58a9a, mezcla: ['alien_armor', 'alien_dark_gray', 'esqueleto', 'zombie3'] },
+    { nombre: 'Las Ruinas Olvidadas', nubes: true, tinte: 0x9a9ab8, particulas: 'polvo', mezcla: ['zombie1', 'zombie2', 'esqueleto', 'zombie3'] },
+    { nombre: 'Las Grutas Rojas', cueva: true, tinte: 0xc08070, particulas: 'brasas', mezcla: ['esqueleto', 'zombie3', 'alien_dark_gray', 'zombie2'] },
+    { nombre: 'Los Pantanos Muertos', nubes: true, tinte: 0x7fa080, suelo: 'piedra', color: 0x9ac08a,
+        cielo: ['#020604', '#0b1a12', '#1c3324', '#36503a'], luna: 0xd8ffc8, niebla: 0x8fbf8a, nieblaSuelo: 0x7fd07a,
+        particulas: 'esporas', colores: [0xb8ff8a, 0x7fffb0], mezcla: ['zombie2', 'alien_green', 'zombie3', 'esqueleto'] },
+    { nombre: 'Las Forjas del Troll', cueva: true, tinte: 0xb8503a, color: 0xffa070, particulas: 'chispas', colores: [0xffd27a, 0xff8a3d],
+        mezcla: ['alien_armor', 'esqueleto', 'zombie3', 'alien_dark_gray'] },
+    { nombre: 'Las Torres del Cielo', nubes: true, tinte: 0x9fb8ff, suelo: 'piedra',
+        cielo: ['#050a1c', '#12234a', '#2a4778', '#5a7fb0'], particulas: 'lluvia', relampagos: [9000, 16000],
+        mezcla: ['alien_armor', 'zombie3', 'alien_green', 'esqueleto'] },
+    { nombre: 'El Abismo sin Fondo', cueva: true, tinte: 0xa58a9a, color: 0x9a7ab0, particulas: 'ceniza',
+        mezcla: ['alien_armor', 'alien_dark_gray', 'esqueleto', 'zombie3'] },
+    { nombre: 'El Bosque Helado', nubes: true, tinte: 0xc8e0ff, suelo: 'piedra', color: 0xe8f4ff,
+        cielo: ['#0a1424', '#1c3048', '#3a5a7a', '#8fb0cc'], luna: 0xeaf4ff, niebla: 0xd8e8ff, nieblaSuelo: 0xe8f4ff,
+        particulas: 'nieve', mezcla: ['esqueleto', 'alien_blue', 'zombie3', 'alien_gray'] },
+    { nombre: 'Las Minas de Oro', cueva: true, tinte: 0xd8b060, suelo: 'piedra', color: 0xffd890, particulas: 'polvo', colores: [0xffe08a, 0xffc040],
+        mezcla: ['zombie3', 'esqueleto', 'alien_gray', 'zombie1'] },
+    { nombre: 'El Desierto de Huesos', nubes: true, tinte: 0xe0b880, color: 0xf0d0a0,
+        cielo: ['#120a14', '#3a1a24', '#8a4a3a', '#e09a5a'], luna: 0xffe0b0, niebla: 0xe8c098, nieblaSuelo: 0xe0c090,
+        particulas: 'arena', mezcla: ['esqueleto', 'zombie2', 'alien_red', 'zombie3'] },
+    { nombre: 'La Cripta de Cristal', cueva: true, tinte: 0x80e0ff, suelo: 'piedra', color: 0xa0f0ff, particulas: 'estrellas', colores: [0x9ff0ff, 0xd8a0ff],
+        mezcla: ['alien_blue', 'esqueleto', 'alien_gray', 'zombie3'] },
+    { nombre: 'El Jardín de Calabazas', nubes: true, tinte: 0xff9a40, color: 0xd89a60,
+        cielo: ['#0c0606', '#2a1208', '#4a2410', '#7a4018'], luna: 0xffa040, niebla: 0xffb070, nieblaSuelo: 0xa0c070,
+        particulas: 'hojas', mezcla: ['zombie1', 'zombie2', 'zombie3', 'esqueleto'] },
+    { nombre: 'El Reino de los Hongos', cueva: true, tinte: 0xd080ff, suelo: 'piedra', color: 0xe0a8ff, particulas: 'esporas', colores: [0xff8af0, 0xb08aff],
+        mezcla: ['alien_green', 'zombie3', 'esqueleto', 'alien_dark_gray'] },
+    { nombre: 'El Castillo Sangriento', nubes: true, tinte: 0xc04048, color: 0xb05058,
+        cielo: ['#0a0204', '#2a060c', '#5a1018', '#8a2028'], luna: 0xff5a5a, niebla: 0xc08088, nieblaSuelo: 0xa06070,
+        particulas: 'ceniza', colores: [0xff8a8a, 0xa04040], relampagos: [18000, 30000], mezcla: ['esqueleto', 'alien_red', 'zombie3', 'zombie2'] },
+    { nombre: 'El Glaciar Eterno', cueva: true, tinte: 0x9fd0ff, suelo: 'piedra', color: 0xd0ecff, particulas: 'nieve',
+        mezcla: ['alien_blue', 'esqueleto', 'alien_armor', 'zombie3'] },
+    { nombre: 'El Mar de Niebla', nubes: true, tinte: 0xb0b8c8, suelo: 'piedra', color: 0xc0c8d8,
+        cielo: ['#0a0c10', '#1c2028', '#3a4048', '#6a7078'], luna: 0xe0e8f0, niebla: 0xd0d8e0, nieblaSuelo: 0xd0d8e0,
+        particulas: 'polvo', mezcla: ['zombie1', 'alien_gray', 'zombie3', 'esqueleto'] },
+    { nombre: 'La Ciudad Hundida', cueva: true, tinte: 0x60c0b0, suelo: 'piedra', color: 0x80d8c8, particulas: 'burbujas', colores: [0xb0fff0, 0x80d0ff],
+        mezcla: ['alien_green', 'alien_blue', 'zombie2', 'esqueleto'] },
+    { nombre: 'El Volcán Dormido', nubes: true, tinte: 0xff6040, color: 0x8a5a50,
+        cielo: ['#100404', '#3a0a06', '#7a2008', '#c04a10'], luna: 0xff8a50, niebla: 0xff9a70, nieblaSuelo: 0xc08060,
+        particulas: 'brasas', mezcla: ['alien_red', 'zombie3', 'esqueleto', 'alien_armor'] },
+    { nombre: 'La Biblioteca Maldita', cueva: true, tinte: 0xb09070, color: 0xc0a080, particulas: 'polvo', colores: [0xffe8c0, 0xd0c0a0],
+        mezcla: ['esqueleto', 'zombie1', 'alien_dark_gray', 'zombie3'] },
+    { nombre: 'La Selva Embrujada', nubes: true, tinte: 0x60c060, suelo: 'piedra', color: 0x88c890,
+        cielo: ['#020804', '#081c0c', '#14361a', '#2a5a30'], luna: 0xd0ffd0, niebla: 0x90d090, nieblaSuelo: 0x70c070,
+        particulas: 'luciernagas', mezcla: ['alien_green', 'zombie2', 'alien_predator_mask', 'zombie3'] },
+    { nombre: 'El Nido de Arañas', cueva: true, tinte: 0x8a9a80, suelo: 'piedra', color: 0xa0a890, particulas: 'polvo', colores: [0xd0e0c0, 0xa0b090],
+        mezcla: ['alien_dark_gray', 'esqueleto', 'zombie3', 'alien_gray'] },
+    { nombre: 'El Bosque Otoñal', nubes: true, tinte: 0xe08040, color: 0xc08850,
+        cielo: ['#0c0608', '#24101a', '#4a2030', '#8a4a40'], luna: 0xffd0a0, niebla: 0xe0a080, nieblaSuelo: 0xc09060,
+        particulas: 'hojas', mezcla: ['zombie1', 'zombie2', 'esqueleto', 'alien_green'] },
+    { nombre: 'La Cueva de los Ecos', cueva: true, tinte: 0x6070c0, suelo: 'piedra', particulas: 'estrellas', colores: [0xa0b0ff, 0xffffff],
+        mezcla: ['alien_blue', 'alien_gray', 'esqueleto', 'zombie3'] },
+    { nombre: 'El Templo del Sol Negro', nubes: true, tinte: 0xd8b040, color: 0xd8c080,
+        cielo: ['#000000', '#120c02', '#3a2a08', '#6a5010'], luna: 0x4a3a18, niebla: 0xd8c080, nieblaSuelo: 0xb0a060,
+        particulas: 'ceniza', colores: [0xffd060, 0x806020], mezcla: ['alien_armor', 'esqueleto', 'alien_red', 'zombie3'] },
+    { nombre: 'El Corazón del Volcán', cueva: true, tinte: 0xff5020, color: 0x7a4030, particulas: 'brasas', colores: [0xffd060, 0xff5020],
+        mezcla: ['alien_red', 'alien_armor', 'zombie3', 'esqueleto'] },
+    { nombre: 'El Reino de Caramelo Podrido', nubes: true, tinte: 0xff90c0, color: 0xffb0d0,
+        cielo: ['#10040c', '#3a0a2a', '#6a1a4a', '#b04a7a'], luna: 0xffd0ea, niebla: 0xffb0d8, nieblaSuelo: 0xffa0c0,
+        particulas: 'petalos', mezcla: ['zombie1', 'alien_green', 'zombie2', 'esqueleto'] },
+    { nombre: 'El Cementerio de Barcos', nubes: true, tinte: 0x70a0a0, suelo: 'piedra', color: 0x90a8a0,
+        cielo: ['#020608', '#08161c', '#14303a', '#2a5058'], luna: 0xc0f0f0, niebla: 0x9ac0c0, nieblaSuelo: 0x80b0b0,
+        particulas: 'lluvia', relampagos: [14000, 24000], mezcla: ['zombie2', 'esqueleto', 'alien_blue', 'zombie3'] },
+    { nombre: 'Las Cumbres de la Tormenta', nubes: true, tinte: 0x8090b0, suelo: 'piedra', color: 0x9098b0,
+        cielo: ['#02030a', '#0a1020', '#1a2440', '#3a4870'], luna: 0xc0d0ff, particulas: 'lluvia', relampagos: [5000, 9000],
+        mezcla: ['alien_armor', 'alien_gray', 'zombie3', 'esqueleto'] },
+    { nombre: 'El Fin del Mundo', nubes: true, tinte: 0xa060ff, suelo: 'piedra', color: 0x9a80c0,
+        cielo: ['#05000c', '#1a0430', '#3a0a5a', '#7a2a8a'], luna: 0xd0a0ff, niebla: 0xc0a0ff, nieblaSuelo: 0xa080e0,
+        particulas: 'estrellas', colores: [0xffffff, 0xd0a0ff], relampagos: [7000, 12000],
+        mezcla: ['alien_predator_mask', 'alien_armor', 'alien_red', 'esqueleto'] },
 ];
 // PERSONALIDADES: cada nivel generado tiene una, y le cambia la forma, el ritmo, la luz y las sorpresas
 // (las más raras aparecen en niveles más altos). Se ve en el nombre: "Las Grutas Rojas 2-7 · Torres".
@@ -675,6 +791,7 @@ function nivelInfinito(i) {
     const conJefe = enMundo === NIVELES_POR_MUNDO;
     const r = azar(i * 7919 + 13);
     const arq = arquetipoDe(i);
+    const mas = masAlla(i, k, arq);
     // cuántos tramos especiales y cuáles (al azar, pero siempre los mismos para este nivel)
     // siempre al menos una subida y una bajada a un sótano; con el nivel, más de todo
     const cuantos = Math.min(8, 2 + Math.floor(k / 12));
@@ -684,18 +801,22 @@ function nivelInfinito(i) {
         ...Array.from({ length: cuantos - 2 }, () => pool[Math.floor(r() * pool.length)])];
     for (let j = especiales.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [especiales[j], especiales[m]] = [especiales[m], especiales[j]]; }
     const n = generarNivel({
-        nombre: `${tema.nombre} ${mundo}-${enMundo} · ${arq.nombre}`,
+        nombre: `${tema.nombre} ${mundo}-${enMundo} · ${arq.nombre}${mas.arq2 ? ` ✦ ${mas.arq2.nombre}` : ''}`,
         semilla: i * 104729 + 7,
         dificultad: Math.min(1, 0.6 + k * 0.01),
         tramos: Math.min(26, 12 + Math.floor(k / 3)),     // más largo en cada nivel (tope: muchos enemigos a la vez pesan en el celular)
-        cueva: !!(arq.cueva ?? tema.cueva), nubes: !!(arq.nubes ?? tema.nubes) && !arq.cueva, tinte: tema.tinte, mezcla: tema.mezcla,
+        cueva: !!(arq.cueva ?? tema.cueva), nubes: !!(arq.nubes ?? tema.nubes) && !arq.cueva, tinte: tema.tinte, mezcla: mas.mezcla(tema.mezcla),
         especiales, obstaculos: arq.obstaculos, llanos: arq.llanos, bajadaInicial: !!arq.bajada,
     });
     n.arquetipo = arq.nombre;
+    n.tema = tema; // (ambiente.js y mazmorra.js: cielo, luna, niebla, partículas, relámpagos y suelo)
+    // (con dos personalidades: la oscura manda en la luz)
+    const oscura = [arq, mas.arq2].find(a => a?.luz);
     if (arq.oscuridad) n.oscuridad = arq.oscuridad;
+    if (oscura && !arq.oscuridad) n.oscuridad = oscura.oscuridad;
     // luz de antorcha y braseros (luz.js): cada ~1100-1500 px, en suelo firme lejos de la lava
-    if (arq.luz) {
-        n.luz = { oscuridad: Math.min(0.95, arq.oscuridad + 0.1), sombras: !!arq.sombras };
+    if (oscura) {
+        n.luz = { oscuridad: Math.min(0.95, oscura.oscuridad + 0.1), sombras: !!oscura.sombras };
         n.braseros = [];
         const huecos = [...n.lava, ...n.falsos];
         let proximo = 1200;
@@ -715,24 +836,29 @@ function nivelInfinito(i) {
         });
     }
     // sus sorpresas, repartidas por el suelo firme (más en cada nivel)
-    if (arq.locuras) {
+    const locuras = [...(arq.locuras || []), ...(mas.arq2?.locuras || [])];
+    if (locuras.length) {
         const huecos = [...n.lava, ...n.falsos];
         const libres = [];
         (n.suelo || []).forEach(([a, b]) => { for (let x = Math.max(a + 200, 1000); x < b - 200 && x < n.meta - 1500; x += 120) {
             if (!huecos.some(([h0, h1]) => x > h0 - 200 && x < h1 + 200)) libres.push(x);
         } });
-        const cuantas = Math.min(10, 3 + Math.floor(k / 30));
+        const cuantas = Math.min(10, 3 + Math.floor(k / 30)) + mas.locurasExtra;
         n.locuras = n.locuras || [];
         for (let j = 0; j < cuantas && libres.length; j++) {
             const x = libres.splice(Math.floor(r() * libres.length), 1)[0];
             for (let q = libres.length - 1; q >= 0; q--) if (Math.abs(libres[q] - x) < 700) libres.splice(q, 1);
-            const tipo = arq.locuras[j % arq.locuras.length];
+            const tipo = locuras[j % locuras.length];
             n.locuras.push(tipo === 'viento' ? [x, tipo, r() < 0.5 ? 1 : -1] : [x, tipo]);
         }
     }
     // gigantes que te persiguen
-    for (let j = 0; j < (arq.persecuciones || 0); j++) n.persecuciones.push(Math.round(1500 + (n.meta - 3500) * (j + 1) / (arq.persecuciones + 1)));
-    n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)); // más rápidos en cada nivel
+    const persecuciones = Math.max(arq.persecuciones || 0, mas.arq2?.persecuciones || 0);
+    for (let j = 0; j < persecuciones; j++) n.persecuciones.push(Math.round(1500 + (n.meta - 3500) * (j + 1) / (persecuciones + 1)));
+    n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)) + mas.velExtra; // más rápidos en cada nivel
+    n.vidaExtra = mas.vidaExtra; // (game.js: cada enemigo aguanta más golpes)
+    // menos puntos de control (el último, antes del jefe o de la meta, queda siempre)
+    if (mas.sinCheckpoints) n.checkpoints = n.checkpoints.filter((_c, j, t) => j % 2 === 0 || j === t.length - 1);
     // más enemigos: uno cada 'paso' px de suelo firme (más juntos en cada nivel), con tope por los celulares
     const paso = Math.max(300, 620 - k * 3);
     const huecos = [...n.lava, ...n.falsos];
@@ -749,6 +875,36 @@ function nivelInfinito(i) {
     n.sinJefe = !conJefe;
     n.mundo = mundo;
     return n;
+}
+
+// MÁS ALLÁ del nivel ~207 (k: niveles infinitos desde el primero): lo que sigue subiendo cuando lo
+// demás ya llegó a su tope. Todo va de a poco, para que el 5000 sea el más difícil:
+// (con raíz cuadrada: se nota rápido al principio y sigue subiendo, más despacio, hasta el 5000)
+//   velExtra: velocidad de los enemigos: +6 en el 300, +14 en el 800, +25 en el 2200, +40 en el 5000
+//   vidaExtra: golpes de más para cada enemigo: +1 desde el ~740, +2 desde el ~2330, +3 desde el ~4980
+//   mezcla: enemigos más duros reemplazan a los más débiles del tema (1 desde el 300, 2 desde el 700, 3 desde el 2200)
+//   arq2: desde el 300, a veces (cada vez más) una SEGUNDA personalidad: sus locuras y su oscuridad
+//   locurasExtra: sorpresas de más: +1 en el ~400, +2 en el ~970, +3 en el ~1900, +4 en el ~3250, +5 en el ~4960
+//   sinCheckpoints: desde el 500, la mitad de los puntos de control
+const DUROS = ['alien_predator_mask', 'alien_red', 'alien_armor'];
+function masAlla(i, k, arq) {
+    const extra = Math.max(0, k - 200);
+    const r = azar(i * 31337 + 5); // (aparte: no cambia el resto del nivel)
+    let arq2 = null;
+    if (extra >= 100 && r() < Math.min(0.85, 0.3 + (extra - 100) / 8000)) {
+        const otras = ARQUETIPOS.filter(a => a !== arq && a.nombre !== 'Clásico' && k >= a.desde);
+        arq2 = otras[Math.floor(r() * otras.length)] || null;
+    }
+    const duros = extra < 100 ? 0 : extra < 500 ? 1 : extra < 2000 ? 2 : 3;
+    return {
+        arq2,
+        velExtra: Math.min(40, Math.floor(Math.sqrt(extra) * 0.57)),
+        vidaExtra: Math.min(3, Math.floor(Math.sqrt(extra / 530))),
+        locurasExtra: Math.min(5, Math.floor(Math.sqrt(extra / 190))),
+        sinCheckpoints: extra >= 300,
+        // los primeros de la mezcla del tema (los más débiles) se cambian por duros
+        mezcla: m => m.map((t, j) => (j < duros ? DUROS[(i + j) % DUROS.length] : t)).filter((t, j, a) => a.indexOf(t) === j),
+    };
 }
 
 // SÓTANO (niveles infinitos): se sube por escalones a un bloque de ladrillo y desde ahí se BAJA a un túnel

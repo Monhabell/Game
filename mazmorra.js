@@ -73,14 +73,48 @@ export function vestirSuelo(scene, pieza, { izq = false, der = false, flotante =
     return partes;
 }
 
+// el suelo de un tema (niveles.js: TEMAS): ladrillo o piedra, teñido de su color. Para teñir de cualquier
+// color, las baldosas se pasan a gris claro una sola vez (el tinte de Phaser multiplica: sobre gris, se ve el color)
+const SUELOS = { ladrillo: ['cr_tile93', 'cr_tile75'], piedra: ['cr_tile4', 'cr_tile9'] };
+export function sueloDeTema(scene, tema) {
+    if (!tema || (!tema.suelo && tema.color == null)) return null;
+    const [relleno, tope] = SUELOS[tema.suelo] || SUELOS.ladrillo;
+    if (tema.color == null) return { relleno, tope, tinte: null };
+    return { relleno: enGris(scene, relleno), tope: enGris(scene, tope), tinte: tema.color };
+}
+function enGris(scene, clave) {
+    const gris = `${clave}_gris`;
+    if (scene.textures.exists(gris) || !scene.textures.exists(clave)) return scene.textures.exists(gris) ? gris : clave;
+    const img = scene.textures.get(clave).getSourceImage();
+    const t = scene.textures.createCanvas(gris, img.width, img.height);
+    const ctx = t.getContext();
+    ctx.drawImage(img, 0, 0);
+    const datos = ctx.getImageData(0, 0, img.width, img.height), d = datos.data;
+    // luminancia, estirada para que el más claro quede casi blanco (el color del tema se ve vivo)
+    let max = 1;
+    for (let i = 0; i < d.length; i += 4) max = Math.max(max, 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]);
+    for (let i = 0; i < d.length; i += 4) {
+        const v = Math.min(255, Math.round((0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) * 235 / max));
+        d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(datos, 0, 0);
+    t.refresh();
+    return gris;
+}
+// las baldosas del nivel: las del tema o las de siempre
+const baldosas = scene => scene.sueloTema || { relleno: 'cr_tile93', tope: 'cr_tile75', tinte: null };
+const teñir = (scene, partes) => { const t = scene.sueloTema?.tinte; if (t != null) partes.forEach(p => p.setTint(t)); return partes; };
+
 // estilo medieval (nivel 1, las Afueras): ladrillo de assets/criptas en vez de roca. El dibujo de los
 // muros lo pone el nivel (afueras.js); el suelo sigue hacia abajo en ladrillo oscuro
 function vestirMedieval(scene, pieza, b, flotante) {
     const x0 = Math.floor(b.x), ancho = Math.ceil(b.right) - x0 + 1, y = Math.round(b.y);
     // (las plataformas flotantes: una losa de ladrillo de 26 px, el borde arriba)
-    const partes = [scene.add.tileSprite(x0, y + 12, ancho, flotante ? 14 : PROFUNDIDAD_SUELO, 'cr_tile93').setOrigin(0).setTileScale(2 / 3)];
-    partes.push(scene.add.tileSprite(x0, y, ancho, 16, 'cr_tile75').setOrigin(0).setTileScale(2 / 3));
+    const B = baldosas(scene);
+    const partes = [scene.add.tileSprite(x0, y + 12, ancho, flotante ? 14 : PROFUNDIDAD_SUELO, B.relleno).setOrigin(0).setTileScale(2 / 3)];
+    partes.push(scene.add.tileSprite(x0, y, ancho, 16, B.tope).setOrigin(0).setTileScale(2 / 3));
     partes.forEach(p => { p.tilePositionX = x0 * 1.5; });
+    teñir(scene, partes);
     pieza.visuales = partes;
     pieza.setVisible(false);
     return partes;
@@ -93,9 +127,10 @@ export function vestirMuro(scene, pieza) {
         pieza.setVisible(false);
         // (los niveles hechos a mano dibujan sus muros; los infinitos, aquí: ladrillo con el borde arriba)
         if (scene.murosPropios) { pieza.visuales = []; return; }
-        const relleno = scene.add.tileSprite(b.x, b.y + 12, b.width, b.height - 12, 'cr_tile93').setOrigin(0).setTileScale(2 / 3);
-        const tope = scene.add.tileSprite(b.x, b.y, b.width, 16, 'cr_tile75').setOrigin(0).setTileScale(2 / 3);
-        pieza.visuales = [relleno, tope];
+        const B = baldosas(scene);
+        const relleno = scene.add.tileSprite(b.x, b.y + 12, b.width, b.height - 12, B.relleno).setOrigin(0).setTileScale(2 / 3);
+        const tope = scene.add.tileSprite(b.x, b.y, b.width, 16, B.tope).setOrigin(0).setTileScale(2 / 3);
+        pieza.visuales = teñir(scene, [relleno, tope]);
         return;
     }
     const relleno = scene.add.tileSprite(b.x, b.y + 40, b.width, b.height - 40, 'mz_relleno').setOrigin(0);
@@ -109,9 +144,10 @@ export function vestirTecho(scene, pieza) {
     const b = pieza.body;
     if (scene.estiloMedieval) {
         // el techo de la bodega: ladrillo con el borde por abajo
-        const relleno = scene.add.tileSprite(b.x, b.y, b.width, b.height - 14, 'cr_tile93').setOrigin(0).setTileScale(2 / 3);
-        const borde = scene.add.tileSprite(b.x, b.bottom - 16, b.width, 16, 'cr_tile75').setOrigin(0).setTileScale(2 / 3).setFlipY(true);
-        pieza.visuales = [relleno, borde];
+        const B = baldosas(scene);
+        const relleno = scene.add.tileSprite(b.x, b.y, b.width, b.height - 14, B.relleno).setOrigin(0).setTileScale(2 / 3);
+        const borde = scene.add.tileSprite(b.x, b.bottom - 16, b.width, 16, B.tope).setOrigin(0).setTileScale(2 / 3).setFlipY(true);
+        pieza.visuales = teñir(scene, [relleno, borde]);
         pieza.setVisible(false);
         return;
     }

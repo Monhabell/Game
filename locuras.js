@@ -27,6 +27,10 @@
 // primera vez: hay que golpearla de nuevo).
 //
 // api: { killgesi(scene), crearEnemigo(scene, x, y, tipo), mostrarMensaje(scene, texto, ms) }
+//
+// Las TROLLADAS (trolladas.js: las 100 trampas estilo Cat Mario) usan este mismo sistema.
+
+import { CREAR_TROLLADAS, ACTUALIZAR_TROLLADAS, TROLLADAS_DE_CADA_JUGADOR } from "./trolladas.js"
 
 import { crearAntorcha, colgarRoca } from "./mazmorra.js"
 
@@ -113,6 +117,7 @@ export function crearLocuras(scene, nivel, inicioX) {
 }
 
 const CREAR = {
+    ...CREAR_TROLLADAS,
     monedaHuye(scene, l) {
         l.m = scene.coins.create(l.x, 300, 'coins').anims.play('coins-giro', true).setScale(0.75).refreshBody();
         l.huidas = 0;
@@ -241,9 +246,10 @@ export function actualizarLocuras(scene, api) {
 }
 
 // trampas que dependen de un jugador en particular (lo siguen, lo empujan, miden si está quieto)
-const DE_CADA_JUGADOR = new Set(['seta', 'estalactita', 'viento', 'quieto', 'sombra', 'gravedad', 'monedaHuye']);
+const DE_CADA_JUGADOR = new Set(['seta', 'estalactita', 'viento', 'quieto', 'sombra', 'gravedad', 'monedaHuye', ...TROLLADAS_DE_CADA_JUGADOR]);
 
 const ACTUALIZAR = {
+    ...ACTUALIZAR_TROLLADAS,
     monedaHuye(scene, l, api, { gx }) {
         if (!l.m.active || l.saltando || l.huidas >= HUIDAS_MONEDA || Math.abs(gx - l.m.x) > 80 || gx > l.m.x) return;
         l.saltando = true;

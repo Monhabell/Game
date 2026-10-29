@@ -47,6 +47,29 @@ const PALETAS = {
     },
 };
 
+// la paleta de un nivel: la de siempre (afuera o cueva) con lo que cambie su tema (niveles.js: TEMAS)
+function paletaDe(nivel) {
+    const base = PALETAS[nivel.nubes ? 'afuera' : 'cueva'], t = nivel.tema;
+    if (!t) return base;
+    return {
+        ...base, cielo: t.cielo || base.cielo, niebla: t.niebla ?? base.niebla, nieblaSuelo: t.nieblaSuelo ?? base.nieblaSuelo,
+        particula: t.colores || base.particula,
+    };
+}
+// el cielo de un tema (degradado propio)
+function cieloDe(scene, nivel, tipo) {
+    const t = nivel.tema;
+    if (!t?.cielo || tipo !== 'afuera') return `cielo_${tipo}`;
+    const clave = `cielo_tema_${t.cielo.join('').replace(/#/g, '')}`;
+    lienzo(scene, clave, 4, ALTO, (ctx, w, h) => {
+        const gr = ctx.createLinearGradient(0, 0, 0, h);
+        t.cielo.forEach((c, i) => gr.addColorStop(i / (t.cielo.length - 1), c));
+        ctx.fillStyle = gr;
+        ctx.fillRect(0, 0, w, h);
+    });
+    return clave;
+}
+
 // mezcla dos colores: t = 0 -> a, t = 1 -> b
 export function mezclar(a, b, t) {
     const c = (x, s) => (x >> s) & 0xff;
@@ -243,13 +266,15 @@ function bandaNiebla(scene, y, alto, color, alpha, factor, vel) {
 export function crearFondoAtmosferico(scene, nivel, indice) {
     crearTexturasAmbiente(scene);
     const tipo = nivel.nubes ? 'afuera' : 'cueva';
-    const p = PALETAS[tipo];
+    const p = paletaDe(nivel);
     const reducir = reducirMovimiento();
     const luz = Math.max(0.45, 0.85 - indice * 0.06); // cada nivel un poco más oscuro
     scene.capasNiebla = [];
+    // un color del paisaje teñido con el del tema (t: cuánto)
+    const deTema = (c, t) => (nivel.tema ? mezclar(c, nivel.tema.tinte, t) : c);
 
     // cielo
-    scene.add.image(0, 0, `cielo_${tipo}`).setOrigin(0).setDisplaySize(ANCHO, ALTO).setScrollFactor(0);
+    scene.add.image(0, 0, cieloDe(scene, nivel, tipo)).setOrigin(0).setDisplaySize(ANCHO, ALTO).setScrollFactor(0);
 
     if (tipo === 'afuera') {
         // estrellas que titilan
@@ -260,8 +285,9 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
             scene.tweens.add({ targets: e2, alpha: 1, yoyo: true, repeat: -1, duration: 1700, ease: 'Sine.inOut' });
         }
         // luna con halo
-        scene.add.image(610, 70, 'brillo').setScrollFactor(0.04).setScale(3.2).setTint(0x9fb4ff).setAlpha(0.22).setBlendMode('ADD');
-        scene.add.image(610, 70, 'luna').setScrollFactor(0.04).setScale(0.9).setTint(mezclar(0xffffff, 0xc8d4ff, 0.3));
+        const luna = nivel.tema?.luna;
+        scene.add.image(610, 70, 'brillo').setScrollFactor(0.04).setScale(3.2).setTint(luna ?? 0x9fb4ff).setAlpha(0.22).setBlendMode('ADD');
+        scene.add.image(610, 70, 'luna').setScrollFactor(0.04).setScale(0.9).setTint(luna ? mezclar(0xffffff, luna, 0.85) : mezclar(0xffffff, 0xc8d4ff, 0.3));
     }
 
     // rayos de luz (luna afuera, grietas del techo en la cueva)
@@ -281,7 +307,7 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
             ];
         } else {
             // montañas lejanas, casi del color de la niebla
-            crearPaisaje(scene, nivel, mezclar(oscurecer(0x7f8fc4, 0.3 * luz), p.niebla, 0.18));
+            crearPaisaje(scene, nivel, mezclar(oscurecer(deTema(0x7f8fc4, 0.6), 0.3 * luz), p.niebla, 0.18));
         }
         // nubes oscuras lejanas
         for (let x = 200, i = 0; x < nivel.ancho * 0.25 + 900; x += 420, i++) {
@@ -295,10 +321,10 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
 
     // niebla lejana, ruinas lejanas, niebla media, ruinas cercanas
     bandaNiebla(scene, 150, 200, p.niebla, tipo === 'afuera' ? 0.28 : 0.38, 0.2, 0.006);
-    crearRuinas(scene, nivel, indice, mezclar(oscurecer(0x9a9aae, 0.35 * luz), p.niebla, 0.45),
+    crearRuinas(scene, nivel, indice, mezclar(oscurecer(deTema(0x9a9aae, 0.35), 0.35 * luz), p.niebla, 0.45),
         { factor: 0.3, escala: [0.32, 0.5], semilla: 1, paso: [150, 330], base: -18, alpha: 0.85 });
     bandaNiebla(scene, 190, 200, p.niebla, tipo === 'afuera' ? 0.22 : 0.3, 0.4, 0.012);
-    crearRuinas(scene, nivel, indice, mezclar(oscurecer(0x9a9aae, 0.55 * luz), p.niebla, 0.12),
+    crearRuinas(scene, nivel, indice, mezclar(oscurecer(deTema(0x9a9aae, 0.35), 0.55 * luz), p.niebla, 0.12),
         { factor: 0.55, escala: [0.55, 0.9], semilla: 2, paso: [300, 620] });
 }
 
@@ -306,7 +332,7 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
 export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     crearTexturasAmbiente(scene);
     const tipo = nivel.nubes ? 'afuera' : 'cueva';
-    const p = PALETAS[tipo];
+    const p = paletaDe(nivel);
     const reducir = reducirMovimiento();
     const region = regionDe(nivelIndice);
     const oscuridad = Math.min(OSCURIDAD_MAXIMA, nivel.oscuridad ?? region.oscuridad);
@@ -321,7 +347,7 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
         .setOrigin(0).setScrollFactor(0).setDepth(31).setAlpha(0.2).setTint(p.nieblaSuelo);
 
     // partículas propias de la región (luciérnagas, brasas, ceniza, polvo o lluvia)
-    scene.particulas = scene.add.particles(0, 0, 'particula', configParticulas(region.particulas, p, reducir))
+    scene.particulas = scene.add.particles(0, 0, 'particula', configParticulas(nivel.tema?.particulas ?? region.particulas, p, reducir))
         .setScrollFactor(0).setDepth(32);
 
     // pared de niebla que solo se ve cuando la niebla está densa
@@ -352,8 +378,9 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
     });
 
     // relámpagos solo en las regiones con tormenta (y no si el sistema pide reducir movimiento)
-    if (region.relampagos && !reducir) {
-        const [min, max] = region.relampagos;
+    const relampagos = nivel.tema ? nivel.tema.relampagos : region.relampagos; // (el tema manda: sin tormenta, sin relámpagos)
+    if (relampagos && !reducir) {
+        const [min, max] = relampagos;
         const relampago = () => {
             if (!scene.peleaJefe) {
                 scene.cameras.main.flash(110, 90, 105, 150);
@@ -383,6 +410,31 @@ function configParticulas(tipo, p, reducir) {
         case 'lluvia': // trazos finos y transparentes en diagonal
             return { x: { min: 0, max: ANCHO + 120 }, y: -10, speedX: { min: -90, max: -70 }, speedY: { min: 420, max: 480 },
                 lifespan: 1000, scaleX: 0.3, scaleY: 2.4, rotate: 10, alpha: { start: 0.5, end: 0.3 }, tint: 0x9fb8ff, frequency: menos(30) };
+        case 'nieve': // copos que caen despacio y se mecen
+            return { x: { min: -20, max: ANCHO + 60 }, y: -10, speedX: { min: -25, max: 10 }, speedY: { min: 25, max: 55 },
+                lifespan: { min: 7000, max: 10000 }, scale: { min: 0.3, max: 0.7 }, alpha: { start: 0.9, end: 0.4 }, tint: 0xffffff, frequency: menos(70) };
+        case 'hojas': // hojas de otoño que caen girando
+            return { x: { min: 0, max: ANCHO + 80 }, y: -10, speedX: { min: -50, max: -15 }, speedY: { min: 30, max: 60 }, rotate: { min: 0, max: 360 },
+                lifespan: { min: 7000, max: 9000 }, scaleX: { min: 0.6, max: 0.9 }, scaleY: 0.35, alpha: { start: 0.9, end: 0.5 },
+                tint: [0xff8a3d, 0xd8502a, 0xffc04a, 0x9a6a2a], frequency: menos(220) };
+        case 'esporas': // suben despacio, brillan
+            return { ...comun, x: { min: 0, max: ANCHO }, y: ALTO + 5, speedY: { min: -22, max: -8 }, speedX: { min: -8, max: 8 },
+                lifespan: { min: 7000, max: 11000 }, scale: { start: 0.35, end: 0.6 }, alpha: { start: 0.8, end: 0 }, tint: p.particula, frequency: menos(160) };
+        case 'chispas': // saltan rápido de la forja
+            return { ...comun, x: { min: 0, max: ANCHO }, y: ALTO + 5, speedY: { min: -160, max: -70 }, speedX: { min: -40, max: 40 }, gravityY: 60,
+                lifespan: { min: 1500, max: 2600 }, scale: { start: 0.45, end: 0 }, alpha: { start: 1, end: 0 }, tint: p.particula, frequency: menos(60) };
+        case 'burbujas': // suben y crecen (bajo el agua)
+            return { x: { min: 0, max: ANCHO }, y: ALTO + 5, speedY: { min: -45, max: -20 }, speedX: { min: -6, max: 6 },
+                lifespan: { min: 5000, max: 8000 }, scale: { start: 0.3, end: 1 }, alpha: { start: 0.6, end: 0 }, tint: p.particula, frequency: menos(140) };
+        case 'arena': // ráfagas de arena casi horizontales
+            return { x: ANCHO + 10, y: { min: 60, max: ALTO }, speedX: { min: -260, max: -170 }, speedY: { min: -10, max: 15 },
+                lifespan: { min: 3000, max: 4500 }, scaleX: 1.6, scaleY: 0.3, alpha: { start: 0.5, end: 0 }, tint: [0xe8c890, 0xc8a070], frequency: menos(45) };
+        case 'petalos': // pétalos rosados que caen girando
+            return { x: { min: 0, max: ANCHO + 80 }, y: -10, speedX: { min: -35, max: -10 }, speedY: { min: 25, max: 50 }, rotate: { min: 0, max: 360 },
+                lifespan: { min: 7000, max: 10000 }, scaleX: 0.6, scaleY: 0.4, alpha: { start: 0.9, end: 0.4 }, tint: [0xffb0d8, 0xff80b8, 0xffe0f0], frequency: menos(180) };
+        case 'estrellas': // puntitos que titilan quietos
+            return { ...comun, x: { min: 0, max: ANCHO }, y: { min: 0, max: ALTO }, speed: 0,
+                lifespan: { min: 1500, max: 3000 }, scale: { start: 0.15, end: 0.45 }, alpha: { start: 0, end: 1, ease: 'Sine.easeIn' }, tint: p.particula, frequency: menos(120) };
         default: // 'polvo': motas que flotan en el aire quieto de la fortaleza
             return { ...comun, x: { min: -20, max: ANCHO }, y: { min: 40, max: ALTO }, speedX: { min: 2, max: 8 }, speedY: { min: -4, max: 4 },
                 lifespan: { min: 5000, max: 9000 }, scale: { start: 0.5, end: 0.2 }, alpha: { start: 0.35, end: 0 }, tint: [0xd8c8b0, 0xa8a0c0], frequency: menos(300) };
