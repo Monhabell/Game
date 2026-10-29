@@ -23,6 +23,9 @@
 //   PUERTAS MÁGICAS 🚪 (troll.js): P1 superficie ⇄ Criptas, P2 superficie ⇄ Catacumbas, P3 superficie ⇄ Mina
 //   (quieto un momento).
 // PISOS (troll.js): desde un piso no se ve lo que pasa en los otros (bajo tierra no hay ventanas).
+// SALAS (troll.js): bajo tierra, muros con un arco de paso separan las salas; solo se ve la tuya.
+//   Criptas: Bodega | Sala de cadenas | Pasillo del pozo | Cripta del rey | Biblioteca
+//   Catacumbas: Osario | Lava y cofre | Sala del eco | (muro) Mina
 // Las Catacumbas son OSCURAS: solo se ve cerca de cada uno (troll.js).
 // El CIELO: las dos torres siguen en zigzag hasta el Puente de las Almas (tablas que flotan de torre a
 // torre) y la Isla del cielo en el medio, justo sobre el altar: de ahí uno se puede dejar caer al altar.
@@ -62,6 +65,12 @@ const E2 = { x: 3200, dir: -1, hueco: [3020, 3200] }; // bajada de las Criptas a
 const E3 = { x: 4960, dir: -1, hueco: [4780, 4960] }; // bajada de la Biblioteca a la Mina
 const POZO = [2400, 2480];
 const ESTE = 3600; // donde empieza el ala este (pasando la Cripta del rey)
+// las salas de cada piso bajo tierra: [x0, x1] (piso 1: las Criptas, piso 2: las Catacumbas y la Mina)
+const SALAS = {
+    1: [[600, 1500], [1500, 2300], [2300, 3200], [3200, ESTE], [ESTE, ANCHO]],
+    2: [[600, 1450], [1450, 2300], [2300, 3200], [3200, ANCHO]],
+};
+const ARCO = 120; // alto del paso de los arcos (por debajo se camina)
 const LAVA = [1480, 1680];
 
 // losas: [x0, x1, arriba, grosor]
@@ -257,6 +266,12 @@ function decorar(scene, h) {
     });
     objeto(scene, 'chest_closed', 3420, Y1, 1.4, 2); // (la Cripta del rey)
     decorarEste(scene, h);
+    // los muros entre salas (solo dibujo: se pasa por el arco de abajo)
+    [[1, Y0 + GROSOR, Y1], [2, Y1 + GROSOR, S]].forEach(([p, techo, piso]) => SALAS[p].slice(1).forEach(([x]) => {
+        if (x === 3200 && p === 2) return; // (ahí ya está el muro macizo de la Cripta del rey)
+        pared(scene, x - 18, techo, x + 18, piso - ARCO, 'tile93', 1.2);
+        pared(scene, x - 26, piso - ARCO - 14, x + 26, piso - ARCO, 'tile53', 1.2);
+    }));
     // las cosas de los encargos que ve todo el mundo
     const camp = ENCARGOS.find(e => e.id === 'campanario');
     scene.nocheCampana = scene.add.text(camp.x, camp.pie - 46, '🔔', { fontSize: '22px' }).setOrigin(0.5, 1).setDepth(8);
@@ -446,6 +461,7 @@ export const MAPA_CRIPTAS = {
     encargosPorJugador: 4, // (el mapa grande: 4 misiones cada uno)
     // los pisos (troll.js): [arriba, abajo]; desde uno no se ve lo de los otros
     pisos: [[CIELO - 800, Y0 + GROSOR], [Y0 + GROSOR, Y1 + GROSOR], [Y1 + GROSOR, S + 300]],
+    salas: SALAS,
     // en qué parte está un punto (el aviso de los monstruos del troll)
     zonaDe: (x, pie) => (pie < Y0 - 20 ? 'En las torres o el cielo' : pie <= Y0 + 5 ? (x > ESTE ? 'En el ala este' : 'En la superficie')
         : pie <= Y1 + 5 ? (x > ESTE ? 'En la Biblioteca' : 'En las Criptas') : x > ESTE ? 'En la Mina' : 'En las Catacumbas'),

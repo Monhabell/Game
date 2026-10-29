@@ -350,6 +350,7 @@ export function prepararNoche(scene) {
     scene.nocheOscuro = null;
     scene.nocheCanal = null;
     scene.nochePisos = null; // (al reaparecer la escena es nueva: se vuelven a crear)
+    scene.nocheVista = null;
     scene.nocheEscudos = null;
     if (soyTroll() && !noche.fantasma) crearBarraTroll();
     else quitarBarraTroll();
@@ -841,25 +842,63 @@ export function nocheGolpe(scene, origenX) {
     } else api.mensaje(scene, '😵 ¡ATURDIDO!', 900);
 }
 
-// ---------- pisos (M.pisos) ----------
-// bajo tierra no se ve la superficie ni el piso de abajo (y desde arriba, nada de lo que pasa bajo
-// tierra): cada piso que no es el tuyo queda tapado. Los fantasmas lo ven todo
+// ---------- lo que se ve: pisos, salas y el círculo de visión ----------
+// Nadie ve lo que pasa lejos (así el troll puede atacar sin que lo vea todo el mapa):
+//  - PISOS (M.pisos): bajo tierra no se ve la superficie ni el piso de abajo, y desde arriba nada de
+//    lo que pasa bajo tierra.
+//  - SALAS (M.salas): bajo tierra, los muros (con su arco de paso) separan salas: solo se ve la tuya
+//    (y la de al lado si estás en el arco).
+//  - Al aire libre (la superficie, el Bosque): solo se ve bien cerca; lejos, la noche lo tapa.
+// Los fantasmas lo ven todo.
 const TAPA_PISO = 0.97;
+const EN_EL_ARCO = 50;        // px: parado en el arco se ven las dos salas
+const VISTA_R = [300, 470];   // al aire libre: claro hasta aquí y negro desde aquí
 function pintarPisos(scene) {
-    if (!M.pisos) return;
     const g = scene.mascotaGesi;
-    if (!scene.nochePisos) {
-        scene.nochePisos = M.pisos.map(([arriba, abajo]) =>
-            scene.add.rectangle(-200, arriba, M.ancho + 400, abajo - arriba, 0x06050b, 1).setOrigin(0).setDepth(44.6).setAlpha(0));
-    }
-    const pie = g?.body?.bottom ?? 0;
-    const mio = scene.esFantasma ? -1 : M.pisos.findIndex(([, abajo]) => pie <= abajo);
+    const fantasma = !!scene.esFantasma;
+    const cx = g?.body?.center.x ?? 0, pie = g?.body?.bottom ?? 0;
     const k = Math.min(1, scene.game.loop.delta / 120);
-    scene.nochePisos.forEach((r, i) => {
-        const meta = mio < 0 || i === mio ? 0 : TAPA_PISO;
-        if (Math.abs(r.alpha - meta) > 0.01) r.setAlpha(r.alpha + (meta - r.alpha) * k);
-        else if (r.alpha !== meta) r.setAlpha(meta);
-    });
+    const suave = (o, meta) => {
+        if (Math.abs(o.alpha - meta) > 0.01) o.setAlpha(o.alpha + (meta - o.alpha) * k);
+        else if (o.alpha !== meta) o.setAlpha(meta);
+    };
+    const mio = M.pisos ? M.pisos.findIndex(([, abajo]) => pie <= abajo) : 0;
+    if (M.pisos) {
+        // cada piso entero, o cada sala de un piso con salas
+        scene.nochePisos ||= M.pisos.flatMap(([arriba, abajo], p) => {
+            const salas = M.salas?.[p] || [[-200, M.ancho + 200]];
+            return salas.map(([x0, x1], i) => {
+                const a = i === 0 ? -200 : x0, b = i === salas.length - 1 ? M.ancho + 200 : x1;
+                const r = scene.add.rectangle(a, arriba, b - a, abajo - arriba, 0x06050b, 1).setOrigin(0).setDepth(44.6).setAlpha(0);
+                return Object.assign(r, { piso: p, x0, x1, sala: !!M.salas?.[p] });
+            });
+        });
+        scene.nochePisos.forEach(r => {
+            const veo = fantasma || (r.piso === mio && (!r.sala || (cx > r.x0 - EN_EL_ARCO && cx < r.x1 + EN_EL_ARCO)));
+            suave(r, veo ? 0 : TAPA_PISO);
+        });
+    }
+    // al aire libre: el círculo de visión (bajo tierra ya lo hacen las salas)
+    const afuera = !fantasma && g && !g.isDead && !(M.salas?.[mio]);
+    if (!scene.nocheVista) {
+        texturaVista(scene);
+        scene.nocheVista = scene.add.image(0, 0, 'noche_vista').setDepth(44.7).setAlpha(0);
+    }
+    if (g) scene.nocheVista.setPosition(cx, g.body?.center.y ?? g.y);
+    // (el troll ve un poco más lejos en la noche: es su noche)
+    suave(scene.nocheVista, afuera ? (soyTroll() ? 0.72 : 0.86) : 0);
+}
+function texturaVista(scene) {
+    if (scene.textures.exists('noche_vista')) return;
+    const w = 2600, h = 1600;
+    const tx = scene.textures.createCanvas('noche_vista', w, h);
+    const ctx = tx.getContext();
+    const grad = ctx.createRadialGradient(w / 2, h / 2, VISTA_R[0], w / 2, h / 2, VISTA_R[1]);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(3,4,10,1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+    tx.refresh();
 }
 
 // el brillo del escudo de luz: el mío y el de los que se ven (el troll siempre lo muestra: así no se delata)
