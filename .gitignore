@@ -1,3 +1,8 @@
 node_modules/
 www/
 *.apk
+# Play Store: la llave de firma y sus claves NUNCA van a git; ni los paquetes armados
+*.jks
+*.keystore
+android/keystore.properties
+*.aab

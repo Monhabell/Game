@@ -1,14 +1,26 @@
 apply plugin: 'com.android.application'
 
+// Versión del juego (la sube sola scripts/construir-play.ps1 en cada publicación: Play Store solo
+// entrega la actualización si el versionCode es mayor que el anterior)
+def versionProps = new Properties()
+def versionFile = rootProject.file('version.properties')
+if (versionFile.exists()) versionFile.withInputStream { versionProps.load(it) }
+
+// Llave de firma para Play Store (la crea scripts/crear-llave.ps1). NO se sube a git: si se pierde,
+// no se puede volver a actualizar el juego con la misma llave (guárdala en un lugar seguro)
+def keystoreProps = new Properties()
+def keystoreFile = rootProject.file('keystore.properties')
+if (keystoreFile.exists()) keystoreFile.withInputStream { keystoreProps.load(it) }
+
 android {
-    namespace = "com.monhabell.aventura"
+    namespace = "com.monhabell.trollnight"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.monhabell.aventura"
+        applicationId "com.monhabell.trollnight"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode((versionProps['VERSION_CODE'] ?: '1') as int)
+        versionName(versionProps['VERSION_NAME'] ?: '1.0')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +28,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystoreFile.exists()) {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystoreFile.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

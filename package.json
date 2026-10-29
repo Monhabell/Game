@@ -7,7 +7,9 @@
   "scripts": {
     "web": "node scripts/copiar-web.mjs",
     "sync": "npm run web && npx cap sync android",
-    "apk": "powershell -ExecutionPolicy Bypass -File scripts/construir-apk.ps1"
+    "apk": "powershell -ExecutionPolicy Bypass -File scripts/construir-apk.ps1",
+    "llave": "powershell -ExecutionPolicy Bypass -File scripts/crear-llave.ps1",
+    "play": "powershell -ExecutionPolicy Bypass -File scripts/construir-play.ps1"
   },
   "devDependencies": {
     "@capacitor/android": "8.5.3",
