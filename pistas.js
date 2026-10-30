@@ -31,6 +31,7 @@ import {
 } from "./tramos.js"
 import { aleatorizarNivel, crearAzar, prepararNivelFijo } from "./azar.js"
 import { NIVELES, nivelPorIndice, NIVELES_POR_MUNDO, TOTAL_NIVELES } from "./niveles.js"
+import { formaDescenso } from "./descenso.js"
 
 // region: el nivel de la historia del que toma el paisaje, el ambiente y los enemigos
 export const PISTAS = [
@@ -79,7 +80,10 @@ const LARGO_CARRERA = 8000;         // px: lo que se corre de un nivel generado
 // un nivel que sirve de pista: de los generados y nunca el del jefe (el último de cada mundo)
 function nivelParaCarrera(L) {
     L = Math.min(Math.max(NIVELES.length, L | 0), TOTAL_NIVELES - 2);
-    return L % NIVELES_POR_MUNDO === NIVELES_POR_MUNDO - 1 ? L - 1 : L;
+    if (L % NIVELES_POR_MUNDO === NIVELES_POR_MUNDO - 1) L--;
+    // (los descensos con forma de zigzag, ida y vuelta o montaña, no: el avance de la carrera va por x)
+    if (nivelPorIndice(L).descenso && formaDescenso(L) !== 'escalera') L--;
+    return L;
 }
 export const pistaDeNivel = L => PISTA_GENERADA + nivelParaCarrera(L);
 // un nivel al azar del mundo (los primeros mundos de cada tema: dificultad de carrera, no de nivel 4000)
@@ -157,7 +161,7 @@ function armarDeGenerado(L, semilla) {
     const base = nivelPorIndice(L);
     const n = aleatorizarNivel(base, 5, [], semilla, L);
     const cp = (base.checkpoints || []).find(c => c >= LARGO_CARRERA && c < base.meta - 1500);
-    if (!cp) return n;
+    if (!cp || base.descenso) return n; // (un descenso se corre entero: cortado, la meta quedaría bajo la roca)
     const meta = cp + 150, fin = meta + 500;
     const antes = v => (Array.isArray(v) ? v[0] : v) < fin;
     const recortar = k => { if (Array.isArray(n[k])) n[k] = n[k].filter(antes); };

@@ -48,6 +48,8 @@
 import { NIVEL_AFUERAS } from "./afueras.js"
 import { NIVEL_CATACUMBAS } from "./catacumbas.js"
 import { NIVEL_MINAS } from "./minas.js"
+import { tieneAgua } from "./mecanicas.js"
+import { esDescenso, nivelDescenso } from "./descenso.js"
 import {
     colocar, extender, tramoLlano, tramoTunel, tramoAscensorMirador, tramoCornisaSecreta,
     tramoTorre, tramoPuentesAltos, tramoDobleCamino, tramoAbismoRunico, tramoRamas, tramoArbolAnciano,
@@ -801,6 +803,20 @@ function nivelInfinito(i) {
     const r = azar(i * 7919 + 13);
     const arq = arquetipoDe(i);
     const mas = masAlla(i, k, arq);
+    // el nivel 5 de cada mundo (desde el 2): un DESCENSO piso por piso hasta las profundidades (descenso.js)
+    if (esDescenso(mundo, enMundo)) {
+        const n = nivelDescenso({ i, k, d: Math.min(1, 0.6 + k * 0.01), tema, mezcla: mas.mezcla(tema.mezcla),
+            nombre: `${tema.nombre} ${mundo}-${enMundo} · Descenso` });
+        n.semilla = i * 104729 + 7;
+        n.arquetipo = 'Descenso';
+        n.tema = tema;
+        n.velEnemigos = Math.min(120, 80 + Math.floor(k * 0.4)) + mas.velExtra;
+        n.vidaExtra = mas.vidaExtra;
+        n.estilo = 'infinito';
+        n.sinJefe = true;
+        n.mundo = mundo;
+        return n;
+    }
     // cuántos tramos especiales y cuáles (al azar, pero siempre los mismos para este nivel)
     // siempre al menos una subida y una bajada a un sótano; con el nivel, más de todo
     const cuantos = Math.min(8, 2 + Math.floor(k / 12));
@@ -809,10 +825,12 @@ function nivelInfinito(i) {
     const especiales = [SUBIDAS[Math.floor(r() * SUBIDAS.length)], 'sotano',
         ...Array.from({ length: cuantos - 2 }, () => pool[Math.floor(r() * pool.length)])];
     // la cueva inundada (agua.js): desde el mundo 3, cada vez más seguido (a veces dos)
-    if (k >= 13) {
+    // (los temas de agua, mecanicas.js: siempre una, y a veces dos)
+    const deAgua = tieneAgua(tema);
+    if (k >= 13 || deAgua) {
         const ri = azar(i * 6151 + 29); // (aparte: no cambia el resto del nivel)
-        if (ri() < Math.min(0.85, 0.45 + k / 1500)) especiales.push('inundado');
-        if (k > 300 && ri() < 0.3) especiales.push('inundado');
+        if (deAgua || ri() < Math.min(0.85, 0.45 + k / 1500)) especiales.push('inundado');
+        if ((k > 300 || deAgua) && ri() < (deAgua ? 0.5 : 0.3)) especiales.push('inundado');
     }
     for (let j = especiales.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [especiales[j], especiales[m]] = [especiales[m], especiales[j]]; }
     const n = generarNivel({

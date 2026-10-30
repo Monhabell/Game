@@ -56,7 +56,7 @@ export function crearAgua(scene, nivel) {
     scene.algasAgua = [];
     scene.rejasAgua = [];
     if (!nivel.agua?.length) return;
-    nivel.agua.forEach(([x0, x1, sup]) => agregarAgua(scene, x0, x1, sup));
+    nivel.agua.forEach(([x0, x1, sup, hondo]) => agregarAgua(scene, x0, x1, sup, hondo));
     (nivel.burbujas || []).forEach(x => agregarBurbujas(scene, x));
     (nivel.burbujasFalsas || []).forEach(x => agregarBurbujas(scene, x, true));
     (nivel.criaturas || []).forEach(([x, tipo, y]) => crearCriatura(scene, x, tipo, y));
@@ -79,22 +79,24 @@ export function crearAgua(scene, nivel) {
 }
 
 // una zona de agua (también la usa un jefe para inundar su arena): devuelve la zona (con quitarAgua se va)
-export function agregarAgua(scene, x0, x1, sup) {
+// (hondo: hasta dónde llega el agua; sin decir, hasta el suelo. Los charcos de los pisos de arriba de los
+// descensos tienen el suyo: descenso.js)
+export function agregarAgua(scene, x0, x1, sup, hondo = SUELO_Y + 40) {
     texturas(scene);
     scene.aguas ||= [];
     scene.barraAire ||= scene.add.graphics().setDepth(47);
     // el agua: azul transparente por delante (te ves sumergido) y la superficie que ondula
-    const cuerpo = scene.add.rectangle(x0, sup, x1 - x0, SUELO_Y + 40 - sup, 0x2a7ab8, 0.38).setOrigin(0).setDepth(34);
-    const fondo = scene.add.rectangle(x0, sup, x1 - x0, SUELO_Y + 40 - sup, 0x0a2a4a, 0.35).setOrigin(0).setDepth(1);
+    const cuerpo = scene.add.rectangle(x0, sup, x1 - x0, hondo - sup, 0x2a7ab8, 0.38).setOrigin(0).setDepth(34);
+    const fondo = scene.add.rectangle(x0, sup, x1 - x0, hondo - sup, 0x0a2a4a, 0.35).setOrigin(0).setDepth(1);
     const ola = scene.add.tileSprite(x0, sup - 4, x1 - x0, 10, 'agua_ola').setOrigin(0).setDepth(34.1);
-    const zona = { x0, x1, sup, cuerpo, fondo, ola };
+    const zona = { x0, x1, sup, hondo, cuerpo, fondo, ola };
     scene.aguas.push(zona);
     return zona;
 }
 // mueve la superficie de una zona (el jefe sube y baja el agua)
 export function nivelDeAgua(zona, sup) {
     zona.sup = sup;
-    const alto = SUELO_Y + 40 - sup;
+    const alto = zona.hondo - sup;
     zona.cuerpo.setPosition(zona.x0, sup).setSize(zona.x1 - zona.x0, alto);
     zona.fondo.setPosition(zona.x0, sup).setSize(zona.x1 - zona.x0, alto);
     zona.ola.setPosition(zona.x0, sup - 4);
@@ -195,7 +197,7 @@ function texturas(scene) {
 }
 
 // el agua donde está un punto (o null)
-const aguaEn = (scene, x, y) => scene.aguas.find(a => x > a.x0 && x < a.x1 && y > a.sup && y < SUELO_Y + 40);
+const aguaEn = (scene, x, y) => scene.aguas.find(a => x > a.x0 && x < a.x1 && y > a.sup && y < a.hondo);
 
 // cada fotograma, DESPUÉS de mover al personaje (game.js): devuelve true si está nadando (así game.js
 // no hace su salto de siempre)
@@ -210,6 +212,13 @@ export function actualizarNado(scene, time, delta) {
     scene.bajoAgua = !!agua;
     if (scene.bajoAgua !== antes) chapuzon(scene, b.center.x, (agua || scene.ultimaAgua)?.sup ?? b.top, !!agua);
     if (agua) scene.ultimaAgua = agua;
+    // (al subir nadando, el cuerpo se asoma del agua un instante: si ↑ llega justo ahí, igual sale de un salto)
+    if (antes && !agua) scene.recienAsomado = time + 300;
+    if (!agua && time < (scene.recienAsomado || 0) && Phaser.Input.Keyboard.JustDown(scene.keys.up)) {
+        scene.recienAsomado = 0;
+        g.setVelocityY(-scene.pj.salto * SALE);
+        scene.sound.play('salto', { volume: 0.3, rate: 0.8 });
+    }
     if (!agua) {
         // fuera del agua: respira y todo vuelve a la normalidad
         if (g.angle !== 0) g.setAngle(0);
@@ -242,6 +251,7 @@ export function actualizarNado(scene, time, delta) {
     if (Phaser.Input.Keyboard.JustDown(arriba) && asomado) {
         // salir del agua de un salto
         g.setVelocityY(-scene.pj.salto * SALE);
+        scene.proxBrazada = time + 450; // (si no, con la tecla apretada una brazada pisa el salto y no sale)
         scene.sound.play('salto', { volume: 0.3, rate: 0.8 });
     } else if (arriba.isDown && time > (scene.proxBrazada || 0)) {
         scene.proxBrazada = time + ENTRE_BRAZADAS;

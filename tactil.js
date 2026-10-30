@@ -16,7 +16,7 @@
 
 import { ajustes, guardarAjustes } from "./ajustes.js"
 
-const TECLA = { izq: 37, arriba: 38, der: 39, abajo: 40, espacio: 32, x: 88, c: 67, v: 86, b: 66 };
+const TECLA = { izq: 37, arriba: 38, der: 39, abajo: 40, espacio: 32, x: 88, c: 67, v: 86, b: 66, z: 90 };
 const ZONA_MUERTA = 0.28; // fracción del radio del joystick que no mueve al personaje
 
 export const esTactil = () =>
@@ -74,6 +74,7 @@ export function iniciarTactil(juego) {
         </div>
         <div class="t-troll-fila">${PODERES_TROLL.slice(2).map(botonTroll).join('')}</div>
         <button type="button" class="t-btn t-movible t-anclar" data-tecla="abajo"><b>⚓</b><small>ANCLAR</small></button>
+        <button type="button" class="t-btn t-movible t-caja" data-tecla="z" aria-label="Usar objeto"><b>🎁</b><small>OBJETO</small></button>
         <div class="t-editor">
             <span>Arrastra los botones</span>
             <button type="button" class="menu-boton" data-editor="restablecer">↺ Restablecer</button>

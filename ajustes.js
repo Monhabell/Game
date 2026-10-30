@@ -40,7 +40,7 @@ export const VOCES = {
 
 // version: sube cuando cambia un valor por defecto que debe aplicarse también a quien ya tenía ajustes
 const VERSION = 2;
-const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false, cadena: false, graficos: 'auto', fps: false, voz: 'pulsar' };
+const POR_DEFECTO = { version: VERSION, dificultad: 'normal', camara: 'lejos', volumen: 100, botones: 'normales', colisiones: false, cadena: false, graficos: 'auto', fps: false, voz: 'pulsar', minimapa: true };
 
 export const ajustes = leer();
 

@@ -53,6 +53,7 @@ import { pistaDe, pistaDelDia } from "./pistas.js"
 import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 import { ganarXP, XP, nivelDe, textoNivel } from "./progreso.js"
+import { configurarCajas, prepararCajas, quitarCajas, actualizarCajas, usarCaja, eventoCajas } from "./cajas.js"
 
 const CUENTA_MS = 4000;      // de 'empezar' a la salida
 const ESPERA_LLEGADAS = 400; // el anfitrión espera este rato por si otro llegó casi a la vez
@@ -73,6 +74,7 @@ const colorDe = id => {
 export function iniciarCarrera(juegoPhaser, ganchos) {
     juego = juegoPhaser;
     api = ganchos;
+    configurarCajas({ nombreDe: id => nombreDe(id), mensaje: (...a) => api.mensaje(...a), escena });
     alRecibir('evento', m => {
         if (!carrera) return;
         if (m.tipo === 'carreraMeta') llegada(m.de, Number(m.ms));
@@ -80,6 +82,7 @@ export function iniciarCarrera(juegoPhaser, ganchos) {
         else if (m.tipo === 'carreraOtra' && carrera.fin && esAnfitrion()) { (carrera.piden ||= new Set()).add(m.de); pintarPiden(); }
         else if (m.tipo === 'carreraGolpe' && m.para === red.tuId) avisarGolpe(m);
         else if (m.tipo === 'carreraMoneda') seLlevoMoneda(m.de, String(m.k));
+        else eventoCajas(m, carrera); // (cajas de poder: objetos y trampas de los rivales)
     });
     // se fueron todos los rivales: el que queda gana (lo anuncia él mismo, ya es el anfitrión)
     alRecibir('sala', () => {
@@ -106,7 +109,10 @@ export function empezarCarrera({ pista, jugadores }) {
     };
     crearHud(jugadores);
 }
-export const terminarCarrera = () => { carrera = null; cerrarFin(); quitarHud(); cuentaEl?.remove(); cuentaEl = null; };
+export const terminarCarrera = () => { carrera = null; quitarCajas(); cerrarFin(); quitarHud(); cuentaEl?.remove(); cuentaEl = null; };
+
+// (Z, el botón 🎁 o la caja del HUD) usar el objeto de la caja de poder (cajas.js)
+export const usarCajaCarrera = scene => usarCaja(scene, carrera);
 
 // ---------- monedas: el primero que llega se la lleva ----------
 // (game.js) tomé una moneda del camino: que desaparezca en las demás pantallas
@@ -138,6 +144,7 @@ export function prepararCarrera(scene, nivel, inicioX) {
     carrera.peligros ??= peligrosDe(nivel);
     carrera.zonas ??= nivel.zonas?.length ? [...nivel.zonas].sort((a, b) => a[0] - b[0]) : null;
     letreroMeta(scene, nivel.meta);
+    prepararCajas(scene, nivel, carrera); // (las cajas de poder del camino y las trampas que dejaron los rivales)
     // (las que ya se llevaron los demás no están)
     scene.coins?.getChildren().forEach(m => { if (carrera.tomadas.has(m.clave)) m.destroy(); });
     if (carrera.fin) { scene.cinematica = true; return; }
@@ -167,6 +174,7 @@ export function prepararCarrera(scene, nivel, inicioX) {
 // cada fotograma (también muerto o en la cuenta regresiva): el HUD
 export function actualizarCarrera(scene) {
     if (!scene.carrera || !carrera) return;
+    actualizarCajas(scene, carrera);
     const ahora = performance.now();
     if (ahora < (carrera.proxHud || 0)) return;
     carrera.proxHud = ahora + HUD_MS;
@@ -398,11 +406,15 @@ function crearHud(jugadores) {
             </div>
         </div>
         <div class="carrera-pozo" data-pozo></div>
+        <button type="button" class="carrera-caja" data-caja aria-label="Usar objeto (Z)"><b></b><small>Z</small></button>
         <div class="carrera-aviso" data-aviso hidden></div>`;
     document.getElementById('game').append(hud);
+    document.body.classList.add('en-carrera');
+    hud.querySelector('[data-caja]').addEventListener('pointerdown', e => { e.preventDefault(); usarCajaCarrera(escena()); });
     pintarPozo();
 }
 function quitarHud() {
+    document.body.classList.remove('en-carrera'); // (index.html: el minimapa baja para no tapar el premio)
     hud?.remove();
     hud = null;
 }

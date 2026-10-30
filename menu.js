@@ -121,6 +121,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
                     <div class="ajustes-seccion" data-panel="juego">
                         ${grupo('dificultad', 'Dificultad', DIFICULTADES, ' ')}
                         ${grupo('camara', 'Cámara', CAMARAS, 'Lejos: ves más plataformas al saltar')}
+                        ${grupo('minimapa', 'Minimapa', { true: { nombre: 'Mostrar' }, false: { nombre: 'Ocultar' } }, 'Tócalo (o M) para ver el nivel entero')}
                     </div>
                     <div class="ajustes-seccion" data-panel="controles" hidden>
                         ${document.body.classList.contains('movil') ? `

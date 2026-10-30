@@ -18,11 +18,15 @@ import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
 import { revisarHitos, mostrarHitos, tituloActual, proximoHito } from "./hitos.js"
 import { configurarAgua, crearAgua, actualizarNado } from "./agua.js"
+import { turboCarrera, saltoCarrera } from "./cajas.js"
+import { dibujarDescenso, actualizarDescenso, configurarDescenso } from "./descenso.js"
+import { crearMinimapa, actualizarMinimapa } from "./minimapa.js"
+import { configurarMecanicas, crearMecanicas, animarMecanicas, moverConMecanicas } from "./mecanicas.js"
 import { ganarXP, XP, progresoJugador, maestria, tituloHeroe, factorRecarga, tieneRunaMaestria, MAESTRIA_MAX, textoNivel } from "./progreso.js"
 import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actualizarContadorFps, cuidarRendimiento } from "./rendimiento.js"
 import { red, enLinea, enCarrera, enNoche, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
 import {
-    iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera,
+    iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera, usarCajaCarrera,
     llegarMetaCarrera, recibirPoderCarrera, tomeMonedaCarrera,
 } from "./carrera.js"
 import { iniciarAbismo, crearFondoAbismo, crearAbismo, actualizarAbismo } from "./abismo.js"
@@ -144,6 +148,9 @@ const BURLAS_GAME_OVER = ['El Rey Troll se ríe de ti', 'El troll ya te conoce',
 const BURLAS = ['¡SORPRESA!', '¿NO LO VISTE VENIR?', '¡JA JA JA!', 'OTRA VEZ...', 'CASI...', '¡TROLLEADO!', 'NO CONFÍES EN NADA'];
 let nivelActual = 0; // índice en NIVELES
 let checkpointX = null; // último punto de control alcanzado en el nivel actual
+// (los niveles con puntosControl, los descensos con formas: los caminos vuelven a la izquierda o suben, así
+// que los puntos se activan al TOCARLOS y vale el último en el orden del recorrido, no el de más a la derecha)
+let checkpointOrden = -1;
 let runaMaestriaNivel = -1; // nivel en que ya se usó la runa de maestría (progreso.js)
 let vidaJefeGuardada = null; // { nivel, vida }: el daño hecho al jefe se mantiene si mueres con vidas
 const SALUD_MAXIMA = 100; // barra de vida del jugador durante la pelea con el jefe
@@ -404,6 +411,11 @@ configurarAgua({
     killgesi: (scene, causa, origenX) => killgesi(scene, causa, 20, origenX),
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
 });
+configurarDescenso({ killgesi: (scene, causa, origenX) => killgesi(scene, causa, 20, origenX) }); // (los retos de los pisos: lava, pinchos…)
+configurarMecanicas({
+    killgesi: (scene, causa, origenX) => killgesi(scene, causa, 20, origenX),
+    mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
+});
 iniciarNoche({
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
     crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo), // (los monstruos del troll)
@@ -430,7 +442,7 @@ configurarMundos({
         runaNivel = -1;
         vidas = VIDAS_INICIALES = vidasTotales();
         scoreInicioNivel = score;
-        checkpointX = null;
+        checkpointX = null; checkpointOrden = -1;
         guardarPartida();
         juego.scene.getScenes(true).forEach(s => juego.scene.stop(s.scene.key));
         juego.scene.start('juego');
@@ -799,6 +811,8 @@ function create() {
     ).fillRect(-200, SUELO_Y + 12, nivel.ancho + 400, SUBSUELO);
     if (nivel1) construirNivel1(this);
     construirNivel(this, nivel);
+    dibujarDescenso(this, nivel); // (niveles de descenso: los pisos, los pozos y los fondos de cada piso)
+    crearMinimapa(this, nivel, { arena: !!arena, noche }); // (el recuadro con la forma del nivel y dónde estás)
     if (nivel.estilo === 'afueras') { this.metaNivel = nivel.meta; decorarAfueras(this); }
     this.catEscalones = null;
     if (this.catacumbas) crearCatacumbas(this); // (nivel 2: escalera-rampa, puertas, techo que baja…)
@@ -807,7 +821,7 @@ function create() {
     // niveles infinitos: misiones que abren la meta (misiones.js)
     this.falsas = null;
     // (y los niveles hechos a mano que traen las suyas: del 4 al 7)
-    if ((esInfinito(nivelActual) || nivel.misiones) && !arena && !noche && pista == null) {
+    if ((esInfinito(nivelActual) || nivel.misiones) && !arena && !noche && pista == null && !nivel.sinMisiones) {
         const k = esInfinito(nivelActual) ? nivelActual - NIVELES.length : 0;
         crearMisiones(this, nivel, nivelActual, k);
         // trampas falsas (falsas.js), lejos de las misiones y los acertijos
@@ -819,7 +833,8 @@ function create() {
     crearMecanismos(this, nivel, nivelActual); // placas y puertas de equipo (si el nivel las tiene)
 
     // monedas (las que quedan detrás del punto de control no reaparecen: ya se guardaron al pasar)
-    monedas(this, checkpointX == null ? nivel.monedas : (nivel.monedas || []).filter(([x]) => x > checkpointX));
+    // (al reaparecer no están las de antes del punto de control; en los niveles en orden, el camino vuelve: todas)
+    monedas(this, checkpointX == null || nivel.puntosControl ? nivel.monedas : (nivel.monedas || []).filter(([x]) => x > checkpointX));
 
     // carteles, monedas trampa, rocas, estatuas falsas, plataformas que muerden, banderas falsas y gigantes
     crearSorpresas(this, nivel, checkpointX ?? 0);
@@ -868,7 +883,8 @@ function create() {
 
     // aparece en el último punto de control; si no hay, donde diga el nivel (p. ej. arriba del cráter)
     const [inicioX, inicioY] = checkpointX == null && nivel.inicio ? nivel.inicio
-        : [checkpointX ?? lugarDeInicio(this, enCarrera() ? VISTA.width * 2 / CAMARAS.normal.zoom : VISTA.width * ZOOM / zoomCamara()), 100];
+        : [checkpointX ?? lugarDeInicio(this, enCarrera() ? VISTA.width * 2 / CAMARAS.normal.zoom : VISTA.width * ZOOM / zoomCamara()),
+            checkpointX != null && nivel.puntosControl?.[checkpointOrden] ? nivel.puntosControl[checkpointOrden][1] - 80 : 100]; // (descenso: en su piso)
     // (en la carrera todos salen del mismo lugar, sin importar la cámara que eligió cada uno)
     const r = resDe(this.pj); // héroes HD: hojas al doble, se dibujan a la mitad
     this.mascotaGesi = this.physics.add.sprite(inicioX, inicioY, `${this.pj.anim}-idle`)
@@ -970,6 +986,7 @@ function create() {
     // ambiente oscuro: niebla, oscuridad con luz alrededor del personaje y relámpagos
     crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivel1 ? [[1350, 2310]] : []);
     crearAgua(this, nivel); // (las cuevas inundadas: nadar, aire y burbujas)
+    crearMecanicas(this, nivel); // (lo que cambia cada tema: hielo, barro, viento, gravedad baja, eclipses…)
     crearLuz(this, nivel, ZOOM, nivelActual); // (niveles oscuros: antorcha, braseros y enemigos sombra; los demás, oscuros solo en los túneles; sombras bajo los pies)
 
     // HUD (en el celular, más chico y con íconos en vez de palabras: deja ver el juego, como en los
@@ -1040,7 +1057,7 @@ function create() {
     this.events.once('shutdown', () => this.musica.destroy());
 
     this.keys = this.input.keyboard.createCursorKeys();
-    this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C', v: 'V', b: 'B' });
+    this.teclasDisparo = this.input.keyboard.addKeys({ espacio: 'SPACE', x: 'X', c: 'C', v: 'V', b: 'B', z: 'Z' }); // (Z: el objeto de la caja de poder en la carrera)
 
     // multijugador en línea: los demás jugadores y la cadena entre todos (multijugador.js)
     this.idsCerrados = true; // los enemigos que aparezcan de aquí en adelante no se sincronizan
@@ -1552,7 +1569,7 @@ function reiniciarPartida() {
     nivelActual = 0;
     score = 0;
     scoreInicioNivel = 0;
-    checkpointX = null;
+    checkpointX = null; checkpointOrden = -1;
     muertes = 0;
 }
 
@@ -1586,7 +1603,7 @@ function continuarPartida(p) {
     nivelActual = p.nivel;
     score = p.score || 0;
     scoreInicioNivel = score;
-    checkpointX = null;
+    checkpointX = null; checkpointOrden = -1;
     muertes = p.muertes || 0;
 }
 
@@ -1963,9 +1980,11 @@ function construirNivel(scene, nivel) {
     });
 
     // puntos de control: un mástil pequeño con bandera
-    scene.checkpoints = (nivel.checkpoints || []).map(x => {
-        const activo = checkpointX !== null && x <= checkpointX;
-        return { x, activo, ...crearEstatua(scene, x, activo) };
+    const enOrden = !!nivel.puntosControl;
+    scene.checkpoints = (nivel.checkpoints || []).map((x, orden) => {
+        const activo = enOrden ? orden <= checkpointOrden : checkpointX !== null && x <= checkpointX;
+        const pie = nivel.puntosControl?.[orden]?.[1] ?? SUELO_Y; // (por su número: en el zigzag hay dos en la misma x)
+        return { x, pie, orden: enOrden ? orden : null, activo, ...crearEstatua(scene, x, activo, pie) };
     });
 
     // corazones (recuperan una vida) y cristales (tesoro de 500 puntos)
@@ -1985,11 +2004,11 @@ function construirNivel(scene, nivel) {
     // (la Noche del Troll no tiene: su meta es el Altar del Amanecer, ver troll.js)
     scene.zonaMeta = null;
     if (nivel.sinMeta) return;
-    const mx = nivel.meta;
-    scene.add.image(mx, SUELO_Y, 'mastil').setOrigin(0.5, 1);
-    scene.bandera = scene.add.image(mx, SUELO_Y - 165, 'bandera').setOrigin(0.5, 1).setScale(2);
-    crearCastilloMeta(scene, mx + 50, nivelActual, 0xb4b4bc);
-    scene.zonaMeta = scene.add.zone(mx, SUELO_Y / 2, 24, SUELO_Y);
+    const mx = nivel.meta, my = nivel.metaY ?? SUELO_Y; // (metaY: los descensos de ida y vuelta terminan arriba)
+    scene.add.image(mx, my, 'mastil').setOrigin(0.5, 1);
+    scene.bandera = scene.add.image(mx, my - 165, 'bandera').setOrigin(0.5, 1).setScale(2);
+    crearCastilloMeta(scene, mx + 50, nivelActual, 0xb4b4bc).y += my - SUELO_Y;
+    scene.zonaMeta = scene.add.zone(mx, my - SUELO_Y / 2, 24, SUELO_Y);
     scene.physics.add.existing(scene.zonaMeta, true);
 }
 
@@ -2018,7 +2037,8 @@ function crearPlataforma(scene, x, arriba, ancho) {
 function activarCheckpoint(scene, cp, remoto = false) {
     cp.activo = true;
     if (!remoto) avisarCheckpoint(cp.x);
-    checkpointX = Math.max(checkpointX ?? 0, cp.x);
+    if (cp.orden != null) { checkpointOrden = Math.max(checkpointOrden, cp.orden); checkpointX = cp.x; } // (en orden: el último tocado)
+    else checkpointX = Math.max(checkpointX ?? 0, cp.x);
     encenderEstatua(scene, cp);
     scene.sound.play('punto_control', { volume: 0.6 });
     mostrarMensaje(scene, scene.bolsa ? `¡PUNTO DE CONTROL!\n◉ ${scene.bolsa} monedas guardadas` : '¡PUNTO DE CONTROL!', 1200);
@@ -3020,7 +3040,7 @@ function completarNivel(mascotaGesi) {
         vidaJefeGuardada = null;
         runaNivel = -1;
         scoreInicioNivel = score;
-        checkpointX = null;
+        checkpointX = null; checkpointOrden = -1;
         guardarPartida();
         // el personaje camina por el mapa hasta el siguiente nivel (el mapa dibuja los hechos a mano;
         // en los niveles infinitos se pasa directo al siguiente)
@@ -3154,6 +3174,7 @@ function update(time, delta) {
     actualizarMecanismos(this);
     actualizarEnLinea(this, time, delta);
     recortarVista(this, time); // solo se dibuja lo que está cerca de la cámara
+    actualizarMinimapa(this);
     cuidarRendimiento(this, time); // celular lento: modo fluido automático
     actualizarContadorFps(this, time);
 }
@@ -3172,6 +3193,8 @@ function actualizarJugador(time, delta) {
     if (this.misionesNivel) actualizarMisiones(this, time);
     if (this.falsas) actualizarFalsas(this);
     actualizarLuz(this, time, this.game.loop.delta);
+    animarMecanicas(this);
+    if (this.descenso) actualizarDescenso(this); // (el nombre de cada piso al llegar)
 
     if (this.mascotaGesi.isDead) return;
 
@@ -3188,7 +3211,7 @@ function actualizarJugador(time, delta) {
     const g = this.mascotaGesi;
     const enSuelo = g.body.touching.down || g.body.blocked.down;
     const lento = time < (this.lentoHasta || 0); // (carrera: un rival lo ralentizó)
-    const v = this.pj.velocidad * (lento ? 0.5 : 1);
+    const v = this.pj.velocidad * (lento ? 0.5 : 1) * (this.carrera ? turboCarrera(this, time) : 1); // (carrera: el turbo de la caja)
 
     // maná del mago se recupera poco a poco
     if (this.pj.recurso === 'mana' && this.mana < MANA_MAXIMO) {
@@ -3257,6 +3280,7 @@ function actualizarJugador(time, delta) {
     if (JD(t.c) && !sinPoderes) usarHabilidad(this, 'c');
     if (JD(t.v) && !sinPoderes && !this.noche) usarPoder(this, 0);
     if (JD(t.b) && !sinPoderes && !this.noche) usarPoder(this, 1);
+    if (JD(t.z) && !aturdido && this.carrera) usarCajaCarrera(this);
 
     // bajo el agua se nada (agua.js): las brazadas reemplazan al salto
     const nadando = actualizarNado(this, time, delta);
@@ -3268,7 +3292,7 @@ function actualizarJugador(time, delta) {
     } else if (this.keys.up.isDown && enSuelo) {
         // se "gasta" la pulsación: el doble salto necesita volver a presionar ↑
         JD(this.keys.up);
-        g.setVelocityY(-this.pj.salto * (lento ? 0.9 : 1));
+        g.setVelocityY(-this.pj.salto * (lento ? 0.9 : 1) * (this.carrera ? saltoCarrera(this, time) : 1));
         this.sound.play('salto', { volume: 0.3 });
         animar(this, 'jump');
     } else if (this.pj.dobleSalto && !enSuelo && this.saltosAire < 1 && JD(this.keys.up)) {
@@ -3282,6 +3306,8 @@ function actualizarJugador(time, delta) {
     // cayendo: animación de caída (los héroes que la tienen)
     if (!nadando && !enSuelo && this.pj.hojas.fall && g.body.velocity.y > 120 && !this.atacando && !g.isDead &&
         !g.anims.currentAnim?.key.endsWith('-fall')) animar(this, 'fall');
+
+    moverConMecanicas(this, time, delta, enSuelo); // (el tema: resbala, frena, empuja, hace rebotar…)
 
     const deathThreshold = 90;
 
@@ -3306,7 +3332,10 @@ function actualizarJugador(time, delta) {
 
     // puntos de control
     this.checkpoints.forEach(cp => {
-        if (!cp.activo && this.mascotaGesi.x >= cp.x) activarCheckpoint(this, cp);
+        if (cp.activo) return;
+        const g = this.mascotaGesi;
+        // (en orden: al tocarlo, y solo si va después del último; si no, al pasar su x, como siempre)
+        if (cp.orden != null ? cp.orden > checkpointOrden && Math.abs(g.x - cp.x) < 60 && Math.abs(g.body.bottom - cp.pie) < 70 : g.x >= cp.x) activarCheckpoint(this, cp);
     });
 }
 
@@ -3495,7 +3524,7 @@ function pantallaGameOver(game) {
         capa.remove();
         vidas = VIDAS_INICIALES;
         score = scoreInicioNivel;
-        checkpointX = null;
+        checkpointX = null; checkpointOrden = -1;
         vidaJefeGuardada = null;
         reiniciarMinas(); reiniciarMisiones(); reiniciarMonedasNivel(); // (GAME OVER: las misiones vuelven a empezar)
         guardarPartida();

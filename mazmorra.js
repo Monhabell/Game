@@ -159,7 +159,7 @@ export function vestirTecho(scene, pieza) {
 
 // lava que fluye en los huecos
 export function crearLava(scene, x0, x1) {
-    scene.lavasFluyen = scene.lavasFluyen || [];
+    scene.lavasFluyen = (scene.lavasFluyen || []).filter(t => t.active); // (al reaparecer quedan las de antes, ya destruidas)
     const fondo = scene.add.tileSprite(x0, SUELO_Y + 20, x1 - x0, PROFUNDIDAD_LAVA, 'mz_lava_fondo').setOrigin(0);
     const sup = scene.add.tileSprite(x0, SUELO_Y - 14, x1 - x0, 64, 'mz_lava_sup').setOrigin(0);
     scene.lavasFluyen.push(sup, fondo);
@@ -347,9 +347,10 @@ function oscuro(color) {
 }
 
 // ---------- Puntos de control: estatuas ----------
-export function crearEstatua(scene, x, activa) {
-    const estatua = scene.add.image(x, SUELO_Y + 2, activa ? 'mz_marker_statue2' : 'mz_marker_statue1').setOrigin(0.5, 1).setScale(1.1);
-    const luz = scene.add.image(x, SUELO_Y - 50, 'brillo').setDepth(41).setScale(1.8).setTint(0xffe27a)
+// (pie: el piso donde va; los niveles de descenso tienen puntos de control en pisos de arriba)
+export function crearEstatua(scene, x, activa, pie = SUELO_Y) {
+    const estatua = scene.add.image(x, pie + 2, activa ? 'mz_marker_statue2' : 'mz_marker_statue1').setOrigin(0.5, 1).setScale(1.1);
+    const luz = scene.add.image(x, pie - 50, 'brillo').setDepth(41).setScale(1.8).setTint(0xffe27a)
         .setAlpha(activa ? 0.35 : 0).setBlendMode('ADD');
     return { estatua, luz };
 }
