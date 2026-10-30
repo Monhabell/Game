@@ -147,7 +147,7 @@ function atender(ws, m) {
             if (!sala || sala.anfitrion !== ws.id || sala.empezada || !MODOS.has(m.modo)) return;
             if (sala.modo !== m.modo) listosAFalso(sala);
             sala.modo = m.modo;
-            if (ARENAS.has(m.arena)) sala.arena = m.arena;
+            if (ARENAS.has(m.arena) || /^tema\d{1,2}$/.test(String(m.arena))) sala.arena = m.arena; // (tema1…tema28: las arenas de los temas)
             if (APUESTAS.has(Number(m.apuesta))) sala.apuesta = Number(m.apuesta);
             if (sala.modo === 'equipos') repartirEquipos(sala);
             avisarLista(sala);

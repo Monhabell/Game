@@ -23,7 +23,8 @@ import {
     red, alRecibir, crearSala, unirseSala, elegirPersonaje, empezarPartida, salirSala, esAnfitrion, enviarEvento, elegirModo, elegirEquipo,
     informarSaldo, apostar, marcarListo, buscarSala, hacerPublica,
 } from "./red.js"
-import { PISTAS } from "./pistas.js"
+import { PISTAS, pistaDeMundo, pistaDelDia, pistaDeNivel } from "./pistas.js"
+import { temaDeMundo, CUANTOS_TEMAS } from "./niveles.js"
 import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena, copasArena, ligaDe } from "./arena.js"
 import { saldo } from "./tienda.js"
 
@@ -41,7 +42,14 @@ const MAPAS_NOCHE = { bosque: '🌲 El Bosque de Albora', criptas: '🏰 Las Cri
 const mapaNocheAlAzar = () => { const ids = Object.keys(MAPAS_NOCHE); return ids[sortear(ids.length)]; };
 const sortear = n => Math.floor(Math.random() * n);
 const nivelAlAzar = () => sortear(NIVELES.length);
-const pistaAlAzar = () => sortear(PISTAS.length);
+// al azar: la mitad de las veces una de siempre y la otra mitad un nivel del juego (hasta el 400)
+const pistaAlAzar = () => (Math.random() < 0.5 ? sortear(PISTAS.length) : pistaDeNivel(7 + sortear(393)));
+// lo elegido en la lista de pistas: una de siempre, la del día o un mundo
+function pistaElegida(valor) {
+    if (valor === 'dia') return pistaDelDia();
+    if (String(valor).startsWith('mundo:')) return pistaDeMundo(Number(valor.slice(6)) || 1);
+    return Number(valor) || 0;
+}
 // (solo las arenas que el anfitrión ya desbloqueó)
 const arenaAlAzar = () => { const libres = ARENAS.filter(arenaDisponible); return (libres[sortear(libres.length)] || ARENAS[0]).id; };
 // volver a competir (carrera) y revancha (arena): si estaba al azar, otro mapa
@@ -194,7 +202,9 @@ export function iniciarSala(juego, { alEmpezar }) {
                                 <select id="sala-mapa-noche"><option value="azar" selected>🎲 Al azar</option>${Object.entries(MAPAS_NOCHE).map(([id, n]) => `<option value="${id}">${n}</option>`).join('')}</select>
                             </label>
                             <label class="sala-campo" data-solo-anfitrion data-solo-carrera hidden>Pista
-                                <select id="sala-pista"><option value="azar" selected>🎲 Al azar</option>${PISTAS.map((p, i) => `<option value="${i}">${p.nombre}</option>`).join('')}</select>
+                                <select id="sala-pista"><option value="azar" selected>🎲 Al azar</option><option value="dia">⭐ Pista del día</option>
+                                    <optgroup label="Pistas">${PISTAS.map((p, i) => `<option value="${i}">${p.nombre}</option>`).join('')}</optgroup>
+                                    <optgroup label="Mundos del juego">${Array.from({ length: CUANTOS_TEMAS() }, (_, k) => `<option value="mundo:${k + 1}">🌍 ${temaDeMundo(k + 1)}</option>`).join('')}</optgroup></select>
                             </label>
                         </div>
                     </div>
@@ -293,7 +303,7 @@ export function iniciarSala(juego, { alEmpezar }) {
                 if (n < 2) { avisar('La carrera necesita al menos 2 jugadores', true); return; }
                 const falta = red.jugadores.filter(j => j.id !== red.anfitrion && !j.listo);
                 if (falta.length) { avisar(`Falta que confirmen: ${falta.map(j => j.nombre).join(', ')}`, true); return; }
-                empezarPartida(azar.pista ? pistaAlAzar() : Number($('#sala-pista').value) || 0); // (en la carrera, el número es la pista)
+                empezarPartida(azar.pista ? pistaAlAzar() : pistaElegida($('#sala-pista').value)); // (en la carrera, el número es la pista)
                 return;
             }
             const pobre = red.modo !== 'aventura' && red.jugadores.find(j => (j.monedas || 0) < red.apuesta);

@@ -49,7 +49,7 @@ import { PERSONAJES } from "./personajes.js"
 import { APUESTAS } from "./arena.js"
 import { saldo } from "./tienda.js"
 import { SUELO_Y } from "./niveles.js"
-import { pistaDe } from "./pistas.js"
+import { pistaDe, pistaDelDia } from "./pistas.js"
 import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 import { ganarXP, XP, nivelDe, textoNivel } from "./progreso.js"
@@ -487,6 +487,17 @@ function letreroMeta(scene, x) {
 // ---------- pantalla final: podio, ganador, premio y volver a competir ----------
 let capaFin = null;
 const MEDALLAS = ['🥇', '🥈', '🥉'];
+// la pista del día: tu mejor tiempo de hoy (en este celular)
+function recordDelDia() {
+    if (carrera.pista !== pistaDelDia() || carrera.miTiempo == null) return '';
+    const hoy = new Date(), clave = `troll-night-dia-${hoy.getFullYear()}-${hoy.getMonth() + 1}-${hoy.getDate()}`;
+    let antes = null;
+    try { antes = Number(localStorage.getItem(clave)) || null; } catch (_e) { /* (modo privado) */ }
+    const nuevo = antes == null || carrera.miTiempo < antes;
+    if (nuevo) try { localStorage.setItem(clave, String(carrera.miTiempo)); } catch (_e) { /* (modo privado) */ }
+    return `<p class="carrera-premio">⭐ Pista del día · ${nuevo ? `¡NUEVO RÉCORD! ${tiempo(carrera.miTiempo)}` : `tu récord de hoy: ${tiempo(antes)}`}</p>`;
+}
+
 function mostrarFin(d) {
     cerrarFin();
     const anfitrion = esAnfitrion();
@@ -517,6 +528,7 @@ function mostrarFin(d) {
         <div class="menu-panel arena-fin carrera-fin ${d.mio ? 'gano' : ''}" role="dialog" aria-modal="true" aria-labelledby="carrera-fin-titulo">
             <h2 id="carrera-fin-titulo">${d.mio ? '🏆 ¡GANASTE!' : `🏆 ¡GANÓ ${escapar(nombreDe(d.orden[0])).toUpperCase()}!`}</h2>
             <p class="carrera-fin-tiempo">${d.ms >= 0 ? `Tiempo: ${tiempo(d.ms)}` : 'Los demás se fueron'}</p>
+            ${recordDelDia()}
             <div class="carrera-podio3">${escalon(1)}${escalon(0)}${escalon(2)}</div>
             ${resto ? `<ol class="arena-medallas carrera-podio">${resto}</ol>` : ''}
             <p class="carrera-premio ${mioNeto < 0 ? 'pierde' : ''}">${premio}</p>

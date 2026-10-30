@@ -731,6 +731,11 @@ const TEMAS = [
         particulas: 'estrellas', colores: [0xffffff, 0xd0a0ff], relampagos: [7000, 12000],
         mezcla: ['alien_predator_mask', 'alien_armor', 'alien_red', 'esqueleto'] },
 ];
+// (la carrera y la sala: el nombre del tema de un mundo)
+export const temaDeMundo = mundo => TEMAS[(mundo - 1) % TEMAS.length].nombre;
+export const temaCompleto = mundo => TEMAS[(mundo - 1) % TEMAS.length];
+export const CUANTOS_TEMAS = () => TEMAS.length;
+
 // PERSONALIDADES: cada nivel generado tiene una, y le cambia la forma, el ritmo, la luz y las sorpresas
 // (las más raras aparecen en niveles más altos). Se ve en el nombre: "Las Grutas Rojas 2-7 · Torres".
 //   obstaculos/llanos/especiales: la forma del nivel · oscuridad: qué tan oscuro · cueva: con techo

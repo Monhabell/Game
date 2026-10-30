@@ -31,8 +31,9 @@
 //   orbe(scene, idPoder) }
 
 import { red, alRecibir, enviarEvento, esAnfitrion } from "./red.js"
+import { agregarAgua, agregarBurbujas, nivelDeAgua } from "./agua.js"
 import { crearLava } from "./mazmorra.js"
-import { SUELO_Y } from "./niveles.js"
+import { SUELO_Y, temaCompleto, CUANTOS_TEMAS } from "./niveles.js"
 import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 import { ganarXP, XP } from "./progreso.js"
@@ -121,6 +122,63 @@ export const ARENAS = [
         },
     },
 ];
+
+// ARENAS DE LOS TEMAS: una por cada tema de los mundos (niveles.js: TEMAS), con su cielo, su suelo, sus
+// partículas y su ambiente, y un peligro según el tipo de tema:
+//   🌊 marea: el agua sube cada 30 s (el mismo momento en todas las pantallas: sale del reloj) y se pelea
+//      nadando (agua.js), o subido a las plataformas altas; dos columnas de burbujas para respirar
+//   🌑 oscuro: solo se ve cerca de tu antorcha (luz.js)
+//   🔥 lava: el foso de lava y las bolas de fuego del Volcán
+//   las demás: la forma del Bosque (foso en el centro) o la del Castillo (muro y pinchos), alternadas
+// Se desbloquean de a una con las victorias (la del tema 1 está abierta).
+const TIPO_TEMA = { 2: 'lava', 4: 'lava', 17: 'lava', 24: 'lava', 3: 'agua', 14: 'agua', 16: 'agua', 26: 'agua',
+    6: 'oscuro', 15: 'oscuro', 18: 'oscuro', 20: 'oscuro', 22: 'oscuro', 23: 'oscuro' };
+const FORMA_MAREA = {
+    suelo: [...BORDES, [120, 780]],
+    // (plataformas altas para salir del agua: la marea llega a la altura SUP_MAREA)
+    plataformas: [[60, 196, 110], [730, 196, 110], [250, 140, 110], [540, 140, 110], [395, 80, 110], [395, 236, 110]],
+};
+const PELIGROS = {
+    agua: 'la marea sube cada 30 s: pelea nadando o sube a las plataformas',
+    oscuro: 'oscuridad: solo ves cerca de tu antorcha',
+    lava: 'foso de lava y bolas de fuego',
+};
+const copia = o => JSON.parse(JSON.stringify(o));
+for (let k = 1; k <= CUANTOS_TEMAS(); k++) {
+    const t = temaCompleto(k), tipo = TIPO_TEMA[k] || 'normal';
+    const forma = tipo === 'agua' ? FORMA_MAREA : tipo === 'lava' ? ARENAS[2].nivel : tipo === 'oscuro' ? ARENAS[0].nivel : ARENAS[k % 2 ? 0 : 3].nivel;
+    const { nubes, cueva, tinte, tema, ...geometria } = copia(forma);
+    ARENAS.push({
+        id: `tema${k}`, nombre: `Arena · ${t.nombre}`, victorias: k - 1,
+        peligro: PELIGROS[tipo] || (k % 2 ? 'un foso de lava en el centro' : 'pinchos ocultos y un muro en el centro'),
+        nivel: {
+            ...geometria, nubes: !!t.nubes && !t.cueva, cueva: !!t.cueva, tinte: t.tinte, tema: t, estilo: 'medieval',
+            ...(tipo === 'oscuro' ? { luz: { oscuridad: 0.86, sinGasto: true } } : {}),
+            ...(tipo === 'agua' ? { marea: true } : {}),
+        },
+    });
+}
+
+// la marea (arenas de agua): sube y baja con el reloj (Date.now: igual en todas las pantallas)
+const CICLO_MAREA = 30000, SUP_MAREA = 196;
+const FASES_MAREA = [[0, 'baja'], [18000, 'sube'], [19500, 'alta'], [27000, 'bajando'], [28500, 'baja']];
+function iniciarMarea(scene) {
+    const zona = agregarAgua(scene, 0, 900, SUELO_Y + 40);
+    nivelDeAgua(zona, SUP_MAREA);
+    const burbujas = [200, 700].map(x => agregarBurbujas(scene, x)).filter(Boolean);
+    let antes = '';
+    scene.time.addEvent({ delay: 80, loop: true, callback: () => {
+        const t = Date.now() % CICLO_MAREA;
+        const fase = [...FASES_MAREA].reverse().find(([desde]) => t >= desde)[1];
+        const k = fase === 'sube' ? (t - 18000) / 1500 : fase === 'bajando' ? 1 - (t - 27000) / 1500 : fase === 'alta' ? 1 : 0;
+        nivelDeAgua(zona, SUELO_Y + 40 - (SUELO_Y + 40 - SUP_MAREA) * k);
+        burbujas.forEach(c => { c.brillo.setVisible(k > 0.5); c.parts.emitting = k > 0.5; });
+        if (fase !== antes) {
+            if (fase === 'sube') { api.mensaje?.(scene, '🌊 ¡SUBE LA MAREA!', 1200); scene.sound.play('aparece', { volume: 0.5 }); }
+            antes = fase;
+        }
+    } });
+}
 
 // ---------- victorias guardadas ----------
 function leerGuardado() {
@@ -289,6 +347,7 @@ export function prepararArena(scene, alDañarRival) {
     scene.camaraArena = 450;
     scene.cameras.main.setZoom(scene.cameras.main.width / VISTA_ARENA);
     paredesArena(scene);
+    if (partida.arena.nivel.marea) iniciarMarea(scene);
     // salud (como contra el jefe) y corazones de la ronda
     api.ponerVidas(scene, misVidas());
     scene.mascotaGesi.setFlipX(lugarDeAparicion()[0] > 450);

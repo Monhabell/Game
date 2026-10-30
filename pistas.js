@@ -15,6 +15,12 @@
 //   4. Segunda bifurcación: ya sabes cómo se ven las trampas... pero están en otro lugar.
 //   5. Recta final hasta la meta, sin trampas: se gana corriendo.
 //
+// LOS NIVELES DEL JUEGO TAMBIÉN SON PISTAS: con el número PISTA_GENERADA + índice se corre un nivel
+// generado (pistaDeNivel): su tema, sus trampas troll, su agua y sus túneles oscuros, sin jefe ni misiones
+// y más corto (la meta en el primer punto de control pasados LARGO_CARRERA px). En la sala se elige un
+// MUNDO (pistaDeMundo: un nivel al azar de ese mundo), la PISTA DEL DÍA (la misma para todos ese día,
+// con récord) o al azar.
+//
 // Las trampas: las comunes las reparte azar.js con la semilla de la sala (fuera de los atajos) y las
 // del atajo las pone ponerAtajo con esa misma semilla. Así TODOS corren exactamente la misma pista,
 // y al morir se reaparece con las mismas trampas (en la carrera la semilla no cambia).
@@ -24,7 +30,7 @@ import {
     zonaSalida, zonaPuente, zonaTunel, zonaAtajo, zonaSueloMentiroso, zonaPersecucion, zonaLlegada,
 } from "./tramos.js"
 import { aleatorizarNivel, crearAzar, prepararNivelFijo } from "./azar.js"
-import { NIVELES } from "./niveles.js"
+import { NIVELES, nivelPorIndice, NIVELES_POR_MUNDO, TOTAL_NIVELES } from "./niveles.js"
 
 // region: el nivel de la historia del que toma el paisaje, el ambiente y los enemigos
 export const PISTAS = [
@@ -68,7 +74,31 @@ const SIN_ARENA = 900;
 // cuántas trampas comunes reparte azar.js fuera de los atajos (las de los primeros niveles: pocas)
 const INDICE_TRAMPAS = 0;
 
-export const pistaDe = i => PISTAS[Math.min(Math.max(0, i | 0), PISTAS.length - 1)];
+export const PISTA_GENERADA = 1000;  // desde este número, las pistas son niveles generados
+const LARGO_CARRERA = 8000;         // px: lo que se corre de un nivel generado
+// un nivel que sirve de pista: de los generados y nunca el del jefe (el último de cada mundo)
+function nivelParaCarrera(L) {
+    L = Math.min(Math.max(NIVELES.length, L | 0), TOTAL_NIVELES - 2);
+    return L % NIVELES_POR_MUNDO === NIVELES_POR_MUNDO - 1 ? L - 1 : L;
+}
+export const pistaDeNivel = L => PISTA_GENERADA + nivelParaCarrera(L);
+// un nivel al azar del mundo (los primeros mundos de cada tema: dificultad de carrera, no de nivel 4000)
+export const pistaDeMundo = mundo => pistaDeNivel((mundo - 1) * NIVELES_POR_MUNDO + Math.floor(Math.random() * (NIVELES_POR_MUNDO - 1)));
+// la pista del día: la misma para todos (sale de la fecha) entre los niveles 8 y 400
+export function pistaDelDia(fecha = new Date()) {
+    let h = fecha.getFullYear() * 372 + fecha.getMonth() * 31 + fecha.getDate();
+    h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0;
+    return pistaDeNivel(NIVELES.length + (h % 393));
+}
+export const esPistaGenerada = i => i >= PISTA_GENERADA;
+
+export const pistaDe = i => {
+    if (i >= PISTA_GENERADA) {
+        const L = i - PISTA_GENERADA;
+        return { nombre: nivelPorIndice(L).nombre, region: L, generado: L };
+    }
+    return PISTAS[Math.min(Math.max(0, i | 0), PISTAS.length - 1)];
+};
 
 // arma la pista con sus trampas para esta semilla (la misma en todas las pantallas)
 // CARRERA: menos monedas que en la aventura (se corre, no se junta): queda 1 de cada 3 filas
@@ -87,6 +117,7 @@ export function armarPista(i, semilla) {
 }
 function armarPistaBase(i, semilla) {
     const pista = pistaDe(i);
+    if (pista.generado != null) return armarDeGenerado(pista.generado, semilla);
     if (pista.nivel != null) return armarDeNivel(pista.nivel, semilla);
     const region = NIVELES[pista.region];
     const base = {
@@ -120,6 +151,21 @@ function armarPistaBase(i, semilla) {
 
 // un mapa de la historia como pista: el mismo reparto de trampas que en el nivel (fijo o al azar con
 // la semilla de la sala) y la meta antes de la arena del jefe (en la carrera no hay jefe)
+// un nivel generado como pista: con sus trampas (la semilla de la sala), sin jefe ni misiones (game.js no
+// las pone en la carrera) y cortado: la meta en el primer punto de control pasados LARGO_CARRERA px
+function armarDeGenerado(L, semilla) {
+    const base = nivelPorIndice(L);
+    const n = aleatorizarNivel(base, 5, [], semilla, L);
+    const cp = (base.checkpoints || []).find(c => c >= LARGO_CARRERA && c < base.meta - 1500);
+    if (!cp) return n;
+    const meta = cp + 150, fin = meta + 500;
+    const antes = v => (Array.isArray(v) ? v[0] : v) < fin;
+    const recortar = k => { if (Array.isArray(n[k])) n[k] = n[k].filter(antes); };
+    ['enemigos', 'monedas', 'locuras', 'plantas', 'espiritus', 'cristales', 'corazones', 'criaturas', 'burbujas', 'burbujasFalsas', 'algas', 'rejas',
+        'pinchos', 'rocas', 'monedasTrampa', 'estatuasFalsas', 'mordedoras', 'emboscadas', 'carteles', 'cebos'].forEach(recortar);
+    return { ...n, meta, ancho: Math.min(n.ancho, fin + 300), checkpoints: (n.checkpoints || []).filter(c => c < meta - 200), sinJefe: true };
+}
+
 function armarDeNivel(i, semilla) {
     const nivel = NIVELES[i];
     const n = nivel.fija ? prepararNivelFijo(nivel, semilla)
