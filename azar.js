@@ -16,7 +16,7 @@
 // Corazones al azar: si te falta alguna vida, de vez en cuando aparece uno delante de ti,
 // y los enemigos derrotados a veces sueltan uno.
 
-import { TROLLADAS, LUGAR_TROLLADA, TROLLADAS_INOFENSIVAS } from "./trolladas.js"
+import { TROLLADAS, LUGAR_TROLLADA, TROLLADAS_INOFENSIVAS, TROLLADAS_PANTALLA } from "./trolladas.js"
 
 const SUELO_Y = 332;
 
@@ -195,10 +195,15 @@ function repartirTrampas(nivel, indice, sueloExtra, semilla, nivelReal) {
         normal: () => tomar([], 0, x => firmeT(x - 120, x + 120)),
     };
     const trolladas = [];
+    let pantallaUsada = false; // (pantallas falsas: como mucho una por nivel)
     for (let k = 0; k < cuantasT; k++) {
-        const tipo = k === 0 ? TROLLADAS[estrenadas - 1] : TROLLADAS[Math.floor(rnd() * estrenadas)];
+        let tipo = k === 0 ? TROLLADAS[estrenadas - 1] : TROLLADAS[Math.floor(rnd() * estrenadas)];
+        for (let i = 0; i < 8 && pantallaUsada && TROLLADAS_PANTALLA.includes(tipo); i++) tipo = TROLLADAS[Math.floor(rnd() * estrenadas)];
+        if (pantallaUsada && TROLLADAS_PANTALLA.includes(tipo)) continue;
         const x = LUGAR_T[LUGAR_TROLLADA[tipo] || 'normal']();
-        if (x !== null) trolladas.push([x, tipo]);
+        if (x === null) continue;
+        trolladas.push([x, tipo]);
+        if (TROLLADAS_PANTALLA.includes(tipo)) pantallaUsada = true;
     }
 
     // cebos (castigo a la codicia): un cristal tentador que, al tomarlo, esconde una trampa

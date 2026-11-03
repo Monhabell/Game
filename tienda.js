@@ -425,8 +425,9 @@ export function iniciarTienda() {
             const combo = comboDe(elementoDe(pa), elementoDe(pb));
             const tiene = tienePoder(a) && tienePoder(b), puesta = eq[0] === a && eq[1] === b;
             const nombre = p => `${ELEMENTOS[elementoDe(p)][0]} ${p.nombre}${tienePoder(p.id) ? '' : ' 🔒'}`;
-            recomendada = `<div class="poder-build"><b>⭐ Recomendado para ${h.nombre}:</b> ${nombre(pa)} + ${nombre(pb)}${combo ? ` → <em>${combo[0]}</em>` : ''}
-                <small>${porque}</small>
+            // una sola línea (no le quita alto a las cartas); el "por qué" se abre al tocarla, encima de las cartas
+            recomendada = `<div class="poder-build"><details><summary><b>⭐ Para ${h.nombre}:</b> ${nombre(pa)} + ${nombre(pb)}${combo ? ` → <em>${combo[0]}</em>` : ''}</summary>
+                <small>${porque}</small></details>
                 <button type="button" class="menu-boton tienda-btn" data-build="${h.id}" ${tiene && !puesta ? '' : 'disabled'}>${puesta ? '✓ Equipada' : tiene ? 'Equipar los dos' : 'Te falta alguno 🔒'}</button></div>`;
         }
         // el combo que hacen los dos equipados ahora
@@ -515,7 +516,7 @@ export function iniciarTienda() {
     const anchoPagina = () => lista.clientWidth + hueco();
     function acomodarFilas() {
         const filas = Math.max(1, Math.min(2, Math.floor(lista.clientHeight / (pestana === 'poderes' ? ALTO_CARTA.poderes : ALTO_CARTA.otras))));
-        const minimo = lista.clientHeight < 300 ? 150 : 210; // (en el celular las cartas son más angostas)
+        const minimo = lista.clientHeight < 300 ? 280 : 210; // (celular horizontal: cartas acostadas, más anchas)
         lista.dataset.filas = String(filas);
         lista.style.setProperty('--filas', String(filas));
         lista.style.setProperty('--por-pagina', String(Math.max(1, Math.floor(anchoPagina() / (minimo + hueco())))));

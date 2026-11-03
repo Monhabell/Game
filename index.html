@@ -1571,7 +1571,9 @@
             --icono: 96px;
             position: relative; min-width: 0; min-height: 0; box-sizing: border-box;
             display: flex; flex-direction: column; align-items: center; gap: 8px;
-            padding: 12px 14px 14px; border-radius: 18px; text-align: center; overflow: hidden;
+            /* si la pantalla es muy baja, la carta se desliza por dentro: nunca queda nada cortado */
+            padding: 12px 14px 14px; border-radius: 18px; text-align: center;
+            overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-x pan-y; scrollbar-width: none;
             border: 1px solid var(--borde);
             background:
                 radial-gradient(120% 55% at 50% 0%, color-mix(in srgb, var(--rareza) 26%, transparent), transparent 72%),
@@ -1603,9 +1605,8 @@
         .poder-nivel { font-style: normal; font-size: 12px; line-height: 1; letter-spacing: 1px; color: #ffc94a; text-shadow: 0 0 6px rgba(255, 201, 74, 0.5); white-space: nowrap; }
         .poder-nivel span { color: rgba(255, 255, 255, 0.18); text-shadow: none; }
         /* (si falta lugar se recortan primero las ventajas, nunca el nombre ni la descripción) */
-        .tienda-info { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; }
+        .tienda-info { flex: 1 0 auto; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; } /* (no se encoge: si no cabe, la carta se desliza) */
         .carta-nombre, .tienda-desc { flex: none; }
-        .tienda-info .poder-ventajas { min-height: 0; overflow: hidden; }
         .carta-nombre { font-size: 16px; font-weight: 800; color: var(--texto); line-height: 1.2; }
         .tienda-desc { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--texto-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .tienda-heroe {
@@ -1627,7 +1628,10 @@
         .poder-max { font-size: 12px; font-weight: 600; color: #ffc94a; }
 
         /* botones al pie de la carta */
-        .tienda-acciones { flex: none; width: 100%; display: flex; flex-direction: column; gap: 7px; }
+        .tienda-acciones { /* los botones siempre a la vista, al pie de la carta */
+            flex: none; width: 100%; display: flex; flex-direction: column; gap: 7px;
+            position: sticky; bottom: -14px; z-index: 1; margin-bottom: -14px; padding: 6px 0 14px; background: #141829;
+        }
         .tienda-btn { width: 100%; min-height: 42px; padding: 0 10px; font-size: 13px; font-weight: 700; white-space: nowrap; border-radius: 12px; }
         .tienda-btn .moneda { margin: 0 0.25em 0 0.15em; }
         .tienda-comprar:not(:disabled) {
@@ -1679,13 +1683,21 @@
         @keyframes hito-salta { from { transform: translateY(0) scale(1); } to { transform: translateY(-6px) scale(1.08); } }
         @media (prefers-reduced-motion: reduce) { .hito-icono { animation: none; } }
         .poder-build {
-            display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 12px; font-size: 12px;
+            position: relative; flex: 1 1 280px; min-width: 0; box-sizing: border-box;
+            display: flex; align-items: center; gap: 10px; padding: 4px 6px 4px 10px; border-radius: 12px; font-size: 12px;
             background: rgba(255, 201, 74, 0.08); border: 1px solid rgba(255, 201, 74, 0.35); color: var(--texto, #eef1f7);
         }
         .poder-build > b { color: #ffd27a; font-weight: 700; }
         .poder-build em, .poder-combo { font-style: normal; font-weight: 700; color: #ffe066; }
-        .poder-build small { flex-basis: 100%; opacity: 0.75; }
-        .poder-build .tienda-btn { margin-left: auto; width: auto; flex: 0 0 auto; min-height: 34px; padding: 0 14px; }
+        .poder-build details { flex: 1 1 auto; min-width: 0; }
+        .poder-build summary { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .poder-build summary:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+        /* el "por qué": flota encima de las cartas, no las empuja */
+        .poder-build small {
+            position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); padding: 8px 10px; border-radius: 10px;
+            background: #171c30; border: 1px solid rgba(255, 201, 74, 0.35); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+        .poder-build .tienda-btn { width: auto; flex: 0 0 auto; min-height: 32px; padding: 0 12px; }
         .poder-combo { margin-left: 6px; font-size: 12px; }
         .poder-combo.nada { color: var(--texto-2, #9aa3bf); font-weight: 500; }
         .poder-elemento { border-color: var(--elem) !important; color: var(--elem); }
@@ -1734,6 +1746,7 @@
         }
         /* dos filas de cartas (pantallas altas): las cartas más compactas */
         .tienda-lista[data-filas="2"] .tienda-item { --icono: 64px; gap: 6px; padding: 10px 12px 12px; }
+        .tienda-lista[data-filas="2"] .tienda-acciones { bottom: -12px; margin-bottom: -12px; padding-bottom: 12px; }
         .tienda-lista[data-filas="2"] .tienda-desc { -webkit-line-clamp: 2; }
 
         /* celular horizontal: todo más compacto; la barra de categorías solo con íconos y nombre chico */
@@ -1745,8 +1758,8 @@
             .tienda-saldo b { font-size: 14px; }
             .tienda-saldo .moneda { width: 14px; height: 14px; }
             .tienda-cuerpo { grid-template-columns: 74px minmax(0, 1fr); gap: 8px; }
-            .tienda-pestanas { gap: 4px; }
-            .tienda-pestana { flex-direction: column; justify-content: center; gap: 1px; min-height: 0; flex: 1 1 0; padding: 3px; text-align: center; font-size: 9.5px; border-radius: 12px; }
+            .tienda-pestanas { gap: 4px; scrollbar-width: none; }
+            .tienda-pestana { flex-direction: column; justify-content: center; gap: 1px; min-height: 40px; flex: 1 0 auto; padding: 3px; text-align: center; font-size: 9.5px; border-radius: 12px; }
             .tienda-pestana-icono { font-size: 16px; width: auto; }
             .tienda-pestana b { margin: 0; font-size: 8.5px; padding: 0 5px; }
             .tienda-pestana.activa { box-shadow: 0 3px 0 #4a59c9; }
@@ -1755,6 +1768,11 @@
             .tienda-seccion { font-size: 10px; }
             .poder-ranura { font-size: 10px; padding: 2px 7px 2px 2px; }
             .poder-ranura img { width: 22px; height: 22px; }
+            .poder-ranura span, .poder-combo { display: none; } /* poco alto: los equipados solo con su ícono */
+            .poder-filtros { flex: 0 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+            .poder-equipo > b { display: none; }
+            .poder-build { font-size: 10.5px; flex-basis: 200px; }
+            .poder-build .tienda-btn { min-height: 26px; padding: 0 8px; }
             .poder-ranura kbd { font-size: 10px; padding: 2px 5px; }
             .poder-filtro { min-height: 26px; padding: 0 9px; font-size: 10px; }
             .tienda-flecha { width: 30px; height: 64px; font-size: 24px; border-radius: 10px; }
@@ -1765,12 +1783,30 @@
             .poder-nivel { font-size: 9px; letter-spacing: 0; }
             .tienda-info { gap: 3px; }
             .carta-nombre { font-size: 12.5px; }
-            .tienda-desc { font-size: 10.5px; -webkit-line-clamp: 2; }
+            .tienda-desc { font-size: 10.5px; -webkit-line-clamp: 3; }
             .poder-ventaja { font-size: 9px; padding: 3px 5px; }
-            .poder-siguiente { font-size: 9.5px; -webkit-line-clamp: 1; }
+            .poder-siguiente { font-size: 9.5px; -webkit-line-clamp: 3; }
             .tienda-btn { min-height: 30px; font-size: 11px; border-radius: 10px; }
             .poder-tecla { min-height: 24px; font-size: 11px; }
-            .tienda-acciones { gap: 5px; }
+            /* celular horizontal: carta acostada. Izquierda: ícono y botones; derecha: todos los datos (se deslizan) */
+            .tienda-item {
+                display: grid; grid-template-columns: 104px minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr);
+                gap: 4px 10px; overflow: hidden; touch-action: pan-x;
+            }
+            .carta-cima { grid-column: 1 / -1; }
+            .tienda-media { grid-column: 1; grid-row: 2; }
+            .tienda-acciones {
+                grid-column: 1; grid-row: 3; align-self: end; gap: 4px;
+                position: static; margin: 0; padding: 0; background: none;
+            }
+            .tienda-acciones .tienda-btn { min-height: 28px; padding: 0 4px; font-size: 10px; line-height: 1.1; white-space: normal; }
+            .tienda-info {
+                grid-column: 2; grid-row: 2 / 4; min-height: 0; align-self: stretch; justify-content: flex-start; align-items: flex-start;
+                text-align: left; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none;
+            }
+            .tienda-info .poder-ventajas { justify-content: flex-start; }
+            .tienda-info > * { flex: none; } /* (nada se aplasta: lo que no quepa se desliza) */
+            .tienda-desc, .poder-siguiente { -webkit-line-clamp: unset; }
             .tienda-puntos i { width: 6px; height: 6px; }
             .tienda-puntos i.activo { width: 16px; }
         }
