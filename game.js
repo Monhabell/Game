@@ -2151,9 +2151,13 @@ function dañarEnemigo(scene, enemy, cantidad = 1, congela = 0) {
     if (enemy.rivalId != null) { golpearRival(scene, enemy, cantidad, congela); return true; } // (arena: otro jugador)
     if (enemy.isDead || scene.time.now < (enemy.invulHasta || 0)) return false;
     if (enemy.replica) {
-        // la vida de los enemigos la lleva el anfitrión: aquí solo se ve el golpe
+        // la vida de los enemigos la lleva el anfitrión, pero no se espera su respuesta: si este golpe
+        // la deja en 0 muere ya aquí (y avisa a todos, como cuando la mata el anfitrión)
         enemy.invulHasta = scene.time.now + 350;
         avisarGolpeEnemigo(enemy.redId, cantidad, congela);
+        enemy.vida = (enemy.vida ?? 1) - cantidad;
+        enemy.golpeadoHasta = performance.now() + 700; // (hasta que el anfitrión cuente este golpe)
+        if (enemy.vida <= 0) { matarEnemigo(scene, enemy); return true; }
         enemy.setTintFill(0xffffff);
         scene.time.delayedCall(90, () => { if (enemy.active) enemy.gigante ? enemy.setTint(0xff9a9a) : enemy.clearTint(); });
         scene.sound.play('bump', { volume: 0.4 });

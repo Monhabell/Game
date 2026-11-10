@@ -438,6 +438,7 @@ function crearLista(scene) {
     lista.className = 'noche-lista minas-lista';
     lista.setAttribute('aria-live', 'polite');
     flecha = document.createElement('div');
+    flechaAntes = '';
     flecha.className = 'noche-flechas';
     flecha.setAttribute('aria-hidden', 'true');
     document.getElementById('game').append(lista, flecha);
@@ -470,8 +471,12 @@ function pintarFlecha(scene) {
     ];
     const o = pend.sort((a, b) => Math.hypot(a.x - g.center.x, a.y - g.center.y) - Math.hypot(b.x - g.center.x, b.y - g.center.y))[0];
     const cam = scene.cameras.main, v = cam.worldView, canvas = scene.game.canvas;
-    if (!o || !canvas || (o.x > v.x + 30 && o.x < v.right - 30 && o.y > v.y + 30 && o.y < v.bottom - 30)) { flecha.innerHTML = ''; return; }
-    const cr = canvas.getBoundingClientRect(), gr = flecha.parentElement.getBoundingClientRect();
+    if (!o || !canvas || (o.x > v.x + 30 && o.x < v.right - 30 && o.y > v.y + 30 && o.y < v.bottom - 30)) { if (flechaAntes) { flecha.innerHTML = ''; flechaAntes = ''; } return; }
+    // (las medidas de la pantalla se guardan un rato: pedirlas en cada fotograma obliga al navegador a
+    // recalcular la página entera, y eso traba)
+    const ahora = performance.now();
+    if (!medidas || ahora > medidas.hasta) medidas = { cr: canvas.getBoundingClientRect(), gr: flecha.parentElement.getBoundingClientRect(), hasta: ahora + 1000 };
+    const { cr, gr } = medidas;
     const px = x => cr.left - gr.left + (x - v.x) / v.width * cr.width, py = y => cr.top - gr.top + (y - v.y) / v.height * cr.height;
     const cx = px(g.center.x), cy = py(g.center.y), tx = px(o.x), ty = py(o.y);
     const caja = { x0: cr.left - gr.left + 40, x1: cr.right - gr.left - 40, y0: cr.top - gr.top + 76, y1: cr.bottom - gr.top - 58 };
@@ -479,8 +484,12 @@ function pintarFlecha(scene) {
     const k = Math.min((dx > 0 ? caja.x1 - cx : caja.x0 - cx) / dx, (dy > 0 ? caja.y1 - cy : caja.y0 - cy) / dy);
     const fx = cx + dx * Math.max(0, k), fy = cy + dy * Math.max(0, k);
     const ang = Math.atan2(dy, dx) * 180 / Math.PI;
-    flecha.innerHTML = `<div class="noche-flecha encargo principal" style="left:${fx.toFixed(0)}px;top:${fy.toFixed(0)}px"><i style="transform:rotate(${ang.toFixed(0)}deg)"></i><span>${o.i}</span></div>`;
+    // (solo se toca la página si la flecha cambió)
+    const html = `<div class="noche-flecha encargo principal" style="left:${fx.toFixed(0)}px;top:${fy.toFixed(0)}px"><i style="transform:rotate(${ang.toFixed(0)}deg)"></i><span>${o.i}</span></div>`;
+    if (html !== flechaAntes) { flecha.innerHTML = html; flechaAntes = html; }
 }
+let medidas = null, flechaAntes = '';
+window.addEventListener('resize', () => { medidas = null; });
 
 // ---------- al terminar el nivel: el resumen ----------
 export function resultadosMinas(scene, muertes) {

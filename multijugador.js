@@ -277,15 +277,16 @@ function cuerpoRemoto(r) {
     };
 }
 
-// el poder de otro jugador: se ve el proyectil (el daño a los enemigos llega por 'enemigo')
+// el poder de otro jugador: solo se ve (el daño a los enemigos lo cuenta su pantalla y llega por 'enemigo')
 function poderRemoto(scene, m) {
     const r = scene.remotos.get(m.de);
     const h = r?.pj.habilidades[m.tecla];
-    if (!r?.visible || !h || h.tipo !== 'proyectil') return;
+    if (!r?.visible || !h) return;
     const anim = scene.anims.get(`${r.prefijo || r.pj.id}-${h.anim}`);
     const espera = anim ? h.soltar / anim.frameRate * 1000 : 200;
     scene.time.delayedCall(espera, () => {
         if (!r.s.active) return;
+        if (h.tipo !== 'proyectil') { efectoRemoto(scene, r, h, m.dir); return; }
         const x = r.s.x + m.dir * 20, y = r.s.y + (r.estado.cy - r.estado.y) - 8;
         const p = scene.add.sprite(x, y, h.textura).setScale(h.escala || 1).setFlipX(m.dir < 0).setDepth(33);
         if (h.animProyectil) p.anims.play(h.animProyectil, true);
@@ -295,6 +296,47 @@ function poderRemoto(scene, m) {
         scene.tweens.add({ targets: p, x: x + m.dir * h.vel * ms / 1000, duration: ms, onComplete: () => p.destroy() });
         if (h.sonido) scene.sound.play(h.sonido, { volume: 0.3, rate: h.rate || 1 });
     });
+}
+
+// golpes, rayos, escudos, embestidas y volteretas de otro jugador (los mismos dibujos que en su pantalla)
+function efectoRemoto(scene, r, h, dir) {
+    const s = r.s, cx = () => s.x + (r.estado.cx - r.estado.x), cy = () => s.y + (r.estado.cy - r.estado.y);
+    const x = cx(), y = cy(), ALTO = 68;
+    if (h.sonido) scene.sound.play(h.sonido, { volume: 0.3, rate: h.rate || 1 });
+    if (h.tipo === 'golpe' || h.tipo === 'rayo') {
+        if (h.ambosLados) {
+            const anillo = scene.add.ellipse(x, y, (20 + h.alcance * 2) * 0.6, ALTO * 0.7).setStrokeStyle(3, 0xdfe8ff, 0.9).setDepth(20);
+            scene.tweens.add({ targets: anillo, scaleX: 1.6, scaleY: 1.2, alpha: 0, duration: 260, onComplete: () => anillo.destroy() });
+        } else if (h.tipo === 'rayo') {
+            const rayo = scene.add.rectangle(x + dir * (10 + h.alcance / 2), y - 6, h.alcance, 6, h.color ?? 0xffe066).setDepth(20);
+            scene.tweens.add({ targets: rayo, scaleY: 3, alpha: 0, duration: 350, onComplete: () => rayo.destroy() });
+        } else {
+            // el tajo: un destello delante
+            const tajo = scene.add.image(x + dir * (10 + h.alcance * 0.5), y - 4, 'brillo').setDepth(20)
+                .setScale(0.5).setTint(0xfff2c0).setBlendMode('ADD').setAlpha(0.8);
+            scene.tweens.add({ targets: tajo, scale: 1.1, alpha: 0, duration: 200, onComplete: () => tajo.destroy() });
+        }
+    } else if (h.tipo === 'escudo') {
+        r.escudoFx?.destroy();
+        const fx = r.escudoFx = scene.add.circle(x, y, 46, 0x66ccff, 0.25).setStrokeStyle(3, 0x99ddff).setDepth(20);
+        scene.tweens.add({
+            targets: fx, alpha: { from: 1, to: 0.6 }, duration: h.duracion || 3000,
+            onUpdate: () => { if (s.active) fx.setPosition(cx(), cy()); },
+            onComplete: () => { fx.destroy(); if (r.escudoFx === fx) r.escudoFx = null; },
+        });
+    } else if (h.tipo === 'embestida' || h.tipo === 'voltereta') {
+        // estela: copias del muñeco que se desvanecen mientras dura
+        const dura = h.duracion || 300;
+        if (h.tipo === 'voltereta' && !enCarrera()) { s.setAlpha(0.55); scene.time.delayedCall(dura, () => s.active && s.setAlpha(1)); }
+        scene.time.addEvent({
+            delay: 50, repeat: Math.max(1, Math.floor(dura / 50)), callback: () => {
+                if (!s.active || !s.texture) return;
+                const eco = scene.add.image(s.x, s.y, s.texture.key, s.frame.name).setFlipX(s.flipX).setScale(s.scaleX, s.scaleY)
+                    .setOrigin(s.originX, s.originY).setDepth(s.depth - 1).setAlpha(0.35).setTint(h.tipo === 'embestida' ? 0xffd27a : 0xbfe6ff);
+                scene.tweens.add({ targets: eco, alpha: 0, duration: 220, onComplete: () => eco.destroy() });
+            },
+        });
+    }
 }
 
 // ---------- quién manda en los enemigos ----------
@@ -314,7 +356,7 @@ function enviarEnemigos(scene, time) {
         if (e.isDead || e.esperando || e.redId == null || !e.body) return; // (los que esperan turno para caer, todavía no)
         l.push([e.redId, e.tipoId || '', r(e.x), r(e.y), r(e.body.velocity.x), r(e.body.velocity.y),
             e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0,
-            scene.time.now < (e.congeladoHasta || 0) ? 1 : 0]);
+            scene.time.now < (e.congeladoHasta || 0) ? 1 : 0, e.vida ?? 1]);
     });
     const jefe = ganchos.datosJefe(scene);
     const datos = { l, reloj: ganchos.reloj(scene), ...marca() };
@@ -325,7 +367,7 @@ function enviarEnemigos(scene, time) {
 // réplica: se crean las que faltan y se guarda a dónde tiene que ir cada una
 function recibirEnemigos(scene, lista) {
     const ahora = performance.now();
-    lista.forEach(([id, tipo, x, y, vx, vy, flip, anim, escala, gigante, congelado]) => {
+    lista.forEach(([id, tipo, x, y, vx, vy, flip, anim, escala, gigante, congelado, vida]) => {
         let e = enemigoPorId(scene, id);
         if (e && tipo && e.tipoId !== tipo) { e.destroy(); e = null; } // no coincide: se rehace
         if (!e) {
@@ -340,6 +382,9 @@ function recibirEnemigos(scene, lista) {
         if (e.isDead) return;
         hacerReplica(e);
         e.red = { x, y, vx, vy, t: ahora };
+        // la vida que lleva el anfitrión (para que un golpe mortal mate al instante, sin esperar la red);
+        // si acabo de pegarle, su número todavía no cuenta mi golpe: me quedo con el menor
+        if (vida != null) e.vida = ahora < (e.golpeadoHasta || 0) ? Math.min(e.vida ?? vida, vida) : vida;
         e.flipX = !!flip;
         if (e.scaleX !== escala) e.setScale(escala);
         if (anim && e.anims.currentAnim?.key !== anim && scene.anims.exists(anim)) e.anims.play(anim, true);
