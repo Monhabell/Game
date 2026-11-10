@@ -102,7 +102,9 @@ export function actualizarCadena(scene, time) {
     const nodos = (c ? [{ local: true, s: a }, { local: true, s: c }] : scene.cadenaRed?.() || []).map(nodo);
     if (nodos.length < 2) { scene.dibujoCadena?.clear(); return; }
     escenaCadena = scene;
-    if (!quieto) {
+    // (recién teletransportados, como en las puertas de las catacumbas: un momento sin tirar, hasta que en
+    // todas las pantallas llegan todos; si no, tiraba hacia donde el compañero todavía no se había movido)
+    if (!quieto && time >= (scene.cadenaSueltaHasta || 0)) {
         anclarJugador1(scene, a);
         for (let i = 0; i + 1 < nodos.length; i++) tensar(nodos[i], nodos[i + 1]);
         // los que cuelgan (después del tirón: la cadena manda sobre su movimiento)

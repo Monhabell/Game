@@ -147,6 +147,14 @@ export function prepararCarrera(scene, nivel, inicioX) {
     prepararCajas(scene, nivel, carrera); // (las cajas de poder del camino y las trampas que dejaron los rivales)
     // (las que ya se llevaron los demás no están)
     scene.coins?.getChildren().forEach(m => { if (carrera.tomadas.has(m.clave)) m.destroy(); });
+    // los enemigos que ya mató alguien (tú o un rival) tampoco: si no, al reaparecer volvían solo para ti y
+    // el otro seguía sin verlos (game.js: matarEnemigo los anota)
+    carrera.muertos ??= new Set();
+    scene.enemies?.getChildren().forEach(e => { if (e.redId != null && carrera.muertos.has(e.redId)) e.destroy(); });
+    // el reloj de lo periódico (ascensores, plataformas, gotas, bolas de fuego) cuenta desde la SALIDA de la
+    // carrera, igual en todas las pantallas: quien reaparece no queda desfasado de los demás (el minuto de
+    // más: que nunca sea negativo durante la cuenta regresiva)
+    scene.desfaseReloj = (Date.now() - carrera.salida + 60000) - (scene.time.now - scene.inicioNivel);
     if (carrera.fin) { scene.cinematica = true; return; }
     const falta = carrera.salida - Date.now();
     if (falta <= 0) return;

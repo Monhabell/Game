@@ -22,6 +22,7 @@
 
 import { SUELO_Y } from "./alcance.js" // (no de niveles.js: niveles.js importa este archivo)
 import { alFondo } from "./mazmorra.js"
+import { red, enviarEvento, alRecibir, mundoCompartido, esAnfitrion } from "./red.js"
 
 const S = SUELO_Y;
 const ARRIBA = 32;                     // el piso de la entrada (sobre la cripta)
@@ -31,6 +32,7 @@ const DESARMA_DESDE = 3;               // pisando este escalón, los de abajo se
 const TECHO = { x0: 1120, x1: 3600, abajo: 150 }; // el techo de las catacumbas
 const OSCURO = [TECHO.x0, TECHO.x1];
 const PUERTAS = { sala: 2180, xs: [2290, 2410, 2530], destino: 2960, quieto: 500 };
+const CADENA_SUELTA_MS = 1500; // al pasar por una puerta, la cadena no tira (llegan los de las otras pantallas)
 const FALSA = { x0: 2600, x1: 2660 };  // la pared falsa del fondo de la sala de puertas
 const ESCONDITE = { x0: 2660, x1: 2840 };
 const APLASTA = { x0: 3080, x1: 3480, aviso: 500, baja: 2600, espera: 800, sube: 1500, rearma: 3500 };
@@ -140,8 +142,19 @@ function texturas(scene) {
 let api = null;
 export const configurarCatacumbas = a => { api = a; };
 
+// en línea (con la cadena): cuando alguien usa una puerta, pasa lo mismo en todas las pantallas (si no, la
+// cadena tiraba de vuelta al que se teletransportó solo)
+let escenaCat = null;
+alRecibir('evento', m => {
+    const scene = escenaCat;
+    if (m.tipo !== 'catPuerta' || !scene?.sys?.isActive() || !scene.catPuertas || m.vez !== scene.intento) return;
+    const quien = red.jugadores.find(j => j.id === m.de)?.nombre || 'Alguien';
+    usarPuerta(scene, Number(m.i), quien);
+});
+
 // al armar el nivel: el decorado y los mecanismos
 export function crearCatacumbas(scene) {
+    escenaCat = scene;
     texturas(scene);
     // la entrada: la cripta en ruinas sobre el bloque de piedra
     pared(scene, 0, ARRIBA + 12, ESCALERA.x, S + 60, 'tile93', 1);
@@ -203,7 +216,11 @@ export function crearCatacumbas(scene) {
 
 // ---------- las puertas: una sirve, otra te devuelve, otra suelta un zombie ----------
 function crearPuertas(scene) {
-    const tipos = ['buena', 'vuelve', 'zombie'].sort(() => Math.random() - 0.5); // (distinto en cada intento)
+    // (distinto en cada intento; en línea, con la semilla de la sala: la buena es la misma para todos)
+    let s = mundoCompartido() ? ((red.semilla + red.intento * 7919) >>> 0) || 1 : 0;
+    const azar = s ? () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; } : Math.random;
+    const tipos = ['buena', 'vuelve', 'zombie'];
+    for (let i = tipos.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [tipos[i], tipos[j]] = [tipos[j], tipos[i]]; }
     scene.catPuertas = PUERTAS.xs.map((x, i) => {
         const img = objeto(scene, 'door1', x, S, 1.1, 3);
         letrero(scene, x, S - 80, ['I', 'II', 'III'][i]);
@@ -218,21 +235,39 @@ function revisarPuertas(scene, time) {
     if (scene.catPuertaQuieto?.p !== p) { scene.catPuertaQuieto = { p, desde: time }; return; }
     if (time - scene.catPuertaQuieto.desde < PUERTAS.quieto) return;
     scene.catPuertaQuieto = null;
+    const i = scene.catPuertas.indexOf(p);
+    if (mundoCompartido()) enviarEvento('catPuerta', { i, vez: scene.intento });
+    usarPuerta(scene, i, null);
+}
+// lo que hace la puerta i (la usaste tú, o 'quien' en otra pantalla): con la cadena va todo el equipo junto
+function usarPuerta(scene, i, quien) {
+    const p = scene.catPuertas[i];
+    if (!p) return;
+    const de = quien ? `${quien.toUpperCase()}: ` : '';
+    // todos los de esta pantalla (tú y el compañero, si juegan dos en el mismo equipo)
+    const llevar = x => {
+        [scene.mascotaGesi, scene.compa?.active ? scene.compa : null].forEach((s, k) => {
+            if (s?.body && !s.isDead) s.body.reset(x + k * 30, S - 70);
+        });
+        scene.cadenaSueltaHasta = scene.time.now + CADENA_SUELTA_MS; // (cadena.js: no tira mientras llegan los demás)
+    };
     if (p.tipo === 'buena') {
-        g.body.reset(PUERTAS.destino, S - 70);
+        llevar(PUERTAS.destino);
         scene.cameras.main.flash(250, 140, 120, 255);
-        api.mensaje(scene, '¡ERA LA BUENA!', 900);
+        api.mensaje(scene, `${de}¡ERA LA BUENA!`, 900);
         return;
     }
+    if (p.usada) return;
     p.usada = true;
     p.img.setTint(0x555566);
     if (p.tipo === 'vuelve') {
-        g.body.reset(PUERTAS.sala, S - 70);
+        llevar(PUERTAS.sala);
         scene.cameras.main.flash(250, 140, 120, 255);
-        api.mensaje(scene, '¡VUELVE A EMPEZAR! :)', 1100);
+        api.mensaje(scene, `${de}¡VUELVE A EMPEZAR! :)`, 1100);
     } else {
-        api.crearEnemigo(scene, p.x, S - 2, 'zombie2');
-        api.mensaje(scene, '¡JA, JA!', 900);
+        // (en línea lo crea solo el anfitrión: sus enemigos aparecen en las demás pantallas)
+        if (!mundoCompartido() || esAnfitrion()) api.crearEnemigo(scene, p.x, S - 2, 'zombie2');
+        api.mensaje(scene, `${de}¡JA, JA!`, 900);
     }
 }
 

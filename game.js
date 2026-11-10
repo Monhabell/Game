@@ -2284,6 +2284,23 @@ function dispararEnemigo(scene, enemy) {
     sonarCerca(scene, enemy.def.tipo === 'volador' ? 'fuego' : 'laser', eb.center.x, { volume: 0.4 });
 }
 
+// enemigos dormidos (actualizarMundo): lejos de todos, sin cuerpo ni animación; al despertar siguen
+// con la velocidad que tenían
+const DORMIR_A = 1400, DESPERTAR_A = 1150; // px (a lo alto, el 70 %)
+function dormirEnemigo(enemy) {
+    enemy.dormido = true;
+    enemy.vxDormido = enemy.body.velocity.x;
+    enemy.body.enable = false;
+    enemy.anims.pause();
+}
+function despertarEnemigo(enemy) {
+    enemy.dormido = false;
+    enemy.body.enable = true;
+    enemy.body.reset(enemy.x, enemy.y);
+    if (!enemy.replica) enemy.setVelocityX(enemy.vxDormido || 0);
+    enemy.anims.resume();
+}
+
 function actualizarEnemigo(scene, enemy, time) {
     const def = enemy.def;
     if (!def) return;
@@ -2777,6 +2794,7 @@ function aplicarDefensa(scene, tipo) {
 function matarEnemigo(scene, enemy) {
     enemy.isDead = true;
     if (enemy.redId != null && !enemy.muerteRemota) avisarEnemigo(enemy.redId);
+    if (enemy.redId != null) scene.carrera?.muertos?.add(enemy.redId); // (carrera: no vuelve al reaparecer: carrera.js)
     enemy.clearTint();
     enemy.anims.play(enemy.tipoId ? `${enemy.tipoId}-dead` : 'enemy-muerte', true);
     scene.sound.play('matar');
@@ -3110,10 +3128,19 @@ function actualizarMundo(scene) {
 
     // enemigos: cada tipo tiene su comportamiento; desaparecen si caen
     const ahora = scene.time.now;
+    // (los lejos de todos los jugadores DUERMEN: sin física ni comportamiento hasta que alguien se acerca.
+    // Un nivel largo tiene ~100 enemigos y moverlos y chocarlos a todos en cada fotograma traba el celular)
+    const jugadores = [scene.mascotaGesi, ...fantasmas(scene)].filter(j => j?.body).map(j => [j.x, j.y]);
+    const lejos = (e, d) => jugadores.every(([x, y]) => Math.abs(e.x - x) > d || Math.abs(e.y - y) > d * 0.7);
     scene.enemies.getChildren().slice().forEach(enemy => {
         if (enemy.y > VISTA.height + 150 || enemy.x < -200) {
             enemy.destroy();
             return;
+        }
+        if (!enemy.isDead && !enemy.esperando && !enemy.gigante && enemy.body) {
+            if (!enemy.dormido && lejos(enemy, DORMIR_A)) dormirEnemigo(enemy);
+            else if (enemy.dormido && !lejos(enemy, DESPERTAR_A)) despertarEnemigo(enemy);
+            if (enemy.dormido) return;
         }
         if (enemy.isDead || enemy.replica || enemy.esperando) return; // las réplicas las mueve el anfitrión
         if (enemy.def) {

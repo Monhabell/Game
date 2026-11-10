@@ -49,7 +49,15 @@ export function zonasTunel(nivel) {
 // indice: el número de nivel (los túneles son más oscuros en los niveles altos)
 export function crearLuz(scene, nivel, resolucion, indice = 0) {
     scene.luz = null;
-    scene.sombrasPj = scene.add.graphics().setDepth(32.9); // (sombras bajo los pies: detrás de los personajes)
+    // (sombras bajo los pies: detrás de los personajes. Imágenes que se reusan, no un dibujo que se rehace
+    // en cada cuadro: eso pesaba en el celular)
+    if (!scene.textures.exists('sombra_pie')) {
+        const t = scene.make.graphics({ add: false });
+        t.fillStyle(0x000000, 1).fillEllipse(32, 8, 64, 14);
+        t.generateTexture('sombra_pie', 64, 16);
+        t.destroy();
+    }
+    scene.sombrasPj = [];
     const tuneles = nivel.luz ? [] : zonasTunel(nivel);
     if (!nivel.luz && !tuneles.length) return;
     texturas(scene);
@@ -206,22 +214,24 @@ export function actualizarLuz(scene, time, delta) {
     });
 }
 
-// una sombra ovalada bajo el personaje y los enemigos que se ven (un solo dibujo por cuadro)
+// una sombra ovalada bajo el personaje y los enemigos que se ven (imágenes que se reusan)
 function pintarSombras(scene) {
-    const s = scene.sombrasPj;
-    if (!s) return;
-    s.clear();
+    const lista = scene.sombrasPj;
+    if (!lista) return;
     const v = scene.cameras.main.worldView;
+    let usadas = 0;
     const sombra = (cx, pie, ancho) => {
-        // (más chica y clara si está en el aire: se busca el piso de abajo, a lo sumo 80 px)
-        s.fillStyle(0x000000, 0.35).fillEllipse(cx, pie, ancho, ancho * 0.22);
+        let s = lista[usadas++];
+        if (!s) { s = scene.add.image(0, 0, 'sombra_pie').setDepth(32.9).setAlpha(0.35); lista.push(s); }
+        s.setPosition(cx, pie).setDisplaySize(ancho, ancho * 0.22).setVisible(true);
     };
     const g = scene.mascotaGesi;
     if (g?.body && !g.isDead && (g.body.blocked.down || g.body.touching.down)) sombra(g.body.center.x, g.body.bottom, 34);
     scene.enemies?.getChildren().forEach(e => {
         const b = e.body;
-        if (!e.active || e.isDead || !b || !e.visible || e.alpha < 0.3 || !b.blocked.down) return;
+        if (!e.active || e.isDead || e.dormido || !b || !e.visible || e.alpha < 0.3 || !b.blocked.down) return;
         if (b.center.x < v.x - 40 || b.center.x > v.right + 40) return;
         sombra(b.center.x, b.bottom, Math.min(70, b.width * 1.3));
     });
+    for (let q = usadas; q < lista.length; q++) if (lista[q].visible) lista[q].setVisible(false);
 }

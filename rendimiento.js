@@ -13,6 +13,7 @@ import { ajustes, guardarAjustes, RESOLUCION, esMovil } from "./ajustes.js"
 import { red, enLinea, leerHueco } from "./red.js"
 
 const RECORTE_MS = 120;   // cada cuánto se revisa qué está en la vista
+const RECORTE_QUIETO_MS = 600; // con la cámara quieta, cada cuánto (lo que se mueve solo no alcanza a cruzar el margen)
 const MARGEN = 180;       // px fuera de la vista que se siguen dibujando (lo que entra no "aparece" de golpe)
 const FIJOS_MS = 1000;    // cada cuánto se rehace igual la lista de objetos fijos en pantalla
 
@@ -23,6 +24,13 @@ export function recortarVista(scene, time) {
     if (time < (scene.proxRecorte || 0)) return;
     scene.proxRecorte = time + RECORTE_MS;
     const cam = scene.cameras.main;
+    // (con la cámara casi quieta no cambia casi nada: la revisión entera, cada RECORTE_QUIETO_MS. Lo que se
+    // mueve solo, como los enemigos, no alcanza a recorrer el MARGEN en ese rato)
+    const movio = Math.abs(cam.scrollX - (scene.recorteX ?? -1e9)) + Math.abs(cam.scrollY - (scene.recorteY ?? -1e9)) > 30;
+    if (!movio && time < (scene.recorteForzado || 0)) return;
+    scene.recorteX = cam.scrollX;
+    scene.recorteY = cam.scrollY;
+    scene.recorteForzado = time + RECORTE_QUIETO_MS;
     const anchoVista = cam.width / cam.zoom, altoVista = cam.height / cam.zoom;
     const revisar = o => {
         if (o.type === 'Layer') { o.list.forEach(revisar); return; }

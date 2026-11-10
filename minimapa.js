@@ -18,7 +18,7 @@ import { progresoEnRuta } from "./descenso.js"
 const CHICO = { ancho: 190, alto: 58 };   // px de pantalla (el lienzo)
 const VENTANA = 1400;                       // px del mundo que se ven a lo ancho, como mínimo (los niveles planos)
 const VENTANA_ALTO = 820;                   // px del mundo que se ven a lo alto en el chico (2 o 3 pisos de un descenso)
-const CADA_MS = 90;                         // cada cuánto se repinta
+const CADA_MS = 120;                        // cada cuánto se repinta
 const CASILLA = 160;                        // px del mundo por casilla de lo recorrido
 const ALCANCE = 300;                        // px sobre un piso que cuentan como "por donde se camina"
 const COLUMNA = 12;                         // px del mundo por columna al calcular los pasillos
@@ -48,7 +48,11 @@ function armarDom() {
         if ((e.key === 'm' || e.key === 'M') && caja.classList.contains('visible') && !/INPUT|TEXTAREA/.test(e.target?.tagName)) alternar();
     });
 }
-const alternar = () => { caja.classList.toggle('grande'); if (mapa) mapa.proximo = 0; };
+const alternar = () => { caja.classList.toggle('grande'); tamaño = null; if (mapa) mapa.proximo = 0; };
+// el tamaño del lienzo en pantalla: se mide solo al agrandar/achicar o al cambiar la ventana (medirlo en cada
+// repintado obliga al navegador a recalcular la página entera: en el celular se nota)
+let tamaño = null, avanceAntes = -1;
+window.addEventListener('resize', () => { tamaño = null; });
 export const ocultarMinimapa = () => { caja?.classList.remove('visible', 'grande'); };
 
 // al crear la escena del nivel (también al reaparecer: si es el mismo nivel, el dibujo y lo recorrido se reusan)
@@ -144,7 +148,7 @@ export function actualizarMinimapa(scene) {
     const m = scene.minimapa;
     if (!m || !caja) return;
     const mostrar = ajustes.minimapa !== false;
-    caja.classList.toggle('visible', mostrar);
+    if (caja.classList.contains('visible') !== mostrar) { caja.classList.toggle('visible', mostrar); tamaño = null; }
     if (!mostrar) return;
     const g = scene.mascotaGesi;
     // lo recorrido: las casillas cerca tuyo
@@ -161,7 +165,8 @@ export function actualizarMinimapa(scene) {
 function pintar(scene, m) {
     const grande = caja.classList.contains('grande');
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const rect = lienzo.getBoundingClientRect();
+    if (!tamaño) { const r = lienzo.getBoundingClientRect(); tamaño = { width: r.width, height: r.height }; }
+    const rect = tamaño;
     const W = Math.max(1, Math.round(rect.width * dpr)), H = Math.max(1, Math.round(rect.height * dpr));
     if (lienzo.width !== W || lienzo.height !== H) { lienzo.width = W; lienzo.height = H; }
     const g = scene.mascotaGesi;
@@ -249,5 +254,6 @@ function pintar(scene, m) {
     // la barrita: cuánto llevas del nivel
     // (los descensos con formas: por la ruta, que vuelve a la izquierda o sube)
     const avance = m.ruta ? progresoEnRuta(m.ruta, px, py) : px / Math.max(1, m.meta || m.ancho);
-    barra.style.width = `${Math.max(0, Math.min(100, avance * 100))}%`;
+    const pct = Math.round(Math.max(0, Math.min(100, avance * 100)));
+    if (pct !== avanceAntes) { barra.style.width = `${pct}%`; avanceAntes = pct; }
 }
