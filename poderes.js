@@ -318,7 +318,7 @@ const EFECTO_DE = {
 // (los poderes nuevos sin entrada: según lo que hacen)
 export function efectoEnCarrera(p) {
     if (!p || p.tipo === 'escudo' || p.tipo === 'cura') return null;
-    return EFECTO_DE[p.id] || (p.congela || p.tipo === 'tiempo' ? 'congelar' : p.aturde ? 'aturdir' : p.tipo === 'iman' ? 'atraer'
+    return p.efectoCarrera || EFECTO_DE[p.id] || (p.congela || p.tipo === 'tiempo' ? 'congelar' : p.aturde ? 'aturdir' : p.tipo === 'iman' ? 'atraer'
         : p.empuje ? 'empujar' : p.tipo === 'explosion' || p.tipo === 'meteoro' ? 'explotar' : 'aturdir');
 }
 

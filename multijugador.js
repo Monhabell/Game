@@ -286,24 +286,58 @@ function poderRemoto(scene, m) {
     const espera = anim ? h.soltar / anim.frameRate * 1000 : 200;
     scene.time.delayedCall(espera, () => {
         if (!r.s.active) return;
-        if (h.tipo !== 'proyectil') { efectoRemoto(scene, r, h, m.dir); return; }
+        if (h.tipo !== 'proyectil') { efectoRemoto(scene, r, h, m.dir, m.de); return; }
         const x = r.s.x + m.dir * 20, y = r.s.y + (r.estado.cy - r.estado.y) - 8;
         const p = scene.add.sprite(x, y, h.textura).setScale(h.escala || 1).setFlipX(m.dir < 0).setDepth(33);
         if (h.animProyectil) p.anims.play(h.animProyectil, true);
         if (h.tinte) p.setTint(h.tinte);
         // (sigue de largo, como en la pantalla de quien lo lanzó: hasta salir de la vista)
         const ms = 2500;
-        scene.tweens.add({ targets: p, x: x + m.dir * h.vel * ms / 1000, duration: ms, onComplete: () => p.destroy() });
+        const vuelo = scene.tweens.add({
+            targets: p, x: x + m.dir * h.vel * ms / 1000, duration: ms, onComplete: () => p.destroy(),
+            // carrera: la flecha (o la bola, el hechizo…) del rival también me alcanza a mí
+            onUpdate: () => {
+                if (!enCarrera() || p.pego) return;
+                if (golpeDeRival(scene, h, m.de, new Phaser.Geom.Rectangle(p.x - 12, p.y - 10, 24, 20), p.x - m.dir * 40) && !h.perfora) {
+                    p.pego = true;
+                    vuelo.stop();
+                    p.destroy();
+                }
+            },
+        });
         if (h.sonido) scene.sound.play(h.sonido, { volume: 0.3, rate: h.rate || 1 });
     });
 }
 
+// ---------- carrera: los ataques propios del personaje (espacio, X, C) también alcanzan al rival ----------
+// (los poderes especiales V/B ya lo hacían: poderes.js). Se revisa en la pantalla del que RECIBE, con el
+// dibujo del ataque, igual que los poderes. Pegan menos que un poder especial (QUITA_BASICO de vida).
+const QUITA_BASICO = { proyectil: 15, golpe: 15, rayo: 20, embestida: 15 };
+const EFECTO_BASICO = { proyectil: 'empujar', golpe: 'aturdir', rayo: 'aturdir', embestida: 'empujar' };
+function golpeDeRival(scene, h, de, zona, ox) {
+    const g = scene.mascotaGesi;
+    if (!enCarrera() || de == null || !g?.body || g.isDead || !EFECTO_BASICO[h.tipo]) return false;
+    const b = g.body;
+    if (!Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(b.left, b.top, b.width, b.height))) return false;
+    // un "poder" con lo que necesita carrera.js: qué efecto hace y cuánta vida quita
+    const p = {
+        id: 'basico', tipo: h.tipo, rareza: 'comun', nivel: 1, daño: h.daño ?? 1, quita: QUITA_BASICO[h.tipo],
+        efectoCarrera: h.congela ? 'congelar' : EFECTO_BASICO[h.tipo], empuje: h.tipo === 'embestida' ? 320 : undefined,
+    };
+    ganchos.golpeCarrera?.(scene, p, de, ox);
+    return true;
+}
+
 // golpes, rayos, escudos, embestidas y volteretas de otro jugador (los mismos dibujos que en su pantalla)
-function efectoRemoto(scene, r, h, dir) {
+function efectoRemoto(scene, r, h, dir, de) {
     const s = r.s, cx = () => s.x + (r.estado.cx - r.estado.x), cy = () => s.y + (r.estado.cy - r.estado.y);
     const x = cx(), y = cy(), ALTO = 68;
     if (h.sonido) scene.sound.play(h.sonido, { volume: 0.3, rate: h.rate || 1 });
     if (h.tipo === 'golpe' || h.tipo === 'rayo') {
+        // la misma franja que en su pantalla (delante, o a los dos lados el torbellino)
+        const x0 = h.ambosLados ? x - 10 - h.alcance : dir > 0 ? x + 10 : x - 10 - h.alcance;
+        const ancho = h.ambosLados ? 20 + h.alcance * 2 : h.alcance;
+        golpeDeRival(scene, h, de, new Phaser.Geom.Rectangle(x0, y - ALTO / 2 - 10, ancho, ALTO + 10), x);
         if (h.ambosLados) {
             const anillo = scene.add.ellipse(x, y, (20 + h.alcance * 2) * 0.6, ALTO * 0.7).setStrokeStyle(3, 0xdfe8ff, 0.9).setDepth(20);
             scene.tweens.add({ targets: anillo, scaleX: 1.6, scaleY: 1.2, alpha: 0, duration: 260, onComplete: () => anillo.destroy() });
@@ -328,9 +362,12 @@ function efectoRemoto(scene, r, h, dir) {
         // estela: copias del muñeco que se desvanecen mientras dura
         const dura = h.duracion || 300;
         if (h.tipo === 'voltereta' && !enCarrera()) { s.setAlpha(0.55); scene.time.delayedCall(dura, () => s.active && s.setAlpha(1)); }
+        let pego = false;
         scene.time.addEvent({
             delay: 50, repeat: Math.max(1, Math.floor(dura / 50)), callback: () => {
                 if (!s.active || !s.texture) return;
+                // carrera: la embestida que me alcanza me empuja (una vez)
+                if (h.tipo === 'embestida' && !pego) pego = golpeDeRival(scene, h, de, new Phaser.Geom.Rectangle(cx() - 14, cy() - ALTO / 2, 28, ALTO), cx() - dir * 30);
                 const eco = scene.add.image(s.x, s.y, s.texture.key, s.frame.name).setFlipX(s.flipX).setScale(s.scaleX, s.scaleY)
                     .setOrigin(s.originX, s.originY).setDepth(s.depth - 1).setAlpha(0.35).setTint(h.tipo === 'embestida' ? 0xffd27a : 0xbfe6ff);
                 scene.tweens.add({ targets: eco, alpha: 0, duration: 220, onComplete: () => eco.destroy() });

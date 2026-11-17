@@ -245,7 +245,8 @@ export function recibirPoderCarrera(scene, p, de, ox) {
     // detrás) y dejan un momento de recuperación: nunca se ayuda al rival a avanzar
     aplicarEfecto(scene, tipo, { rareza: p.rareza, nivel: p.nivel, lado: -1, empuje: p.empuje, recuperacion: 450 });
     // y le quita vida: sin vida, muere y vuelve a su último punto de control
-    scene.vidaCarrera = Math.max(0, (scene.vidaCarrera ?? VIDA_CARRERA) - QUITA_PODER[Math.min(7, Math.ceil(p.daño || 1))]);
+    // (p.quita: los ataques propios del personaje, que pegan menos que un poder: multijugador.js)
+    scene.vidaCarrera = Math.max(0, (scene.vidaCarrera ?? VIDA_CARRERA) - (p.quita ?? QUITA_PODER[Math.min(7, Math.ceil(p.daño || 1))]));
     pintarVidaCarrera(scene);
     if (scene.vidaCarrera <= 0) {
         api.mensaje(scene, `💀 ¡${quien} TE ELIMINÓ!`, 1300);

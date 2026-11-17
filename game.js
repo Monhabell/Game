@@ -530,6 +530,7 @@ iniciarMultijugador(juego, {
     crearEnemigo: (scene, x, y, tipo) => crearEnemigo(scene, x, y, tipo),
     dañarEnemigo: (scene, e, cantidad, congela) => dañarEnemigo(scene, e, cantidad, congela),
     golpeEnZona: (scene, zona, x) => golpeEnZona(scene, zona, x),
+    golpeCarrera: (scene, p, de, ox) => recibirPoderCarrera(scene, p, de, ox), // (carrera: flechas y golpes del rival)
     bala: (scene, m) => balaRemota(scene, m),
     datosJefe: scene => datosJefe(scene),
     reloj: scene => Math.round(relojSala(scene)),
