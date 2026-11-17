@@ -304,7 +304,7 @@ function poderRemoto(scene, m) {
             // carrera: la flecha (o la bola, el hechizo…) del rival también me alcanza a mí
             onUpdate: () => {
                 if (!enCarrera() || p.pego) return;
-                if (golpeDeRival(scene, h, m.de, new Phaser.Geom.Rectangle(p.x - 12, p.y - 10, 24, 20), p.x - m.dir * 40) && !h.perfora) {
+                if (golpeDeRival(scene, h, m.de, new Phaser.Geom.Rectangle(p.x - 12 - MARGEN_LAG / 2, p.y - 10 - MARGEN_LAG / 2, 24 + MARGEN_LAG, 20 + MARGEN_LAG), p.x - m.dir * 40) && !h.perfora) {
                     p.pego = true;
                     vuelo.stop();
                     p.destroy();
@@ -351,6 +351,7 @@ function caidaRival(scene, r) {
 // (los poderes especiales V/B ya lo hacían: poderes.js). Se revisa en la pantalla del que RECIBE, con el
 // dibujo del ataque, igual que los poderes. Pegan menos que un poder especial (QUITA_BASICO de vida).
 const QUITA_BASICO = { proyectil: 15, golpe: 15, rayo: 20, embestida: 15 };
+const MARGEN_LAG = 24; // px de más en la zona del golpe del rival (compensa que aquí se lo ve atrasado)
 const EFECTO_BASICO = { proyectil: 'empujar', golpe: 'aturdir', rayo: 'aturdir', embestida: 'empujar' };
 function golpeDeRival(scene, h, de, zona, ox) {
     const g = scene.mascotaGesi;
@@ -375,7 +376,9 @@ function efectoRemoto(scene, r, h, dir, de) {
         // la misma franja que en su pantalla (delante, o a los dos lados el torbellino)
         const x0 = h.ambosLados ? x - 10 - h.alcance : dir > 0 ? x + 10 : x - 10 - h.alcance;
         const ancho = h.ambosLados ? 20 + h.alcance * 2 : h.alcance;
-        golpeDeRival(scene, h, de, new Phaser.Geom.Rectangle(x0, y - ALTO / 2 - 10, ancho, ALTO + 10), x);
+        // (+MARGEN_LAG: aquí el atacante se ve un poco atrasado por la red; sin margen, golpes que en su
+        // pantalla entraban aquí quedaban cortos)
+        golpeDeRival(scene, h, de, new Phaser.Geom.Rectangle(x0 - MARGEN_LAG, y - ALTO / 2 - 10 - MARGEN_LAG / 2, ancho + MARGEN_LAG * 2, ALTO + 10 + MARGEN_LAG), x);
         if (h.ambosLados) {
             const anillo = scene.add.ellipse(x, y, (20 + h.alcance * 2) * 0.6, ALTO * 0.7).setStrokeStyle(3, 0xdfe8ff, 0.9).setDepth(20);
             scene.tweens.add({ targets: anillo, scaleX: 1.6, scaleY: 1.2, alpha: 0, duration: 260, onComplete: () => anillo.destroy() });

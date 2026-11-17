@@ -891,6 +891,11 @@ export function actualizarPoderes(scene, time, delta) {
             impacto(scene, q.p, s.x, s.y);
             if (!q.p.perfora && q.p.tipo !== 'ola') { s.destroy(); return false; }
         }
+        if (!q.remoto && api.golpearMuros?.(scene, zona)) {
+            impacto(scene, q.p, s.x, s.y);
+            s.destroy();
+            return false;
+        }
         if (!q.remoto && !q.golpeoJefe && scene.jefe) {
             const antes = scene.jefe.vida;
             api.golpearJefe(scene, zona, Math.min(2, q.p.daño));

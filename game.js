@@ -94,6 +94,15 @@ iniciarPoderes({
         if (scene.minas) golpeMinas(scene, zona, 'poder'); // (nivel 3: el muro agrietado solo se rompe con un poder)
         return golpearJefeEnZona(scene, zona, daño, apiJefe);
     },
+    // muros agrietados (minas, misiones) que solo rompe un poder: los proyectiles los revisan en su
+    // vuelo (antes solo se revisaban junto con el jefe, y sin jefe en el nivel la bola los atravesaba).
+    // Devuelve true si rompió algo (el proyectil se deshace ahí)
+    golpearMuros: (scene, zona) => {
+        const antes = [scene.minasMuro, scene.misCosas?.length];
+        if (scene.misionesNivel) golpeMisiones(scene, zona, 'poder');
+        if (scene.minas) golpeMinas(scene, zona, 'poder');
+        return antes[0] !== scene.minasMuro || antes[1] !== scene.misCosas?.length;
+    },
     alterarJefe: (scene, tipo, ms) => alterarJefe(scene, tipo, ms),
     congelar: (scene, e, ms) => congelarEnemigo(scene, e, ms),
     // carrera: el poder de un rival me alcanzó (carrera.js decide el efecto)
