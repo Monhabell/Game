@@ -19,6 +19,7 @@ import { crearPaisaje, crearRuinas } from "./castillos.js"
 import { crearFondoCueva, moverFondoCueva } from "./mazmorra.js"
 import { regionDe, eventosDeRegion, PAUSA_ENTRE_EVENTOS, OSCURIDAD_MAXIMA } from "./regiones.js"
 import { RESOLUCION } from "./ajustes.js"
+import { red, enLinea } from "./red.js"
 
 const ANCHO = 790;
 const ALTO = 380;
@@ -456,6 +457,7 @@ function cicloNiebla(scene, region, reducir) {
     const base = NIEBLA_BASE[region.niebla] ?? 1; // intensidad cuando aparece (más espesa en cueva y volcán)
     scene.estadoNiebla = { v: 0, base: 0 };
     if (reducir) return; // con "reducir movimiento": siempre despejado
+    if (enLinea()) { nieblaCompartida(scene, base); return; }
     const programar = () => scene.time.delayedCall(Phaser.Math.Between(...ESPERA_NIEBLA), intentar);
     const intentar = () => {
         if (!scene.sys.isActive()) return;
@@ -495,6 +497,35 @@ function revisarEventos(scene, time, x) {
         scene.tweens.add({ targets: niebla, v: 2, duration: 3000, ease: 'Sine.inOut' });
         scene.time.delayedCall(ev.dura, () => scene.tweens.add({ targets: niebla, v: niebla.base, duration: 3500, ease: 'Sine.inOut', onComplete: terminar }));
     }
+}
+
+// en línea (equipo, cadena, carrera) la niebla no se sortea en cada pantalla: sale del reloj compartido del
+// nivel (game.js lo copia del anfitrión; en la carrera cuenta desde la salida) y de la semilla de la sala,
+// así llega y se va a la vez para todos. Se divide el tiempo en tramos de NIEBLA_TRAMO_MS y en cada uno
+// hay niebla o no según la semilla.
+const NIEBLA_TRAMO_MS = 30000, PROB_NIEBLA_TRAMO = 0.28;
+function nieblaCompartida(scene, base) {
+    const semilla = ((red.semilla || 1) + (red.intento || 0) * 7919) >>> 0;
+    const hayNiebla = tramo => {
+        let h = (semilla ^ Math.imul(tramo + 1, 2654435761)) >>> 0;
+        h = Math.imul(h ^ (h >>> 16), 2246822507) >>> 0;
+        h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0;
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967296 < PROB_NIEBLA_TRAMO;
+    };
+    let antes = false;
+    scene.time.addEvent({
+        delay: 1000, loop: true, callback: () => {
+            if (scene.inicioNivel == null || scene.eventoActivo || scene.peleaJefe) return;
+            const reloj = scene.time.now - scene.inicioNivel + (scene.desfaseReloj || 0);
+            const tramo = Math.floor(Math.max(0, reloj) / NIEBLA_TRAMO_MS);
+            const ahora = tramo > 0 && hayNiebla(tramo); // (el primer tramo, despejado: se empieza viendo)
+            if (ahora === antes) return;
+            antes = ahora;
+            scene.estadoNiebla.base = ahora ? base : 0; // (al terminar un apagón o una niebla densa vuelve a esto)
+            scene.tweens.killTweensOf(scene.estadoNiebla);
+            scene.tweens.add({ targets: scene.estadoNiebla, v: ahora ? base : 0, duration: ahora ? 4000 : 5000, ease: 'Sine.inOut' });
+        },
+    });
 }
 
 // cuánto se ve cada capa según la intensidad v (0 = despejada, 1 = normal, 2 = densa)

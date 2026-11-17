@@ -91,7 +91,7 @@ export function iniciarMultijugador(juegoPhaser, g) {
             case 'enemigos':
                 if (esAnfitrion()) break;
                 if (m.reloj != null) ganchos.ajustarReloj(scene, m.reloj); // gotas, bolas y plataformas a la vez
-                recibirEnemigos(scene, m.l);
+                recibirEnemigos(scene, m.l, m.esp);
                 if (m.jefe) ganchos.jefe(scene, m.jefe);
                 break;
             case 'jefeFx': ganchos.jefeFx(scene, m); break;
@@ -351,22 +351,26 @@ function enviarEnemigos(scene, time) {
     if (time < (scene.proxEnemigos || 0)) return;
     scene.proxEnemigos = time + ENEMIGOS_MS;
     const r = n => Math.round(n);
-    const l = [];
+    const l = [], esp = [];
     scene.enemies.getChildren().forEach(e => {
+        if (e.esperando && !e.isDead && e.redId != null) esp.push(e.redId); // (siguen vivos: que no se quiten)
         if (e.isDead || e.esperando || e.redId == null || !e.body) return; // (los que esperan turno para caer, todavía no)
         l.push([e.redId, e.tipoId || '', r(e.x), r(e.y), r(e.body.velocity.x), r(e.body.velocity.y),
             e.flipX ? 1 : 0, e.anims.currentAnim?.key || '', Math.round(e.scaleX * 100) / 100, e.gigante ? 1 : 0,
             scene.time.now < (e.congeladoHasta || 0) ? 1 : 0, e.vida ?? 1]);
     });
     const jefe = ganchos.datosJefe(scene);
-    const datos = { l, reloj: ganchos.reloj(scene), ...marca() };
+    const datos = { l, esp, reloj: ganchos.reloj(scene), ...marca() };
     if (jefe) datos.jefe = jefe;
     enviarEvento('enemigos', datos);
 }
 
 // réplica: se crean las que faltan y se guarda a dónde tiene que ir cada una
-function recibirEnemigos(scene, lista) {
+function recibirEnemigos(scene, lista, esperando = []) {
     const ahora = performance.now();
+    // desde cuándo llegan noticias en este intento (para quitar las que el anfitrión ya no tiene)
+    if (scene.enemigosDesde?.vez !== scene.intento) scene.enemigosDesde = { vez: scene.intento, t: ahora };
+    esperando.forEach(id => { const e = enemigoPorId(scene, id); if (e) e.visto = ahora; });
     lista.forEach(([id, tipo, x, y, vx, vy, flip, anim, escala, gigante, congelado, vida]) => {
         let e = enemigoPorId(scene, id);
         if (e && tipo && e.tipoId !== tipo) { e.destroy(); e = null; } // no coincide: se rehace
@@ -382,6 +386,7 @@ function recibirEnemigos(scene, lista) {
         if (e.isDead) return;
         hacerReplica(e);
         e.red = { x, y, vx, vy, t: ahora };
+        e.visto = ahora;
         // la vida que lleva el anfitrión (para que un golpe mortal mate al instante, sin esperar la red);
         // si acabo de pegarle, su número todavía no cuenta mi golpe: me quedo con el menor
         if (vida != null) e.vida = ahora < (e.golpeadoHasta || 0) ? Math.min(e.vida ?? vida, vida) : vida;
@@ -407,8 +412,13 @@ export function hacerReplica(e) {
 function moverReplicas(scene, delta) {
     const ahora = performance.now(), k = Math.min(1, delta / 1000 * SUAVIDAD);
     scene.enemies.getChildren().slice().forEach(e => {
-        if (!e.replica || e.isDead || !e.red) return; // sin noticias todavía: se queda quieta
-        if (ahora - e.red.t > SIN_NOTICIAS_MS) { e.destroy(); return; }
+        if (!e.replica || e.isDead) return;
+        // el anfitrión ya no la manda (la mató, cayó, o ya no existía cuando esta pantalla armó el nivel): se quita.
+        // (antes, una que nunca tuvo noticias se quedaba quieta y viva para siempre)
+        const desde = scene.enemigosDesde?.vez === scene.intento ? scene.enemigosDesde.t : null;
+        const ultima = e.visto ?? desde;
+        if (ultima != null && ahora - ultima > SIN_NOTICIAS_MS) { e.destroy(); return; }
+        if (!e.red) return; // sin noticias todavía: se queda quieta
         const adelanto = Math.min(0.2, (ahora - e.red.t) / 1000);
         const x = e.red.x + e.red.vx * adelanto, y = e.red.y + e.red.vy * adelanto;
         if (Math.hypot(x - e.x, y - e.y) > 200) e.setPosition(x, y);

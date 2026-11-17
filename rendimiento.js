@@ -7,9 +7,9 @@
 // 2. Los objetos fijos en pantalla (HUD, cielo, niebla, oscuridad) se guardan en una lista que se
 //    rehace de vez en cuando, en vez de recorrer todo el nivel en cada fotograma (ver compensarZoom).
 // 3. Contador de cuadros por segundo (opcional, en la configuración).
-// 4. Modo fluido automático en el celular (ver cuidarRendimiento, al final).
+// 4. Modo fluido automático en el celular y el PC (ver cuidarRendimiento, al final).
 
-import { ajustes, guardarAjustes, RESOLUCION, esMovil } from "./ajustes.js"
+import { ajustes, guardarAjustes, RESOLUCION } from "./ajustes.js"
 import { red, enLinea, leerHueco } from "./red.js"
 
 const RECORTE_MS = 120;   // cada cuánto se revisa qué está en la vista
@@ -94,7 +94,7 @@ export function actualizarContadorFps(scene, time) {
     scene.textoFps.setText(texto).setColor(['#7dffc8', '#ffe066', '#ff8a8a'][nota]);
 }
 
-// 4. Modo fluido automático (solo en el celular): si el juego va a menos de FPS_BAJO durante
+// 4. Modo fluido automático (celular y PC): si el juego va a menos de FPS_BAJO durante
 //    SEGUNDOS_BAJO seguidos, se apagan la niebla y la mitad de las partículas (al momento, y en los
 //    niveles siguientes). Con Gráficos en Auto, además se recuerda una resolución un poco menor
 //    para la próxima vez que se abra el juego (1,5 -> 1,25 -> 1).
@@ -103,7 +103,7 @@ const SEGUNDOS_BAJO = 3;
 let fluidoEnLaSesion = false;
 
 export function cuidarRendimiento(scene, time) {
-    if (!esMovil()) return;
+    // (también en el PC: uno sin buena tarjeta o la página del trabajo con el juego adentro)
     // (la escena se reutiliza al reiniciar el nivel: se revisa en sus objetos nuevos, no en la escena)
     if (fluidoEnLaSesion && scene.nieblaAlta && !scene.nieblaAlta.fluido) activarFluido(scene);
     if (time < (scene.proxMedida || 0)) return;

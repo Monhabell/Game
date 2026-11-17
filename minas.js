@@ -26,6 +26,7 @@
 
 import { SUELO_Y } from "./alcance.js" // (no de niveles.js: niveles.js importa este archivo)
 import { alFondo } from "./mazmorra.js"
+import { enviarEvento, alRecibir, mundoCompartido } from "./red.js"
 
 const S = SUELO_Y;
 const Y1 = 140;              // los rieles (el piso del medio)
@@ -169,6 +170,7 @@ const farol = (scene, x, y) => {
 const texto = (scene, x, y, t, tam = 18) => scene.add.text(x, y, t, { fontSize: `${tam}px` }).setOrigin(0.5).setDepth(3);
 
 export function crearMinas(scene) {
+    escenaMinas = scene; // (para los golpes de los demás jugadores)
     texturasMinas(scene);
     estado ??= nuevoEstado();
     scene.minasCosas = [];
@@ -261,14 +263,28 @@ function crearPuerta(scene) {
 
 // ---------- golpes: ataques de cerca (zona), flechas y magia (cada fotograma) y poderes (zona) ----------
 // (game.js lo llama con la zona de cada ataque de cerca y de cada poder especial)
-export function golpeMinas(scene, zona, fuente) {
+// en línea lo que rompe uno se rompe en todas las pantallas (si no, el muro o una jaula seguían ahí para el otro)
+let escenaMinas = null;
+alRecibir('evento', m => {
+    const scene = escenaMinas;
+    if (m.tipo !== 'minasGolpe' || !scene?.sys?.isActive() || !scene.minasJaulas || m.vez !== scene.intento) return;
+    golpeMinas(scene, new Phaser.Geom.Rectangle(m.x, m.y, m.w, m.h), m.fuente, true);
+});
+const cuantoRoto = () => estado.rotos.size + estado.cristales.size + (estado.muro ? 1 : 0);
+
+export function golpeMinas(scene, zona, fuente, remoto = false) {
     if (!scene.minasJaulas || !estado) return;
+    escenaMinas = scene;
+    const antes = cuantoRoto();
     const toca = o => Phaser.Geom.Intersects.CircleToRectangle(new Phaser.Geom.Circle(o.x, o.y, o.r), zona);
     scene.minasJaulas.filter(j => !estado.rotos.has(j.id) && toca(j)).forEach(j => romperJaula(scene, j));
     scene.minasCristales.filter(c => !c.lit && !estado.rotos.has(c.id) && toca(c)).forEach(c => tocarCristal(scene, c));
     scene.minasTnt.filter(t => !estado.rotos.has(t.id) && toca({ ...t, r: 26 })).forEach(t => explotar(scene, t));
     if (fuente === 'poder' && scene.minasMuro && Phaser.Geom.Intersects.RectangleToRectangle(zona,
         new Phaser.Geom.Rectangle(MURO.x, MURO.arriba, MURO.ancho, MURO.abajo - MURO.arriba))) romperMuro(scene);
+    if (!remoto && mundoCompartido() && cuantoRoto() !== antes) enviarEvento('minasGolpe', {
+        x: Math.round(zona.x), y: Math.round(zona.y), w: Math.round(zona.width), h: Math.round(zona.height), fuente, vez: scene.intento,
+    });
 }
 // flechas y magia de los personajes (scene.flechasGrupo)
 function revisarProyectiles(scene) {

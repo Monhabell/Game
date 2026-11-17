@@ -3,7 +3,7 @@
 // Son capas HTML encima del juego: funcionan igual con mouse, teclado y en el celular.
 // Pausar detiene la escena del nivel (física, enemigos, temporizadores) y los sonidos que sonaban.
 
-import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION, VOCES } from "./ajustes.js"
+import { ajustes, guardarAjustes, DIFICULTADES, CAMARAS, BOTONES, GRAFICOS, RESOLUCION, VOCES, resolucionAuto } from "./ajustes.js"
 import { enLinea } from "./red.js"
 import { saldo } from "./tienda.js"
 import { editarBotones, terminarEdicion } from "./tactil.js"
@@ -275,7 +275,7 @@ export function iniciarMenus(juego, { aplicar, salirAlMenu, abrirTienda, tiendaF
         const notaDificultad = capaAjustes.querySelector('[data-nota="dificultad"]');
         notaDificultad.textContent = `${DIFICULTADES[ajustes.dificultad].detalle}${enNivel() ? ' · se aplica al reiniciar el nivel' : ''}`;
         // la resolución cambia al volver a abrir el juego: se ofrece hacerlo ya
-        const resolucionElegida = GRAFICOS[ajustes.graficos].resolucion ?? (matchMedia('(pointer: coarse)').matches ? 1 : 2);
+        const resolucionElegida = GRAFICOS[ajustes.graficos].resolucion ?? resolucionAuto();
         capaAjustes.querySelector('[data-accion="reabrir"]').hidden = resolucionElegida === RESOLUCION;
         volumen.value = ajustes.volumen;
         valorVolumen.textContent = `${ajustes.volumen}%`;

@@ -18,7 +18,7 @@ export const CAMARAS = {
 };
 
 // calidad de los gráficos: a qué resolución se dibuja el juego (790x380 por este número).
-// Se aplica al volver a abrir el juego. Auto: nítidos en el PC, rápidos en el celular.
+// Se aplica al volver a abrir el juego. Auto: medios en el PC, rápidos en el celular.
 export const GRAFICOS = {
     auto: { nombre: 'Auto' },
     rapida: { nombre: 'Rápidos', resolucion: 1 },
@@ -78,12 +78,13 @@ export const vidasMaximas = () => DIFICULTADES[ajustes.dificultad].vidas;
 export const factorEnemigos = () => DIFICULTADES[ajustes.dificultad].velEnemigos;
 // resolución con la que arrancó el juego (cambiarla pide volver a abrirlo)
 const esCelular = () => !!globalThis.matchMedia?.('(pointer: coarse)').matches;
-// Auto: nítido en el PC (2); en el celular 1,5 si la pantalla es de alta densidad (con 1 se veía borroso
-// al estirarse) y 1 en los de baja densidad. Si un celular va lento: ⚙ → Gráficos → Rápidos
-// autoRes: si en este celular el juego iba lento, el modo fluido (rendimiento.js) guarda una resolución
+// Auto: medios en el PC (1,5: nítidos pesaba mucho en PCs sin buena tarjeta, y en la página del trabajo);
+// en el celular 1,5 si la pantalla es de alta densidad (con 1 se veía borroso al estirarse) y 1 en los de
+// baja densidad. Si va lento: ⚙ → Gráficos → Rápidos
+// autoRes: si en este equipo el juego iba lento, el modo fluido (rendimiento.js) guarda una resolución
 // menor para la próxima vez que se abra (solo con Gráficos en Auto)
-export const RESOLUCION = GRAFICOS[ajustes.graficos].resolucion
-    ?? (esCelular() ? (ajustes.autoRes ?? ((globalThis.devicePixelRatio || 1) >= 2 ? 1.5 : 1)) : 2);
+export const resolucionAuto = () => ajustes.autoRes ?? (esCelular() ? ((globalThis.devicePixelRatio || 1) >= 2 ? 1.5 : 1) : 1.5);
+export const RESOLUCION = GRAFICOS[ajustes.graficos].resolucion ?? resolucionAuto();
 export const esMovil = esCelular;
 
 export const zoomCamara = () => CAMARAS[ajustes.camara].zoom * RESOLUCION / 2;
