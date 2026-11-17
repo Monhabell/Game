@@ -144,6 +144,8 @@ const FIN_ESPERA_MS = 5000;      // sin el anuncio del anfitrión: el final se m
 const PREMIO = { gana: 40, pierde: 15, encargo: 5, caido: 10 };
 
 let noche = null, api = null;
+// espera.js: mientras se esperaba a que todos cargaran, la noche no corre
+export function retrasarNoche(ms) { if (noche) { noche.fin += ms; noche.t0 += ms; } }
 export const nocheActiva = () => noche;
 export const esModoNoche = modo => modo === 'troll';
 export const soyTroll = () => noche?.rol === 'troll';

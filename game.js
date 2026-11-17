@@ -27,15 +27,16 @@ import { recortarVista, vigilarFijos, fijosEnPantalla, crearContadorFps, actuali
 import { red, enLinea, enCarrera, enNoche, mundoCompartido, salirSala, alRecibir, empezarPartida, volverASala, enviarEvento } from "./red.js"
 import {
     iniciarCarrera, carreraActiva, empezarCarrera, terminarCarrera, esModoCarrera, prepararCarrera, actualizarCarrera, usarCajaCarrera,
-    llegarMetaCarrera, recibirPoderCarrera, tomeMonedaCarrera,
+    llegarMetaCarrera, recibirPoderCarrera, tomeMonedaCarrera, soltarCarrera,
 } from "./carrera.js"
+import { esperarATodos } from "./espera.js"
 import { iniciarAbismo, crearFondoAbismo, crearAbismo, actualizarAbismo } from "./abismo.js"
 import { armarPista, pistaDe } from "./pistas.js"
 import {
     iniciarArena, usarJuego, arenaActiva, empezarArena, terminarArena, esModoArena, nivelArena, prepararArena,
     actualizarArena, arenaMuerte, golpearRival, idNivelArena, PODERES_ORBE,
 } from "./arena.js"
-import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, nocheGolpe, inicioNoche, relojNoche, nivelDeNoche, NIVEL_NOCHE } from "./troll.js"
+import { iniciarNoche, empezarNoche, terminarNoche, esModoNoche, prepararNoche, actualizarNoche, nocheActiva, nocheMuerte, nocheGolpe, inicioNoche, relojNoche, nivelDeNoche, NIVEL_NOCHE, retrasarNoche } from "./troll.js"
 import { precargarCriptas } from "./criptas_troll.js"
 import { decorarAfueras } from "./afueras.js"
 import { configurarCatacumbas, crearCatacumbas, actualizarCatacumbas } from "./catacumbas.js"
@@ -1082,6 +1083,16 @@ function create() {
     if (mundoCompartido() && !arena && !noche) mostrarMensaje(this, `NIVEL ${nivelActual + 1}
 ${nivel.nombre}
 ${red.jugadores.length} jugadores en cadena`, 2400);
+    // en línea: número de cada pieza del suelo y bloque invisible (salen en el mismo orden en todas las
+    // pantallas) para que lo que le pasa a uno (suelo falso, runa, bloque ?) pase en todas (ver avisarSuelo)
+    this.floor.getChildren().forEach((p, i) => { p.idSuelo = i; });
+    this.invisibles.getChildren().forEach((p, i) => { p.idSuelo = i; });
+    escenaSuelo = this;
+    // en línea, la primera vez: quietos hasta que todos hayan cargado el mapa (espera.js)
+    esperarATodos(this, ms => {
+        soltarCarrera(this, ms);
+        if (noche) { retrasarNoche(ms); this.inicioNivel = this.game.loop.time - relojNoche(); } // (el reloj de la noche cuenta desde que se soltó)
+    });
 }
 
 // la cámara sigue a Gesi sin mostrar nada fuera del nivel
@@ -2488,9 +2499,31 @@ function crearzombis() {
 }
 
 // una pieza de suelo falso tiembla y se cae (al pisarla, o al tomar un cebo de suelo)
-function derrumbarSuelo(scene, pieza) {
+// ---------- lo que le pasa al suelo, igual en todas las pantallas (en línea) ----------
+// El suelo falso, las runas y los bloques ? reaccionan al choque de la física con el jugador de ESA pantalla;
+// los demás jugadores ahí son solo dibujos: sin esto, a uno se le caía el piso y los otros lo veían entero.
+let escenaSuelo = null;
+function avisarSuelo(scene, pieza, a, extra = {}) {
+    if (!mundoCompartido() || pieza.idSuelo == null) return;
+    enviarEvento('suelo', { i: pieza.idSuelo, a, vez: scene.intento, nivel: nivelActual, ...extra });
+}
+alRecibir('evento', m => {
+    const scene = escenaSuelo;
+    if (m.tipo !== 'suelo' || !scene?.sys?.isActive() || m.vez !== scene.intento || m.nivel !== nivelActual) return;
+    const grupo = m.a === 'revela' ? scene.invisibles : scene.floor;
+    const pieza = grupo?.getChildren().find(p => p.idSuelo === m.i);
+    if (!pieza?.active) return;
+    if (m.a === 'cae') derrumbarSuelo(scene, pieza, true);
+    else if (m.a === 'runa') { if (!pieza.usado) activarRuna(scene, pieza, true); }
+    else if (m.a === 'bloque') usarBloque(scene, pieza, m.x, true);
+    else if (m.a === 'revela') revelarBloque.call(scene, null, pieza, true);
+    else if (m.a === 'muerde') pisarMordedora(scene, pieza, apiSorpresas, true);
+});
+
+function derrumbarSuelo(scene, pieza, remoto = false) {
     if (pieza.cayendo) return;
     pieza.cayendo = true;
+    if (!remoto) avisarSuelo(scene, pieza, 'cae');
     const partes = [pieza, ...(pieza.visuales || [])];
     scene.tweens.add({ targets: partes, x: '+=3', yoyo: true, repeat: 2, duration: 40 });
     scene.time.delayedCall(180, () => {
@@ -2500,8 +2533,9 @@ function derrumbarSuelo(scene, pieza) {
     });
 }
 
-function activarRuna(scene, runa) {
+function activarRuna(scene, runa, remoto = false) {
     runa.usado = true;
+    if (!remoto) avisarSuelo(scene, runa, 'runa');
     runa.anims.stop();
     runa.setTexture('vacio' + scene.sufijo).setTint(0xb8a070);
     runa.brillo?.destroy();
@@ -2521,7 +2555,10 @@ function activarRuna(scene, runa) {
 function golpearBloque(mascotaGesi, pieza) {
     const cuerpo = mascotaGesi.body;
 
-    if (pieza.muerde) pisarMordedora(this, pieza, apiSorpresas);
+    if (pieza.muerde && !pieza.mordiendo) {
+        pisarMordedora(this, pieza, apiSorpresas);
+        if (pieza.mordiendo) avisarSuelo(this, pieza, 'muerde');
+    }
 
     // suelo falso: tiembla y se cae
     if (pieza.esFalso && cuerpo.touching.down) derrumbarSuelo(this, pieza);
@@ -2540,32 +2577,42 @@ function golpearBloque(mascotaGesi, pieza) {
         cuerpo.center.x >= b.body.left - 4 && cuerpo.center.x <= b.body.right + 4 &&
         Math.abs(b.body.bottom - cuerpo.top) < 10);
     if (!bloque) return;
+    usarBloque(this, bloque, mascotaGesi.x);
+}
 
+// bloque ? golpeado (x: dónde está el que lo golpeó). remoto: lo golpeó otro jugador (en su pantalla)
+function usarBloque(scene, bloque, x, remoto = false) {
+    if (bloque.usado) return;
     bloque.usado = true;
+    if (!remoto) avisarSuelo(scene, bloque, 'bloque', { x: Math.round(x) });
     bloque.anims.stop();
-    bloque.setTexture('vacio' + this.sufijo);
-    this.tweens.add({ targets: bloque, y: bloque.y - 8, yoyo: true, duration: 80 });
+    bloque.setTexture('vacio' + scene.sufijo);
+    scene.tweens.add({ targets: bloque, y: bloque.y - 8, yoyo: true, duration: 80 });
 
     if (bloque.sueltaEnemigo) {
-        // trampa: en vez de moneda sale un enemigo que va hacia Gesi
-        this.sound.play('bump');
-        const enemigo = crearEnemigo(this, bloque.x - 50, bloque.y - 16);
-        const haciaGesi = mascotaGesi.x < bloque.x ? -1 : 1;
+        // trampa: en vez de moneda sale un enemigo que va hacia quien lo golpeó
+        // (en línea lo crea el anfitrión y llega a los demás con los enemigos)
+        scene.sound.play('bump');
+        if (soyReplica()) return;
+        const enemigo = crearEnemigo(scene, bloque.x - 50, bloque.y - 16);
+        const haciaGesi = x < bloque.x ? -1 : 1;
         enemigo.setVelocityX(haciaGesi * enemigo.velBase);
         enemigo.flipX = haciaGesi < 0;
         return;
     }
 
-    const moneda = this.add.sprite(bloque.x + 16, bloque.y - 24, 'coins').setScale(0.75).anims.play('coins-giro', true);
-    this.tweens.add({ targets: moneda, y: moneda.y - 40, alpha: 0, duration: 500, onComplete: () => moneda.destroy() });
-    this.sound.play('moneda');
-    addToScore(100, bloque, this);
-    sumarABolsa(this);
+    const moneda = scene.add.sprite(bloque.x + 16, bloque.y - 24, 'coins').setScale(0.75).anims.play('coins-giro', true);
+    scene.tweens.add({ targets: moneda, y: moneda.y - 40, alpha: 0, duration: 500, onComplete: () => moneda.destroy() });
+    scene.sound.play('moneda');
+    if (remoto) return; // (la moneda es del que lo golpeó)
+    addToScore(100, bloque, scene);
+    sumarABolsa(scene);
 }
 
-function revelarBloque(_mascotaGesi, bloque) {
+function revelarBloque(_mascotaGesi, bloque, remoto = false) {
     if (bloque.revelado) return;
     bloque.revelado = true;
+    if (!remoto) avisarSuelo(this, bloque, 'revela');
     bloque.setVisible(true);
     this.sound.play('bump');
     this.tweens.add({ targets: bloque, y: bloque.y - 8, yoyo: true, duration: 80 });
@@ -3198,6 +3245,8 @@ function trampasNivel1(scene) {
 }
 
 function update(time, delta) {
+    // esperando a que los demás carguen el mapa (espera.js): todo quieto, solo la red
+    if (this.esperandoTodos) { actualizarEnLinea(this, time, delta); return; }
     actualizarCiclos(this);
     limpiarProyectiles(this);
     actualizarJugador.call(this, time, delta);

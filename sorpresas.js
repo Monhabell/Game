@@ -129,9 +129,10 @@ export function activarCebo(scene, premio, api) {
 }
 
 // la plataforma que muerde: se llama cuando Gesi la toca (colisión con el suelo)
-export function pisarMordedora(scene, pieza, api) {
+// remoto: la pisó otro jugador (en línea): muerde igual; si tú también estás encima, te come a ti
+export function pisarMordedora(scene, pieza, api, remoto = false) {
     const g = scene.mascotaGesi.body;
-    if (!pieza.muerde || pieza.mordiendo || !g.touching.down) return;
+    if (!pieza.muerde || pieza.mordiendo || (!remoto && !g.touching.down)) return;
     pieza.mordiendo = true;
 
     // aviso: tiembla y se pone roja

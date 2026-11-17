@@ -54,6 +54,7 @@ import { EFECTOS_CARRERA, efectoEnCarrera } from "./poderes.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 import { ganarXP, XP, nivelDe, textoNivel } from "./progreso.js"
 import { configurarCajas, prepararCajas, quitarCajas, actualizarCajas, usarCaja, eventoCajas } from "./cajas.js"
+import { esperaPendiente } from "./espera.js"
 
 const CUENTA_MS = 4000;      // de 'empezar' a la salida
 const ESPERA_LLEGADAS = 400; // el anfitrión espera este rato por si otro llegó casi a la vez
@@ -109,6 +110,16 @@ export function empezarCarrera({ pista, jugadores }) {
     };
     crearHud(jugadores);
 }
+// espera.js: cuando todos cargaron el mapa, la salida se corre lo que tardaron (ms desde 'empezar': igual para
+// todos) y recién ahí empieza la cuenta regresiva
+export function soltarCarrera(scene, ms) {
+    if (!carrera || carrera.fin || !scene.carrera) return;
+    carrera.salida += ms;
+    // (performance.now: el reloj de la escena estuvo en pausa, o no avanzó mientras se armaba el nivel; se pone
+    // al día en el próximo cuadro)
+    scene.desfaseReloj = (Date.now() - carrera.salida + 60000) - (performance.now() - scene.inicioNivel);
+    if (scene.puertaSalida) cuentaSalida(scene, scene.puertaSalida);
+}
 export const terminarCarrera = () => { carrera = null; quitarCajas(); cerrarFin(); quitarHud(); cuentaEl?.remove(); cuentaEl = null; };
 
 // (Z, el botón 🎁 o la caja del HUD) usar el objeto de la caja de poder (cajas.js)
@@ -154,13 +165,21 @@ export function prepararCarrera(scene, nivel, inicioX) {
     // el reloj de lo periódico (ascensores, plataformas, gotas, bolas de fuego) cuenta desde la SALIDA de la
     // carrera, igual en todas las pantallas: quien reaparece no queda desfasado de los demás (el minuto de
     // más: que nunca sea negativo durante la cuenta regresiva)
-    scene.desfaseReloj = (Date.now() - carrera.salida + 60000) - (scene.time.now - scene.inicioNivel);
+    scene.desfaseReloj = (Date.now() - carrera.salida + 60000) - (performance.now() - scene.inicioNivel);
     if (carrera.fin) { scene.cinematica = true; return; }
-    const falta = carrera.salida - Date.now();
-    if (falta <= 0) return;
+    scene.puertaSalida = null;
+    // en línea, la primera vez: quietos detrás de la puerta hasta que todos carguen (espera.js → soltarCarrera)
+    if (esperaPendiente()) { scene.cinematica = true; scene.puertaSalida = crearPuerta(scene, inicioX + 70); return; }
+    if (carrera.salida - Date.now() <= 0) return;
     // cuenta regresiva: quietos detrás de la puerta hasta la salida
     scene.cinematica = true;
-    const puerta = crearPuerta(scene, inicioX + 70);
+    cuentaSalida(scene, crearPuerta(scene, inicioX + 70));
+}
+
+function cuentaSalida(scene, puerta) {
+    const falta = carrera.salida - Date.now();
+    if (falta <= 0) { scene.cinematica = false; puerta.abrir(); return; }
+    scene.cinematica = true;
     api.mensaje(scene, carrera.nombrePista || 'CARRERA', Math.max(300, falta - 3200));
     const pasos = Math.min(3, Math.ceil(falta / 1000));
     for (let i = pasos; i >= 1; i--) {
