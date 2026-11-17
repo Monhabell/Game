@@ -3,8 +3,11 @@
 // Cómo se juega:
 //   - En la sala (sala.js) cada uno elige SU apuesta (0, 10, 25, 50 o 100) y confirma "Listo"; el
 //     anfitrión elige la pista y arranca cuando todos están listos. De 2 a 8 jugadores.
-//   - Cada uno corre en su pantalla, con sus enemigos y sus trampas (la misma semilla para todos, así
-//     el recorrido es igual y justo). Los rivales se ven como fantasmas: no estorban ni activan trampas.
+//   - Cada uno corre en su pantalla con sus trampas (la misma semilla para todos, así el recorrido es
+//     igual y justo). Los ENEMIGOS son los mismos para todos: los mueve el anfitrión (multijugador.js) y
+//     no se reinician al morir nadie. Los rivales se ven como fantasmas: no estorban ni activan trampas;
+//     si no se ven, una flecha en el borde dice dónde están y a cuántos metros (pintarFlechas).
+//   - COPA (Formato en la sala): 3 pistas seguidas con puntos (ver "COPA" más abajo).
 //   - PODERES: los poderes especiales de un rival sí te alcanzan (poderes.js revisa en TU pantalla si
 //     el poder que lanzó su fantasma te tocó). Cada poder tiene su efecto (aturdir, congelar,
 //     ralentizar, explotar, empujar, confundir, bloquear poderes o atraer: EFECTOS_CARRERA en
@@ -38,8 +41,9 @@
 //   las demás pantallas desaparece (con el nombre de quien se la llevó) y no vuelve aunque reaparezcas.
 //   Al llegar, al terminar la carrera (aunque gane otro) o al salir, se guardan las que no llegaron a un
 //   punto de control. (Si dos la toman casi a la vez, se la llevan los dos.)
-// ENEMIGOS: los del armado de la pista tienen el mismo número en todas las pantallas; si alguien mata
-//   uno, muere también en las demás (multijugador.js: 'enemigo').
+// ENEMIGOS: los mueve el anfitrión y los demás ven réplicas (como en la aventura); si alguien mata uno,
+//   muere en todas las pantallas y no vuelve aunque reaparezcas (carrera.muertos). Si el que reaparece es
+//   el anfitrión, siguen donde iban (guardarEnemigos / restaurarEnemigos).
 //
 // api (la da game.js): { mensaje(scene, texto, ms), premio(monedas), pagar(monedas), guardarMonedas(scene), salir(),
 //   volverASala(), revancha(nivel), morir(scene) }
@@ -63,6 +67,34 @@ const HUD_MS = 100;          // cada cuánto se repinta el HUD (cronómetro, pos
 
 let carrera = null, api = null, juego = null;
 export const carreraActiva = () => carrera;
+
+// ---------- COPA: 3 pistas seguidas con puntos ----------
+// El anfitrión la elige en la sala (Formato: Copa). Antes de la 1ª pista avisa 'carreraCopa' con las 3
+// pistas; cada carrera da puntos según el puesto (PUNTOS_COPA) y entre una y otra se ve la tabla. La
+// apuesta se paga al salir de la 1ª y se cobra al final de la copa (gana el de más puntos; empate: el que
+// quedó mejor en la última). Si la copa se corta (vuelven a la sala, se van), cada uno recupera su apuesta.
+export const PISTAS_COPA = 3;
+const PUNTOS_COPA = [10, 6, 4, 3, 2, 1, 0, 0];
+const PAUSA_COPA_MS = 8000; // entre una pista y la siguiente (la tabla)
+let copa = null; // { pistas: [3], hechas, puntos: Map id->pts, apuestas: Map, nombres: Map }
+export const copaActiva = () => copa;
+// (anfitrión, desde la sala) arma la copa y avisa a todos antes de empezar la 1ª pista
+export function prepararCopa(pistas) {
+    empezarCopa(pistas);
+    enviarEvento('carreraCopa', { pistas });
+}
+function empezarCopa(pistas) {
+    cortarCopa();
+    copa = { pistas: pistas.map(Number), hechas: 0, puntos: new Map(), apuestas: null, nombres: new Map() };
+}
+// la copa no terminó (volvieron a la sala, otra carrera suelta, salió): se devuelve lo apostado
+export function cortarCopa() {
+    if (copa?.apuestas && copa.hechas < PISTAS_COPA) {
+        const mia = copa.apuestas.get(red.tuId) || 0;
+        if (mia && api) api.premio(mia);
+    }
+    copa = null;
+}
 export const esModoCarrera = modo => modo === 'carrera';
 const escena = () => (juego?.scene.isActive('juego') ? juego.scene.getScene('juego') : null);
 const nombreDe = id => (id === red.tuId ? 'Tú' : red.jugadores.find(j => j.id === id)?.nombre || carrera?.nombres.get(id) || 'Alguien');
@@ -77,6 +109,7 @@ export function iniciarCarrera(juegoPhaser, ganchos) {
     api = ganchos;
     configurarCajas({ nombreDe: id => nombreDe(id), mensaje: (...a) => api.mensaje(...a), escena });
     alRecibir('evento', m => {
+        if (m.tipo === 'carreraCopa' && Array.isArray(m.pistas)) { empezarCopa(m.pistas); return; }
         if (!carrera) return;
         if (m.tipo === 'carreraMeta') llegada(m.de, Number(m.ms));
         else if (m.tipo === 'carreraFin') terminar(m);
@@ -94,9 +127,17 @@ export function iniciarCarrera(juegoPhaser, ganchos) {
 // el anfitrión empezó la carrera: cada uno paga SU apuesta al salir
 export function empezarCarrera({ pista, jugadores }) {
     cerrarFin();
-    const apuestas = new Map(jugadores.map(j => [j.id, APUESTAS.includes(Number(j.apuesta)) ? Number(j.apuesta) : 0]));
-    const mia = apuestas.get(red.tuId) || 0;
-    if (mia) api.pagar(mia);
+    clearTimeout(proximaPista);
+    // ¿es la pista que toca de la copa? si no, la copa se cortó (el anfitrión arrancó otra cosa)
+    if (copa && (copa.hechas >= PISTAS_COPA || copa.pistas[copa.hechas] !== Number(pista))) cortarCopa();
+    let apuestas = new Map(jugadores.map(j => [j.id, APUESTAS.includes(Number(j.apuesta)) ? Number(j.apuesta) : 0]));
+    if (copa?.apuestas) apuestas = copa.apuestas; // (2ª y 3ª pista de la copa: ya se pagó en la 1ª)
+    else {
+        const mia = apuestas.get(red.tuId) || 0;
+        if (mia) api.pagar(mia);
+        if (copa) copa.apuestas = apuestas;
+    }
+    if (copa) jugadores.forEach(j => copa.nombres.set(j.id, j.nombre));
     carrera = {
         pista,
         nombrePista: pistaDe(pista).nombre.toUpperCase(),
@@ -120,7 +161,7 @@ export function soltarCarrera(scene, ms) {
     scene.desfaseReloj = (Date.now() - carrera.salida + 60000) - (performance.now() - scene.inicioNivel);
     if (scene.puertaSalida) cuentaSalida(scene, scene.puertaSalida);
 }
-export const terminarCarrera = () => { carrera = null; quitarCajas(); cerrarFin(); quitarHud(); cuentaEl?.remove(); cuentaEl = null; };
+export const terminarCarrera = () => { cortarCopa(); clearTimeout(proximaPista); carrera = null; quitarCajas(); cerrarFin(); quitarHud(); cuentaEl?.remove(); cuentaEl = null; };
 
 // (Z, el botón 🎁 o la caja del HUD) usar el objeto de la caja de poder (cajas.js)
 export const usarCajaCarrera = scene => usarCaja(scene, carrera);
@@ -162,6 +203,9 @@ export function prepararCarrera(scene, nivel, inicioX) {
     // el otro seguía sin verlos (game.js: matarEnemigo los anota)
     carrera.muertos ??= new Set();
     scene.enemies?.getChildren().forEach(e => { if (e.redId != null && carrera.muertos.has(e.redId)) e.destroy(); });
+    // los enemigos son de todos y los mueve el anfitrión (multijugador.js). Si el que reaparece es él, siguen
+    // donde iban (guardarEnemigos): si no, al morir el anfitrión volvían a su lugar para todos
+    if (esAnfitrion() && carrera.enemigos) restaurarEnemigos(scene, carrera.enemigos);
     // el reloj de lo periódico (ascensores, plataformas, gotas, bolas de fuego) cuenta desde la SALIDA de la
     // carrera, igual en todas las pantallas: quien reaparece no queda desfasado de los demás (el minuto de
     // más: que nunca sea negativo durante la cuenta regresiva)
@@ -198,10 +242,36 @@ function cuentaSalida(scene, puerta) {
     });
 }
 
+// (anfitrión) dónde va cada enemigo, cada ENEMIGOS_GUARDAR_MS: lo que se usa al reaparecer
+const ENEMIGOS_GUARDAR_MS = 250;
+function guardarEnemigos(scene) {
+    const l = new Map();
+    scene.enemies?.getChildren().forEach(e => {
+        if (e.isDead || e.esperando || e.redId == null || !e.body) return;
+        l.set(e.redId, { x: e.x, y: e.y, vx: e.dormido ? (e.vxDormido || 0) : e.body.velocity.x, f: e.flipX, vida: e.vida });
+    });
+    carrera.enemigos = l;
+}
+function restaurarEnemigos(scene, guardados) {
+    scene.enemies.getChildren().forEach(e => {
+        const g = e.redId != null && guardados.get(e.redId);
+        if (!g || !e.body || e.esperando) return;
+        e.setPosition(g.x, g.y);
+        e.body.reset(g.x, g.y);
+        e.setVelocityX(g.vx);
+        e.flipX = g.f;
+        if (g.vida != null) e.vida = g.vida;
+    });
+}
+
 // cada fotograma (también muerto o en la cuenta regresiva): el HUD
 export function actualizarCarrera(scene) {
     if (!scene.carrera || !carrera) return;
     actualizarCajas(scene, carrera);
+    if (esAnfitrion() && !carrera.fin && performance.now() > (carrera.proxGuardar || 0)) {
+        carrera.proxGuardar = performance.now() + ENEMIGOS_GUARDAR_MS;
+        guardarEnemigos(scene);
+    }
     const ahora = performance.now();
     if (ahora < (carrera.proxHud || 0)) return;
     carrera.proxHud = ahora + HUD_MS;
@@ -291,7 +361,7 @@ function avisarGolpe(m) {
     if (!scene || carrera.fin) return;
     const quien = nombreDe(m.de).toUpperCase();
     const e = EFECTOS_CARRERA[m.efecto];
-    if (m.mato) ganarXP(XP.eliminar, scene.pj?.id);
+    if (m.mato) { ganarXP(XP.eliminar, scene.pj?.id); scene.sound.play('victoria', { volume: 0.35, rate: 1.3 }); }
     api.mensaje(scene, m.bloqueado ? `${quien} BLOQUEÓ TU PODER` : m.mato ? `💀 ¡ELIMINASTE A ${quien}!` : `${e ? `${e.icono} ` : ''}¡LE DISTE A ${quien}!`, m.mato ? 1200 : 800);
 }
 
@@ -330,9 +400,11 @@ function anunciar(ganador, ms) {
 }
 
 // fin de la carrera: premios y pantalla del podio
+let proximaPista = null;
 function terminar(m) {
     if (!carrera || carrera.fin) return;
     carrera.fin = m;
+    if (copa) return terminarPistaCopa(m);
     const mio = m.ganador === red.tuId;
     const pagos = calcularPagos(m.ganador);
     // experiencia según el puesto (progreso.js)
@@ -360,6 +432,76 @@ function terminar(m) {
             pagos,
         });
     }, mio ? 1800 : 2200);
+}
+
+// copa: terminó una de las pistas. Puntos; si quedan pistas, la tabla y (anfitrión) la siguiente pista
+function terminarPistaCopa(m) {
+    const orden = (Array.isArray(m.orden) ? m.orden : [m.ganador]).map(Number);
+    orden.forEach((id, i) => copa.puntos.set(id, (copa.puntos.get(id) || 0) + (PUNTOS_COPA[i] ?? 0)));
+    copa.hechas++;
+    const puesto = orden.indexOf(red.tuId);
+    setTimeout(() => ganarXP(XP.carrera[puesto] ?? XP.carreraOtros, escena()?.pj?.id, { victoria: puesto === 0 }), 2600);
+    const scene = escena();
+    if (scene) {
+        api.guardarMonedas(scene);
+        scene.cinematica = true;
+        api.mensaje(scene, m.ganador === red.tuId ? '¡GANASTE ESTA PISTA!' : `¡${nombreDe(m.ganador).toUpperCase()} GANA ESTA PISTA!`, 1800);
+        scene.sound.play(m.ganador === red.tuId ? 'victoria' : 'gameover', { volume: 0.5 });
+    }
+    pintarHud(scene);
+    // la tabla de la copa: quién va ganando (empate: el que quedó mejor en la última pista)
+    const lugar = id => (orden.indexOf(id) < 0 ? 99 : orden.indexOf(id));
+    const tabla = [...new Set([...copa.puntos.keys(), ...red.jugadores.map(j => j.id)])]
+        .sort((a, b) => (copa.puntos.get(b) || 0) - (copa.puntos.get(a) || 0) || lugar(a) - lugar(b));
+    if (copa.hechas < PISTAS_COPA) {
+        // (la apuesta sigue en juego: para la sala, el saldo cuenta lo apostado)
+        informarSaldo(saldo() + (copa.apuestas?.get(red.tuId) || 0));
+        setTimeout(() => { if (carrera?.fin === m) mostrarTablaCopa(tabla, orden); }, 2000);
+        if (esAnfitrion()) {
+            const siguiente = copa.pistas[copa.hechas];
+            proximaPista = setTimeout(() => { if (copa && carrera?.fin === m) api.siguientePista(siguiente); }, 2000 + PAUSA_COPA_MS);
+        }
+        return;
+    }
+    // ¡fin de la copa! se cobra con el ganador de la copa
+    const ganador = tabla[0];
+    const pagos = calcularPagos(ganador);
+    const premio = pagos.get(red.tuId) || 0;
+    if (premio) api.premio(premio);
+    informarSaldo(saldo());
+    const puntos = new Map(copa.puntos);
+    copa = null; // (terminó entera: ya no se devuelve nada)
+    setTimeout(() => {
+        if (carrera?.fin !== m) return;
+        mostrarFin({ mio: ganador === red.tuId, orden: tabla, ms: -2, pagos, puntos });
+    }, 2200);
+}
+
+// la tabla entre una pista y otra
+function mostrarTablaCopa(tabla, orden) {
+    cerrarFin();
+    const siguiente = copa ? pistaDe(copa.pistas[copa.hechas]).nombre : '';
+    const filas = tabla.map((id, i) => `<li class="${id === red.tuId ? 'yo' : ''}" style="--c:${colorDe(id)}"><span class="carrera-n">${i + 1}</span>
+        <b>${escapar(nombreDe(id))}</b><span class="copa-pts">${copa?.puntos.get(id) || 0} pts</span>
+        <small>${orden.indexOf(id) >= 0 ? `+${PUNTOS_COPA[orden.indexOf(id)] ?? 0}` : ''}</small></li>`).join('');
+    capaFin = document.createElement('div');
+    capaFin.className = 'menu-capa';
+    capaFin.innerHTML = `
+        <div class="menu-panel arena-fin carrera-fin copa-tabla" role="dialog" aria-modal="true" aria-labelledby="copa-titulo">
+            <h2 id="copa-titulo">🏆 Copa · pista ${copa?.hechas || 0} de ${PISTAS_COPA}</h2>
+            <ol class="copa-lista">${filas}</ol>
+            <p class="carrera-premio">Siguiente: <b>${escapar(siguiente)}</b> <span data-copa-cuenta></span></p>
+            <button type="button" class="menu-boton menu-salir" data-fin="salir">✕ Salir de la copa</button>
+        </div>`;
+    document.getElementById('game').append(capaFin);
+    const hasta = Date.now() + PAUSA_COPA_MS;
+    const reloj = setInterval(() => {
+        const el = capaFin?.querySelector('[data-copa-cuenta]');
+        if (!el) { clearInterval(reloj); return; }
+        el.textContent = `en ${Math.max(0, Math.ceil((hasta - Date.now()) / 1000))} s`;
+    }, 250);
+    capaFin.addEventListener('click', e => { if (e.target.closest('[data-fin="salir"]')) { cerrarFin(); api.salir(); } });
+    capaFin.addEventListener('keydown', e => e.stopPropagation());
 }
 
 // cuánto recibe cada uno al final (lo que ya pagó al salir no cuenta aquí)
@@ -427,6 +569,7 @@ function crearHud(jugadores) {
     hud.innerHTML = `
         <ol class="carrera-posiciones" data-posiciones aria-label="Posiciones"></ol>
         <div class="carrera-centro">
+            ${copa ? `<small class="carrera-copa">🏆 Copa · pista ${copa.hechas + 1} de ${PISTAS_COPA}</small>` : ''}
             <span class="carrera-reloj" data-reloj>0:00.0</span>
             <div class="carrera-pista" aria-hidden="true">
                 <span class="carrera-meta">🏁</span>
@@ -435,7 +578,8 @@ function crearHud(jugadores) {
         </div>
         <div class="carrera-pozo" data-pozo></div>
         <button type="button" class="carrera-caja" data-caja aria-label="Usar objeto (Z)"><b></b><small>Z</small></button>
-        <div class="carrera-aviso" data-aviso hidden></div>`;
+        <div class="carrera-aviso" data-aviso hidden></div>
+        <div class="carrera-flechas" data-flechas aria-hidden="true"></div>`;
     document.getElementById('game').append(hud);
     document.body.classList.add('en-carrera');
     hud.querySelector('[data-caja]').addEventListener('pointerdown', e => { e.preventDefault(); usarCajaCarrera(escena()); });
@@ -445,6 +589,57 @@ function quitarHud() {
     document.body.classList.remove('en-carrera'); // (index.html: el minimapa baja para no tapar el premio)
     hud?.remove();
     hud = null;
+    flechas.clear();
+}
+
+// ---------- flechas a los rivales que no se ven ----------
+// En el borde de la pantalla, hacia donde está cada rival fuera de la vista, con su nombre y a cuántos
+// metros: "◀ Beto 85 m". Así se siente la persecución (antes solo estaba la barra de avance de arriba).
+// (solo se escribe el DOM cuando algo cambia: nada de recalcular la página en cada cuadro)
+const flechas = new Map(); // id -> { el, antes }
+function pintarFlechas(scene) {
+    const capa = hud?.querySelector('[data-flechas]');
+    const cam = scene?.cameras?.main, g = scene?.mascotaGesi;
+    if (!capa || !cam || !g) return;
+    const v = cam.worldView, vistos = new Set();
+    if (!carrera.fin) scene.remotos?.forEach((r, id) => {
+        const e = r.estado;
+        if (!e || e.muerto || !r.visible) return;
+        const x = r.s.x, y = r.s.y + (e.cy - e.y);
+        const fueraX = x < v.x + 8 || x > v.right - 8, fueraY = y < v.y + 20 || y > v.bottom - 10;
+        if (!fueraX && !fueraY) return;
+        vistos.add(id);
+        let f = flechas.get(id);
+        if (!f) {
+            const el = document.createElement('span');
+            el.className = 'carrera-flecha';
+            el.style.setProperty('--c', colorDe(id));
+            capa.append(el);
+            f = { el, antes: '' };
+            flechas.set(id, f);
+        }
+        const metros = Math.round(Math.abs(x - g.x) / PX_POR_METRO);
+        const nombre = escapar(nombreDe(id));
+        const fx = Math.min(0.92, Math.max(0.08, (x - v.x) / v.width)), fy = Math.min(0.86, Math.max(0.2, (y - v.y) / v.height));
+        let lado, texto, pos;
+        if (fueraX) {
+            lado = x < v.x ? 'izq' : 'der';
+            texto = lado === 'izq' ? `◀ ${nombre} <b>${metros} m</b>` : `${nombre} <b>${metros} m</b> ▶`;
+            pos = `top:${(fy * 100).toFixed(1)}%`;
+        } else {
+            lado = y < v.y ? 'arriba' : 'abajo';
+            texto = `${lado === 'arriba' ? '▲' : '▼'} ${nombre}`;
+            pos = `left:${(fx * 100).toFixed(1)}%`;
+        }
+        const ahora = `${lado}|${texto}|${pos}`;
+        if (ahora === f.antes) return;
+        f.antes = ahora;
+        f.el.className = `carrera-flecha ${lado}`;
+        f.el.innerHTML = texto;
+        f.el.style.cssText = `--c:${colorDe(id)};${pos}`;
+        f.el.hidden = false;
+    });
+    flechas.forEach((f, id) => { if (!vistos.has(id) && !f.el.hidden) { f.el.hidden = true; f.antes = ''; } });
 }
 
 // premio acumulado: lo apostado entre todos y lo que ganarías tú
@@ -484,6 +679,7 @@ function pintarHud(scene) {
     const ms = carrera.fin && Number(carrera.fin.ms) >= 0 ? Number(carrera.fin.ms)
         : carrera.miTiempo ?? Math.max(0, Date.now() - carrera.salida);
     hud.querySelector('[data-reloj]').textContent = tiempo(ms);
+    pintarFlechas(scene);
     // lo que viene en el escenario
     const aviso = hud.querySelector('[data-aviso]');
     const g = scene?.mascotaGesi;
@@ -566,9 +762,11 @@ function mostrarFin(d) {
     capaFin.className = 'menu-capa';
     capaFin.innerHTML = `
         <div class="menu-panel arena-fin carrera-fin ${d.mio ? 'gano' : ''}" role="dialog" aria-modal="true" aria-labelledby="carrera-fin-titulo">
-            <h2 id="carrera-fin-titulo">${d.mio ? '🏆 ¡GANASTE!' : `🏆 ¡GANÓ ${escapar(nombreDe(d.orden[0])).toUpperCase()}!`}</h2>
-            <p class="carrera-fin-tiempo">${d.ms >= 0 ? `Tiempo: ${tiempo(d.ms)}` : 'Los demás se fueron'}</p>
-            ${recordDelDia()}
+            <h2 id="carrera-fin-titulo">${d.puntos ? (d.mio ? '🏆 ¡GANASTE LA COPA!' : `🏆 ¡${escapar(nombreDe(d.orden[0])).toUpperCase()} GANA LA COPA!`)
+                : d.mio ? '🏆 ¡GANASTE!' : `🏆 ¡GANÓ ${escapar(nombreDe(d.orden[0])).toUpperCase()}!`}</h2>
+            <p class="carrera-fin-tiempo">${d.puntos ? d.orden.map(id => `${escapar(nombreDe(id))} ${d.puntos.get(id) || 0}`).join(' · ') + ' pts'
+                : d.ms >= 0 ? `Tiempo: ${tiempo(d.ms)}` : 'Los demás se fueron'}</p>
+            ${d.puntos ? '' : recordDelDia()}
             <div class="carrera-podio3">${escalon(1)}${escalon(0)}${escalon(2)}</div>
             ${resto ? `<ol class="arena-medallas carrera-podio">${resto}</ol>` : ''}
             <p class="carrera-premio ${mioNeto < 0 ? 'pierde' : ''}">${premio}</p>
@@ -591,7 +789,7 @@ function mostrarFin(d) {
             return;
         }
         cerrarFin();
-        if (accion === 'revancha') api.revancha(pista);
+        if (accion === 'revancha') { if (d.puntos) api.otraCopa(); else api.revancha(pista); }
         else if (accion === 'sala') api.volverASala();
         else api.salir();
     });

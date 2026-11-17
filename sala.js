@@ -24,6 +24,7 @@ import {
     informarSaldo, apostar, marcarListo, buscarSala, hacerPublica,
 } from "./red.js"
 import { PISTAS, pistaDeMundo, pistaDelDia, pistaDeNivel } from "./pistas.js"
+import { prepararCopa, PISTAS_COPA } from "./carrera.js"
 import { temaDeMundo, CUANTOS_TEMAS } from "./niveles.js"
 import { ARENAS, APUESTAS, COLORES_EQUIPO, arenaDisponible, victoriasArena, copasArena, ligaDe } from "./arena.js"
 import { saldo } from "./tienda.js"
@@ -54,6 +55,16 @@ function pistaElegida(valor) {
 const arenaAlAzar = () => { const libres = ARENAS.filter(arenaDisponible); return (libres[sortear(libres.length)] || ARENAS[0]).id; };
 // volver a competir (carrera) y revancha (arena): si estaba al azar, otro mapa
 export const pistaParaRevancha = actual => (azar.pista ? pistaAlAzar() : actual);
+// copa (carrera.js): la primera pista es la elegida (o al azar) y las otras dos al azar, sin repetir
+export function empezarCopa(primera = pistaAlAzar()) {
+    const pistas = [primera];
+    for (let i = 0; pistas.length < PISTAS_COPA && i < 50; i++) {
+        const p = pistaAlAzar();
+        if (!pistas.includes(p)) pistas.push(p);
+    }
+    prepararCopa(pistas); // (avisa a todos antes de 'empezar': el servidor atiende en orden)
+    empezarPartida(pistas[0]);
+}
 export function arenaParaRevancha() {
     if (azar.arena && esAnfitrion() && (red.modo === 'duelo' || red.modo === 'equipos')) elegirModo(red.modo, arenaAlAzar(), red.apuesta);
 }
@@ -201,6 +212,9 @@ export function iniciarSala(juego, { alEmpezar }) {
                             <label class="sala-campo" data-solo-anfitrion data-solo-noche hidden>Mapa
                                 <select id="sala-mapa-noche"><option value="azar" selected>🎲 Al azar</option>${Object.entries(MAPAS_NOCHE).map(([id, n]) => `<option value="${id}">${n}</option>`).join('')}</select>
                             </label>
+                            <label class="sala-campo" data-solo-anfitrion data-solo-carrera hidden>Formato
+                                <select id="sala-formato"><option value="una" selected>Una carrera</option><option value="copa">🏆 Copa (3 pistas, por puntos)</option></select>
+                            </label>
                             <label class="sala-campo" data-solo-anfitrion data-solo-carrera hidden>Pista
                                 <select id="sala-pista"><option value="azar" selected>🎲 Al azar</option><option value="dia">⭐ Pista del día</option>
                                     <optgroup label="Pistas">${PISTAS.map((p, i) => `<option value="${i}">${p.nombre}</option>`).join('')}</optgroup>
@@ -303,7 +317,9 @@ export function iniciarSala(juego, { alEmpezar }) {
                 if (n < 2) { avisar('La carrera necesita al menos 2 jugadores', true); return; }
                 const falta = red.jugadores.filter(j => j.id !== red.anfitrion && !j.listo);
                 if (falta.length) { avisar(`Falta que confirmen: ${falta.map(j => j.nombre).join(', ')}`, true); return; }
-                empezarPartida(azar.pista ? pistaAlAzar() : pistaElegida($('#sala-pista').value)); // (en la carrera, el número es la pista)
+                const primera = azar.pista ? pistaAlAzar() : pistaElegida($('#sala-pista').value); // (en la carrera, el número es la pista)
+                if ($('#sala-formato').value === 'copa') empezarCopa(primera);
+                else empezarPartida(primera);
                 return;
             }
             const pobre = red.modo !== 'aventura' && red.jugadores.find(j => (j.monedas || 0) < red.apuesta);

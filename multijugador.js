@@ -38,7 +38,8 @@ const ENVIO_MS = 66;          // ~15 estados por segundo
 const OLVIDO_MS = 3000;       // sin noticias de un jugador: se oculta (se fue a otro nivel o se cortó)
 const SUAVIDAD = 14;          // qué tan rápido el dibujo alcanza la posición recibida
 const ENEMIGOS_MS = 125;      // el anfitrión manda los enemigos ~8 veces por segundo
-const SIN_NOTICIAS_MS = 1500; // réplica que el anfitrión ya no manda (murió, cayó): se quita
+const SIN_NOTICIAS_MS = 2500; // réplica que el anfitrión ya no manda (murió, cayó): se quita (con margen: mientras
+                              // el anfitrión reaparece y rearma el nivel no llegan noticias, y no deben parpadear)
 
 let juego = null, ganchos = null;
 
@@ -64,8 +65,9 @@ export function iniciarMultijugador(juegoPhaser, g) {
         if (!scene.remotos || (m.nivel != null && m.nivel !== ganchos.nivelActual())) return;
         // de otro intento (alguien todavía no reaparece, o ya reapareció y yo no): otro reparto, no se mezcla
         if (m.vez != null && scene.intento != null && m.vez !== scene.intento) return;
-        // carrera: de los demás solo se ven sus poderes y los enemigos que matan (lo demás pasa en el mundo de cada uno)
-        if (enCarrera() && m.tipo !== 'poder' && m.tipo !== 'poderEsp' && m.tipo !== 'enemigo') return;
+        // carrera: de los demás se ven sus poderes; los enemigos son los mismos para todos (los mueve el
+        // anfitrión, como en la aventura); lo demás (trampas, muertes) pasa en el mundo de cada uno
+        if (enCarrera() && !EN_CARRERA.has(m.tipo)) return;
         switch (m.tipo) {
             case 'muerte': ganchos.morir(scene, nombreDe(m.de)); break;
             case 'checkpoint': {
@@ -160,7 +162,7 @@ function remoto(scene, id) {
             s.rivalId = id;
         }
     }
-    if (enCarrera()) s.setAlpha(0.55); // carrera: los rivales son fantasmas
+    // (carrera: antes los rivales eran medio transparentes; ahora se ven enteros, como en los otros modos)
     r = { id, pj, s, etiqueta, nombre: j.nombre, habla: false, estado: null, recibido: 0, visible: false, primera: true };
     scene.remotos.set(id, r);
     return r;
@@ -202,6 +204,9 @@ export function actualizarEnLinea(scene, time, delta) {
     scene.remotos.forEach(r => {
         const e = r.estado;
         // (Noche del Troll: a los fantasmas solo los ven los otros fantasmas)
+        // carrera: el rival murió (por tu golpe, una trampa o una caída): se ve caer en vez de desaparecer
+        if (e && enCarrera() && e.muerto && !r.muertoVisto && r.s.visible) caidaRival(scene, r);
+        if (e) r.muertoVisto = !!e.muerto;
         r.visible = !!e && ahora - r.recibido < OLVIDO_MS && !e.muerto && (!e.fantasma || !!scene.esFantasma);
         r.s.setVisible(r.visible);
         if (r.s.body) r.s.body.enable = r.visible;
@@ -238,6 +243,7 @@ function enviarMiEstado(scene, time) {
         vx: r(b.velocity.x), vy: r(b.velocity.y),
         flip: g.flipX, anim: g.anims.currentAnim?.key,
         suelo: b.blocked.down || b.touching.down, anclado: !!g.anclado, muerto: !!g.isDead,
+        ...(g.isDead && scene.causaMuerte ? { causa: scene.causaMuerte } : {}), // (carrera: qué me mató)
         ...(scene.esFantasma ? { fantasma: true } : {}),
         ...(scene.escudoLuz ? { escudo: true } : {}), // (Noche del Troll: el escudo de luz se ve)
     });
@@ -309,6 +315,38 @@ function poderRemoto(scene, m) {
     });
 }
 
+// carrera: un rival murió. Su muñeco desaparece (vuelve en su punto de control), así que se deja una copia
+// que salta, se pone roja y cae, con 💀 y su nombre (antes solo desaparecía y no se notaba que lo mataste)
+function caidaRival(scene, r) {
+    const s = r.s;
+    if (!s.texture) return;
+    const copia = scene.add.sprite(s.x, s.y, s.texture.key, s.frame.name).setFlipX(s.flipX).setScale(s.scaleX, s.scaleY)
+        .setOrigin(s.originX, s.originY).setDepth(s.depth).setTint(0xff6b6b);
+    scene.tweens.add({ targets: copia, y: s.y - 40, duration: 220, ease: 'Quad.easeOut', yoyo: false,
+        onComplete: () => scene.tweens.add({ targets: copia, y: s.y + 260, angle: s.flipX ? -120 : 120, alpha: 0, duration: 750, ease: 'Quad.easeIn', onComplete: () => copia.destroy() }) });
+    // qué lo mató: en la carrera cada uno tiene sus enemigos, así que el que lo mató se dibuja (en rojo,
+    // medio transparente) donde estaba en SU pantalla
+    const c = r.estado?.causa;
+    let porque = '';
+    if (c?.k === 'enemigo') {
+        porque = ` · ${c.t.replace(/\d+$/, '').replace(/_/g, ' ')}`;
+        if (scene.textures.exists(`${c.t}-walk`)) {
+            const malo = scene.add.sprite(c.x, c.y, `${c.t}-walk`).setOrigin(0, 1).setScale(c.s || 1).setFlipX(!!c.f)
+                .setTint(0xff4444).setAlpha(0.85).setDepth(s.depth - 0.5);
+            const anim = scene.anims.exists(`${c.t}-attack`) ? `${c.t}-attack` : `${c.t}-walk`;
+            if (scene.anims.exists(anim)) malo.anims.play(anim, true);
+            scene.tweens.add({ targets: malo, alpha: 0, delay: 1100, duration: 600, onComplete: () => malo.destroy() });
+        }
+    } else if (c?.k === 'caida') porque = ' · se cayó';
+    else if (c?.k === 'trampa') porque = ' · trampa';
+    else if (c?.k === 'rival') porque = ' · lo eliminaron';
+    const cartel = scene.add.text(s.x, s.y - 30, `💀 ${r.nombre}${porque}`, {
+        fontFamily: 'system-ui, sans-serif', fontSize: '15px', fontStyle: 'bold', color: '#ffdddd', stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5, 1).setDepth(45);
+    scene.tweens.add({ targets: cartel, y: cartel.y - 36, alpha: 0, delay: 500, duration: 900, onComplete: () => cartel.destroy() });
+    scene.sound.play('matar', { volume: 0.4 });
+}
+
 // ---------- carrera: los ataques propios del personaje (espacio, X, C) también alcanzan al rival ----------
 // (los poderes especiales V/B ya lo hacían: poderes.js). Se revisa en la pantalla del que RECIBE, con el
 // dibujo del ataque, igual que los poderes. Pegan menos que un poder especial (QUITA_BASICO de vida).
@@ -361,7 +399,7 @@ function efectoRemoto(scene, r, h, dir, de) {
     } else if (h.tipo === 'embestida' || h.tipo === 'voltereta') {
         // estela: copias del muñeco que se desvanecen mientras dura
         const dura = h.duracion || 300;
-        if (h.tipo === 'voltereta' && !enCarrera()) { s.setAlpha(0.55); scene.time.delayedCall(dura, () => s.active && s.setAlpha(1)); }
+        if (h.tipo === 'voltereta') { s.setAlpha(0.55); scene.time.delayedCall(dura, () => s.active && s.setAlpha(1)); }
         let pego = false;
         scene.time.addEvent({
             delay: 50, repeat: Math.max(1, Math.floor(dura / 50)), callback: () => {
@@ -377,9 +415,12 @@ function efectoRemoto(scene, r, h, dir, de) {
 }
 
 // ---------- quién manda en los enemigos ----------
-// (en la carrera cada pantalla mueve sus propios enemigos)
-export const soyReplica = () => mundoCompartido() && !esAnfitrion();
-export const soyAnfitrion = () => mundoCompartido() && esAnfitrion();
+// El anfitrión: en la aventura, la noche y también en la carrera (antes en la carrera cada pantalla movía
+// los suyos: al morir uno le salían enemigos nuevos y al de al lado no, y no se movían igual)
+const EN_CARRERA = new Set(['poder', 'poderEsp', 'enemigo', 'enemigos', 'golpe', 'zona', 'bala']);
+const enemigosCompartidos = () => mundoCompartido() || enCarrera();
+export const soyReplica = () => enemigosCompartidos() && !esAnfitrion();
+export const soyAnfitrion = () => enemigosCompartidos() && esAnfitrion();
 
 const enemigoPorId = (scene, id) => scene.enemies.getChildren().find(e => e.redId === id);
 
@@ -497,8 +538,10 @@ const sinEfecto = obj => new Proxy(obj, {
 
 const ANCHO_CUERPO = 20, ALTO_CUERPO = 69;
 
-export function fantasmas(scene) {
-    if (!scene.remotos || enCarrera()) return []; // (en la carrera los demás no tocan nada)
+// paraEnemigos: en la carrera los demás no activan trampas en tu mundo, pero los enemigos (que son de todos)
+// sí los ven: los persiguen y no se duermen si hay alguien cerca
+export function fantasmas(scene, paraEnemigos = false) {
+    if (!scene.remotos || (enCarrera() && !paraEnemigos)) return []; // (en la carrera los demás no tocan nada)
     const cuadro = scene.game.loop.frame;
     if (scene.fantasmasCuadro === cuadro) return scene.listaFantasmas;
     scene.fantasmasCuadro = cuadro;
@@ -537,7 +580,7 @@ export function comoJugador(scene, f, fn) {
 
 // el jugador más cercano a un enemigo: null si es el de esta pantalla (o no hay nadie más)
 export function fantasmaMasCercano(scene, enemigo) {
-    const lista = fantasmas(scene);
+    const lista = fantasmas(scene, true);
     if (!lista.length) return null;
     const ex = enemigo.body.center.x, ey = enemigo.body.center.y;
     const g = scene.mascotaGesi;

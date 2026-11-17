@@ -15,7 +15,7 @@ import { nivelEnEquipo } from "./equipo.js"
 import { iniciarVoz } from "./voz.js"
 import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
-import { iniciarSala, pistaParaRevancha, arenaParaRevancha } from "./sala.js"
+import { iniciarSala, pistaParaRevancha, arenaParaRevancha, empezarCopa } from "./sala.js"
 import { revisarHitos, mostrarHitos, tituloActual, proximoHito } from "./hitos.js"
 import { configurarAgua, crearAgua, actualizarNado } from "./agua.js"
 import { turboCarrera, saltoCarrera } from "./cajas.js"
@@ -403,6 +403,8 @@ iniciarCarrera(juego, {
         juego.scene.start('seleccion');
     },
     revancha: pista => empezarPartida(pistaParaRevancha(pista)), // (si la pista era al azar, se sortea otra)
+    siguientePista: pista => empezarPartida(pista), // (copa: la pista que sigue)
+    otraCopa: () => empezarCopa(),                   // (copa: otra copa con 3 pistas nuevas)
     volverASala: () => volverASala(),
     // un rival te dejó sin vida con sus poderes: mueres (ni el escudo ni las defensas lo evitan)
     morir: scene => killgesi(scene, 'rival'),
@@ -2244,12 +2246,13 @@ function golpeDeEnemigo(scene, enemy) {
     const x0 = enemy.flipX ? eb.left - alcance : eb.right;
     const zona = new Phaser.Geom.Rectangle(x0, eb.top - 10, alcance, eb.height + 10);
     avisarZona(zona, eb.center.x); // en línea: cada jugador revisa si el golpe lo alcanzó
-    golpeEnZona(scene, zona, eb.center.x);
+    golpeEnZona(scene, zona, eb.center.x, enemy);
 }
 
-function golpeEnZona(scene, zona, origenX) {
+function golpeEnZona(scene, zona, origenX, enemy) {
     const gb = scene.mascotaGesi.body;
     if (Phaser.Geom.Intersects.RectangleToRectangle(zona, new Phaser.Geom.Rectangle(gb.left, gb.top, gb.width, gb.height))) {
+        if (enemy) anotarAtacante(scene, enemy);
         killgesi(scene, undefined, 20, origenX);
     }
 }
@@ -3026,7 +3029,23 @@ function onHitEnemy(mascotaGesi, enemy) {
         apartarEnemigo(this, enemy);
         return;
     }
+    anotarAtacante(this, enemy);
     killgesi(this, undefined, 20, enemy.body.center.x);
+}
+
+// quién me golpeó por última vez (en la carrera, el rival ve qué enemigo me mató: multijugador.js)
+function anotarAtacante(scene, enemy) {
+    scene.ultimoAtacante = enemy;
+    scene.ultimoAtacanteT = scene.time.now;
+}
+function causaDeMuerte(scene, causa) {
+    if (causa === 'caida') return { k: 'caida' };
+    if (causa === 'rival') return { k: 'rival' };
+    const e = scene.ultimoAtacante;
+    if (e?.active && e.tipoId && scene.time.now - (scene.ultimoAtacanteT || 0) < 1200) {
+        return { k: 'enemigo', t: e.tipoId, x: Math.round(e.x), y: Math.round(e.y), f: e.flipX ? 1 : 0, s: Math.round(e.scaleX * 100) / 100 };
+    }
+    return { k: 'trampa' };
 }
 
 // el enemigo retrocede un poco y tarda en volver a atacar (después de una parada o del escudo mágico)
@@ -3182,7 +3201,7 @@ function actualizarMundo(scene) {
     const ahora = scene.time.now;
     // (los lejos de todos los jugadores DUERMEN: sin física ni comportamiento hasta que alguien se acerca.
     // Un nivel largo tiene ~100 enemigos y moverlos y chocarlos a todos en cada fotograma traba el celular)
-    const jugadores = [scene.mascotaGesi, ...fantasmas(scene)].filter(j => j?.body).map(j => [j.x, j.y]);
+    const jugadores = [scene.mascotaGesi, ...fantasmas(scene, true)].filter(j => j?.body).map(j => [j.x, j.y]);
     const lejos = (e, d) => jugadores.every(([x, y]) => Math.abs(e.x - x) > d || Math.abs(e.y - y) > d * 0.7);
     scene.enemies.getChildren().slice().forEach(enemy => {
         if (enemy.y > VISTA.height + 150 || enemy.x < -200) {
@@ -3532,6 +3551,7 @@ function killgesi(game, causa, daño = 20, origenX) {
         }
     }
     mascotaGesi.isDead = true;
+    game.causaMuerte = causaDeMuerte(game, causa);
     if (!game.muerteRemota && !game.arena) avisarMuerte(); // en línea: caen todos
     game.atacando = false;
     game.dashHasta = 0;
