@@ -59,6 +59,7 @@ import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
 import { ganarXP, XP, nivelDe, textoNivel } from "./progreso.js"
 import { configurarCajas, prepararCajas, quitarCajas, actualizarCajas, usarCaja, eventoCajas } from "./cajas.js"
 import { esperaPendiente } from "./espera.js"
+import { esRayo, electrocutar } from "./electrocutar.js"
 
 const CUENTA_MS = 4000;      // de 'empezar' a la salida
 const ESPERA_LLEGADAS = 400; // el anfitrión espera este rato por si otro llegó casi a la vez
@@ -314,6 +315,11 @@ export function recibirPoderCarrera(scene, p, de, ox) {
     // en la carrera los golpes siempre RETRASAN (hacia atrás en el recorrido, aunque le pegues por
     // detrás) y dejan un momento de recuperación: nunca se ayuda al rival a avanzar
     aplicarEfecto(scene, tipo, { rareza: p.rareza, nivel: p.nivel, lado: -1, empuje: p.empuje, recuperacion: 450 });
+    // rayo: cae del cielo, se le ven los huesos y queda tiznado (electrocutar.js); los demás lo ven en su muñeco
+    if (esRayo(p)) {
+        electrocutar(scene, g, () => g.body.center, { propio: true });
+        enviarEvento('rayoCae', {});
+    }
     // y le quita vida: sin vida, muere y vuelve a su último punto de control
     // (p.quita: los ataques propios del personaje, que pegan menos que un poder: multijugador.js)
     scene.vidaCarrera = Math.max(0, (scene.vidaCarrera ?? VIDA_CARRERA) - (p.quita ?? QUITA_PODER[Math.min(7, Math.ceil(p.daño || 1))]));

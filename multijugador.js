@@ -31,6 +31,7 @@ import { prepararVariante } from "./vestidor.js"
 import { estaHablando } from "./voz.js"
 import { red, alRecibir, enviarEstado, enviarEvento, enLinea, enCarrera, enNoche, mundoCompartido, esAnfitrion } from "./red.js"
 import { poderRemoto as poderEspecialRemoto } from "./poderes.js"
+import { electrocutar } from "./electrocutar.js"
 import { esRival, colorDe as colorEnArena } from "./arena.js"
 import { nivelDe, textoNivel } from "./progreso.js"
 
@@ -102,6 +103,12 @@ export function iniciarMultijugador(juegoPhaser, g) {
                 if (!esAnfitrion()) break;
                 const e = enemigoPorId(scene, m.id);
                 if (e && !e.isDead) ganchos.dañarEnemigo(scene, e, m.cantidad || 1, m.congela || 0);
+                break;
+            }
+            case 'rayoCae': {
+                // a otro jugador le cayó un rayo (carrera.js): se ve en su muñeco
+                const r = scene.remotos.get(m.de);
+                if (r?.visible) electrocutar(scene, r.s, () => ({ x: r.s.x + (r.estado.cx - r.estado.x), y: r.s.y + (r.estado.cy - r.estado.y) }));
                 break;
             }
             case 'zona': ganchos.golpeEnZona(scene, new Phaser.Geom.Rectangle(m.x, m.y, m.w, m.h), m.ox); break;
@@ -222,7 +229,8 @@ export function actualizarEnLinea(scene, time, delta) {
         if (e.anim && !scene.anims.exists(e.anim) && e.anim.includes('~')) prepararVariante(scene, e.anim.slice(0, e.anim.lastIndexOf('-')));
         if (e.anim) r.prefijo = e.anim.slice(0, e.anim.lastIndexOf('-'));
         if (e.anim && r.s.anims.currentAnim?.key !== e.anim && scene.anims.exists(e.anim)) r.s.anims.play(e.anim, true);
-        if (!scene.arena) r.s.setTint(e.anclado || e.fantasma ? 0x9fd8ff : 0xffffff);
+        // (electrocutado: electrocutar.js maneja su color un rato)
+        if (!scene.arena && !(r.s.electrocutadoHasta > scene.time.now)) r.s.setTint(e.anclado || e.fantasma ? 0x9fd8ff : 0xffffff);
         if (enNoche()) r.s.setAlpha(e.fantasma ? 0.45 : 1);
         r.etiqueta.setPosition(r.s.x, r.s.y - 8);
         // sobre la cabeza: su nivel (progreso.js), su nombre y 🔊 si está hablando por el chat de voz
@@ -420,7 +428,7 @@ function efectoRemoto(scene, r, h, dir, de) {
 // ---------- quién manda en los enemigos ----------
 // El anfitrión: en la aventura, la noche y también en la carrera (antes en la carrera cada pantalla movía
 // los suyos: al morir uno le salían enemigos nuevos y al de al lado no, y no se movían igual)
-const EN_CARRERA = new Set(['poder', 'poderEsp', 'enemigo', 'enemigos', 'golpe', 'zona', 'bala']);
+const EN_CARRERA = new Set(['poder', 'poderEsp', 'enemigo', 'enemigos', 'golpe', 'zona', 'bala', 'rayoCae']);
 const enemigosCompartidos = () => mundoCompartido() || enCarrera();
 export const soyReplica = () => enemigosCompartidos() && !esAnfitrion();
 export const soyAnfitrion = () => enemigosCompartidos() && esAnfitrion();
