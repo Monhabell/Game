@@ -22,6 +22,7 @@
 
 import { red, enviarEvento } from "./red.js"
 import { aplicarEfecto, puedeRecibirEfecto, textoEfecto } from "./efectos.js"
+import { electrocutar } from "./electrocutar.js"
 import { mecanicasDe } from "./mecanicas.js"
 import { SUELO_Y } from "./alcance.js"
 
@@ -294,7 +295,7 @@ export function eventoCajas(m, carrera) {
     } else return false;
     return true;
 }
-function recibir(scene, carrera, efecto, _icono, de) {
+function recibir(scene, carrera, efecto, icono, de) {
     const g = scene.mascotaGesi;
     if (!g?.body || g.isDead || carrera.fin || carrera.llegue || scene.cinematica) return;
     const quien = api.nombreDe(de).toUpperCase();
@@ -306,6 +307,12 @@ function recibir(scene, carrera, efecto, _icono, de) {
     }
     if (!puedeRecibirEfecto(scene)) return;
     aplicarEfecto(scene, efecto, { rareza: 'raro', lado: -1, recuperacion: 300 }); // (como los poderes: siempre retrasa)
+    // ⚡ (el rayo al primero): cae del cielo, se le ven los huesos y queda tiznado (electrocutar.js); los
+    // demás lo ven en su muñeco ('rayoCae', multijugador.js)
+    if (icono.includes('⚡')) {
+        electrocutar(scene, g, () => g.body.center, { propio: true });
+        enviarEvento('rayoCae', {});
+    }
     api.mensaje(scene, textoEfecto(efecto, quien), 1000);
     enviarEvento('carreraGolpe', { para: de, efecto });
 }
