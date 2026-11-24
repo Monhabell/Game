@@ -7,7 +7,7 @@
 // viejo: en la carrera sus golpes recibidos se revisan en SU pantalla y con código viejo no le pegaban.)
 // Todos los imports se marcan igual: si uno quedara sin marca, el navegador cargaría ese archivo dos veces.
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 const raiz = join(import.meta.dirname, '..');
 const www = join(raiz, 'www');
@@ -24,5 +24,7 @@ for (const f of readdirSync(raiz)) {
         writeFileSync(join(www, f), marcar(readFileSync(join(raiz, f), 'utf8')));
     }
 }
-cpSync(join(raiz, 'assets'), join(www, 'assets'), { recursive: true });
+// (las heroínas HD que se quitaron del juego: sus imágenes no van — 4 MB menos)
+const sinUsar = ['paladina', 'asesina', 'elfa'].map(pj => join(raiz, 'assets', 'personajes', pj));
+cpSync(join(raiz, 'assets'), join(www, 'assets'), { recursive: true, filter: f => !sinUsar.some(d => f === d || f.startsWith(d + sep)) });
 console.log(`Juego copiado a www/ (versión ${version})`);

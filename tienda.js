@@ -19,7 +19,7 @@
 //     debilidad (Rubí sigue sin defensa, Aria sin ataque de lejos...). Cambian valores de una de
 //     sus habilidades (personajes.js): el juego usa los datos mejorados, sin lógica nueva.
 //     Algunos héroes tienen dos mejoras (se suman).
-//   - Poderes especiales (poderes.js): 65 poderes en su propia pestaña; se compran o se ganan al
+//   - Poderes especiales (poderes.js): 90 poderes en su propia pestaña; se compran o se ganan al
 //     terminar niveles, y cada héroe equipa dos (teclas V y B).
 //   - Los héroes siguen libres desde el principio (son la base del juego, no un premio).
 // Precios: hay ~700 monedas en la campaña y un jugador normal junta ~480. Lo permanente (300) y las
@@ -32,7 +32,7 @@ import { PERSONAJES } from "./personajes.js"
 import { nivelJugador } from "./progreso.js"
 import {
     PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, filtroIcono, colorDe,
-    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX, ELEMENTOS, elementoDe, comboDe, BUILDS,
+    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX, ELEMENTOS, elementoDe, comboDe, BUILDS, vistaPrevia,
 } from "./poderes.js"
 
 const CLAVE = 'monhabell-aventura-tienda';
@@ -82,30 +82,6 @@ export const CATALOGO = [
         id: 'mejora_mosquetera', tipo: 'heroe', heroe: 'mosquetera', habilidad: 'x', cambios: { vida: 650 },
         icono: '≋', nombre: 'Viento cortante', precio: 80, descripcion: 'El corte de viento llega bastante más lejos.',
     },
-    {
-        id: 'mejora_paladina', tipo: 'heroe', heroe: 'paladina', habilidad: 'c', cambios: { duracion: 3000, enfriamiento: 5000 },
-        icono: '⛨', nombre: 'Fe inquebrantable', precio: 80, descripcion: 'La Defensa dura 3 s (antes 1,8 s) y vuelve antes.',
-    },
-    {
-        id: 'mejora_paladina2', tipo: 'heroe', heroe: 'paladina', habilidad: 'espacio', cambios: { daño: 2 },
-        icono: '✠', nombre: 'Hoja bendita', precio: 120, descripcion: 'El espadazo hace doble daño.',
-    },
-    {
-        id: 'mejora_asesina', tipo: 'heroe', heroe: 'asesina', habilidad: 'x', cambios: { perfora: true, vida: 650 },
-        icono: '✂', nombre: 'Cuchillas gemelas', precio: 80, descripcion: 'La cuchilla atraviesa a todos y llega más lejos.',
-    },
-    {
-        id: 'mejora_asesina2', tipo: 'heroe', heroe: 'asesina', habilidad: 'c', cambios: { enfriamiento: 1000, vel: 680 },
-        icono: '➶', nombre: 'Sombra veloz', precio: 120, descripcion: 'La arremetida es más rápida y vuelve cada 1 s.',
-    },
-    {
-        id: 'mejora_elfa', tipo: 'heroe', heroe: 'elfa', habilidad: 'espacio', cambios: { enfriamiento: 400 },
-        icono: '➹', nombre: 'Mano rápida', precio: 80, descripcion: 'Dispara flechas cada 0,4 s (antes 0,65 s).',
-    },
-    {
-        id: 'mejora_elfa2', tipo: 'heroe', heroe: 'elfa', habilidad: 'x', cambios: { congela: 1500 },
-        icono: '❄', nombre: 'Flecha de escarcha', precio: 120, descripcion: 'La flecha élfica además congela 1,5 s.',
-    },
     // ---------- apariencias (solo visuales) ----------
     { id: 'estela_luna', tipo: 'cosmetico', icono: '✦', nombre: 'Estela lunar', precio: 40, color: 0xb9c3ff, descripcion: 'Una estela de luz lavanda al correr.' },
     { id: 'estela_brasas', tipo: 'cosmetico', icono: '✹', nombre: 'Estela de brasas', precio: 70, color: 0xff8a3d, descripcion: 'Chispas de fuego a tu paso.' },
@@ -134,6 +110,9 @@ export const CATALOGO = [
 const porId = id => CATALOGO.find(o => o.id === id);
 
 // ---------- guardado ----------
+// mejoras de las heroínas HD que se quitaron (Valeria, Kira, Elara): a quien las compró se le devuelve lo que pagó
+const QUITADOS = { mejora_paladina: 80, mejora_paladina2: 120, mejora_asesina: 80, mejora_asesina2: 120, mejora_elfa: 80, mejora_elfa2: 120 };
+
 const vacio = () => ({ version: VERSION, monedas: 0, comprados: {}, consumibles: {}, equipados: { estelas: {}, escudo: true }, nivelMaximo: 0 });
 
 function leer() {
@@ -145,6 +124,7 @@ function leer() {
         e.monedas = Number.isFinite(g.monedas) && g.monedas > 0 ? Math.floor(g.monedas) : 0;
         e.nivelMaximo = Number.isFinite(g.nivelMaximo) ? Math.max(0, Math.floor(g.nivelMaximo)) : 0;
         Object.keys(g.comprados || {}).forEach(id => { if (porId(id) && porId(id).tipo !== 'consumible' && g.comprados[id]) e.comprados[id] = true; });
+        Object.keys(g.comprados || {}).forEach(id => { if (QUITADOS[id] && g.comprados[id]) e.monedas += QUITADOS[id]; }); // (una vez: al guardar ya no están)
         Object.entries(g.consumibles || {}).forEach(([id, n]) => {
             const o = porId(id);
             if (o?.tipo === 'consumible' && Number.isFinite(n) && n > 0) e.consumibles[id] = Math.min(o.max, Math.floor(n));
@@ -193,7 +173,21 @@ export function personajeConMejoras(pj) {
 export const nivelMaximo = () => estado.nivelMaximo;
 
 // ---------- poderes especiales (los datos y el uso están en poderes.js) ----------
-export const precioPoder = p => RAREZAS[p.rareza].precio;
+// OFERTA DEL DÍA: cada día un poder (no legendario) con DESCUENTO; es el mismo para todos ese día.
+// Si ya lo tienes, ese día no hay oferta para ti
+const DESCUENTO = 0.3;
+const hoy = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+export function ofertaDelDia() {
+    const lista = PODERES.filter(p => p.rareza !== 'legendario');
+    let h = 2166136261;
+    for (const c of hoy()) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    const p = lista[h % lista.length];
+    return p && !tienePoder(p.id) ? p : null;
+}
+// horas que le quedan a la oferta (hasta medianoche)
+const horasOferta = () => { const d = new Date(); return 24 - d.getHours() - (d.getMinutes() > 0 ? 1 : 0); };
+export const precioBase = p => RAREZAS[p.rareza].precio;
+export const precioPoder = p => (ofertaDelDia()?.id === p.id ? Math.round(precioBase(p) * (1 - DESCUENTO) / 5) * 5 : precioBase(p));
 // los legendarios se compran desde cierto nivel del jugador (progreso.js)
 const faltaNivel = p => Math.max(0, (RAREZAS[p.rareza].nivelMinimo || 0) - nivelJugador());
 export function comprarPoder(id) {
@@ -438,7 +432,20 @@ export function iniciarTienda() {
                 ? `<em class="poder-combo">Combo: ${comboAhora[0]}</em>` : pe[0] && pe[1] ? '<em class="poder-combo nada">Sin combo: prueba otro elemento</em>' : ''}</div>
             ${recomendada}
             <div class="poder-filtros" role="group" aria-label="Filtrar poderes">${filtros}</div>`;
-        const visibles = PODERES.filter(p => filtro === 'todos' || (filtro === 'mios' ? tienePoder(p.id) : p.rareza === filtro));
+        // la oferta del día primero y después los NUEVOS que no tienes (llaman la atención); el resto, como siempre
+        const oferta = ofertaDelDia();
+        const orden = p => (p === oferta ? 0 : p.nuevo && !tienePoder(p.id) ? 1 : 2);
+        const visibles = PODERES.filter(p => filtro === 'todos' || (filtro === 'mios' ? tienePoder(p.id) : p.rareza === filtro))
+            .map((p, i) => [p, i]).sort((a, b) => orden(a[0]) - orden(b[0]) || a[1] - b[1]).map(([p]) => p);
+        if (oferta) {
+            arriba.insertAdjacentHTML('beforeend', `<button type="button" class="poder-oferta" data-ver-poder="${oferta.id}" style="--rareza:${RAREZAS[oferta.rareza].color}">
+                <span class="poder-oferta-etq">🔥 Oferta del día</span>
+                <img src="${urlIcono(oferta)}" alt="" width="26" height="26" style="filter:${filtroIcono(oferta)}">
+                <b>${oferta.nombre}</b>
+                <span class="poder-oferta-precio"><s>${precioBase(oferta)}</s> ${moneda(precioPoder(oferta))}</span>
+                <small>quedan ${horasOferta()} h</small>
+            </button>`);
+        }
         lista.innerHTML = visibles.map(p => {
             const mio = tienePoder(p.id), r = RAREZAS[p.rareza], precio = precioPoder(p);
             const nv = nivelPoder(p.id), costo = mio ? costoSubir(p) : null;
@@ -450,19 +457,24 @@ export function iniciarTienda() {
                     class="poder-tecla ${eq[i] === p.id ? 'activa' : ''}" data-poder="${p.id}" data-ranura="${i}" aria-pressed="${eq[i] === p.id}"
                     aria-label="${eq[i] === p.id ? `Equipado en ${i ? 'B' : 'V'}` : `Poner en ${i ? 'B' : 'V'}`}">${eq[i] === p.id ? '✓ ' : ''}${i ? 'B' : 'V'}</button>`).join('')}</div>` + subir
                 : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${RAREZAS[p.rareza].nivelMinimo} · ${moneda(precio)}</button>`
-                : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ${moneda(precio)}`}</button>`;
+                : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ${precio < precioBase(p) ? `<s>${precioBase(p)}</s> ` : ''}${moneda(precio)}`}</button>`;
             // ventajas con los valores de su nivel actual (y qué gana al subir)
             const [ie, ne, ce] = ELEMENTOS[elementoDe(p)];
             const chips = `<i class="poder-ventaja poder-elemento" style="--elem:${ce}"><span aria-hidden="true">${ie}</span> ${ne}</i>` +
                 ventajas(conNivel(p)).map(([i, t]) => `<i class="poder-ventaja"><span aria-hidden="true">${i}</span> ${t}</i>`).join('');
             const siguiente = costo === null ? (mio ? '<small class="poder-max">★ Nivel máximo</small>' : '')
                 : `<small class="poder-siguiente"><b>Nivel ${nv + 1}:</b> ${queGana(nv + 1)}</small>`;
+            // vista previa: el efecto animado sobre el ícono (al pasar el mouse o al tocar el ícono)
+            const v = vistaPrevia(p);
+            const anim = v ? `<i class="poder-anim ${v.tinte ? 'tenido' : 'color'}" aria-hidden="true"
+                style="--url:url('${v.url}');--w:${v.w};--h:${v.h};--n:${v.n};${v.tinte ? `--tinte:${v.tinte}` : ''}"></i>` : '';
+            const sellos = (p === oferta ? '<em class="poder-sello oferta">−30% HOY</em>' : '') + (p.nuevo && !mio ? '<em class="poder-sello nuevo">NUEVO</em>' : '');
             return carta({
-                clases: `poder-item ${mio ? 'comprado' : 'nuevo'} ${eq.includes(p.id) ? 'equipado' : ''}`,
+                clases: `poder-item ${mio ? 'comprado' : 'nuevo'} ${eq.includes(p.id) ? 'equipado' : ''} ${p === oferta ? 'en-oferta' : ''}`,
                 estilo: `--tienda-color:${colorDe(p)};--rareza:${r.color}`,
-                etiqueta: `<em class="tienda-heroe" style="--pj:${r.color}">${r.nombre}</em>`,
+                etiqueta: `<em class="tienda-heroe" style="--pj:${r.color}">${r.nombre}</em>${sellos}`,
                 esquina: mio ? `<em class="poder-nivel" aria-label="Nivel ${nv} de ${NIVEL_MAX}">${'★'.repeat(nv)}<span>${'★'.repeat(NIVEL_MAX - nv)}</span></em>` : '',
-                media: `<img class="poder-icono" src="${urlIcono(p)}" alt="" width="96" height="96" loading="lazy" style="filter:${filtroIcono(p)}">`,
+                media: `<span class="poder-vista" data-vista title="Ver el poder"><img class="poder-icono" src="${urlIcono(p)}" alt="" width="96" height="96" loading="lazy" style="filter:${filtroIcono(p)}">${anim}</span>`,
                 nombre: p.nombre, desc: p.descripcion,
                 extra: `<div class="poder-ventajas">${chips}</div>${siguiente}`,
                 botones,
@@ -542,8 +554,20 @@ export function iniciarTienda() {
     window.addEventListener('resize', () => { if (!capa.hidden) { acomodarFilas(); marcarPagina(); } });
 
     capa.addEventListener('click', e => {
+        // tocar el ícono de un poder: se ve su efecto animado (en el celular no hay "pasar el mouse")
+        const vista = e.target.closest('[data-vista]');
+        if (vista) { vista.closest('.poder-item')?.classList.toggle('viendo'); return; }
         const b = e.target.closest('button');
         if (!b || b.disabled) return;
+        // la oferta del día: lleva a su carta (con "Todos" para que esté) y la hace brillar
+        if (b.dataset.verPoder) {
+            if (filtro !== 'todos') { filtro = 'todos'; pintar(true); }
+            const c = capa.querySelector(`[data-comprar-poder="${b.dataset.verPoder}"]`)?.closest('.poder-item');
+            c?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+            c?.classList.add('viendo');
+            capa.querySelector(`[data-comprar-poder="${b.dataset.verPoder}"]`)?.focus({ preventScroll: true });
+            return;
+        }
         if (b.dataset.accion === 'cerrar') { cerrar(); return; }
         if (b.dataset.pagina) { pasarPagina(Number(b.dataset.pagina)); return; }
         if (b.dataset.pestana) { pestana = b.dataset.pestana; pintar(true); return; }

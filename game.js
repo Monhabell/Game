@@ -30,6 +30,9 @@ import {
     llegarMetaCarrera, recibirPoderCarrera, tomeMonedaCarrera, soltarCarrera,
 } from "./carrera.js"
 import { esperarATodos } from "./espera.js"
+import { mostrarDiario } from "./diario.js"
+import { iniciarAvisoVersion } from "./actualizar.js"
+import { marcarOro, tomarOro, confirmarOro, premioNivel, ORO_VALE } from "./economia.js"
 import { iniciarAbismo, crearFondoAbismo, crearAbismo, actualizarAbismo } from "./abismo.js"
 import { armarPista, pistaDe } from "./pistas.js"
 import {
@@ -207,6 +210,8 @@ const VISTA = { width: 790, height: 380 };
 const LETRA = '"Poppins", system-ui, sans-serif';
 function estiloModerno(estilo = {}) {
     const e = { ...estilo };
+    // pixel: true -> la letra pixel de verdad (los títulos y botones de juego: el nombre del héroe, JUGAR)
+    if (e.pixel) { delete e.pixel; e.fontFamily = '"Press Start 2P", monospace'; return e; }
     const familia = e.fontFamily || '';
     const pixelada = familia.includes('Press Start');
     if (!familia || pixelada || familia === 'monospace') e.fontFamily = LETRA;
@@ -264,6 +269,8 @@ const config = {
                     // la sala de espera se abre sobre la pantalla de elegir personaje
                     alAmigos: () => { this.scene.start('seleccion'); abrirSala(); },
                 });
+                // recompensa diaria (diario.js): una vez por día, al llegar al título
+                this.time.delayedCall(700, () => mostrarDiario());
             },
             update(time) { this.actualizarTitulo(time); },
         },
@@ -295,7 +302,7 @@ const config = {
 // sin internet, a los 2,5 s se sigue con la letra del sistema
 try {
     await Promise.race([
-        Promise.all(['400', '500', '600', '700'].map(peso => document.fonts.load(`${peso} 16px Poppins`))),
+        Promise.all([...['400', '500', '600', '700'].map(peso => document.fonts.load(`${peso} 16px Poppins`)), document.fonts.load('16px "Press Start 2P"')]),
         new Promise(listo => setTimeout(listo, 2500)),
     ]);
 } catch (_e) { /* el navegador no permite cargar letras: letra del sistema */ }
@@ -309,6 +316,7 @@ globalThis.juegoMonhabell = juego; // para revisar el juego desde la consola del
 
 // en celulares: botones táctiles sobre el juego (tactil.js)
 iniciarTactil(juego);
+iniciarAvisoVersion(); // (versión nueva: en la app, la de Google Play; en la página, la publicada: actualizar.js)
 
 // menú de pausa y de configuración (menu.js); los ajustes viven en ajustes.js
 // tienda (capa HTML como los menús): se abre desde "Elige tu héroe" y desde el mapa entre niveles
@@ -505,7 +513,7 @@ const abrirSala = iniciarSala(juego, {
     // el anfitrión empezó: todos entran al mismo nivel con el personaje que eligieron en la sala
     // modo 'duelo' o 'equipos': batalla en la Arena del Troll (arena.js)
     alEmpezar: ({ nivel, pj, modo, arena, jugadores, apuesta }) => {
-        personajeId = pj;
+        personajeId = PERSONAJES.some(p => p.id === pj) ? pj : PERSONAJES[0].id; // (uno que ya no está: Gesi)
         reiniciarPartida();
         nivelActual = Phaser.Math.Clamp(nivel, 0, NIVELES.length - 1);
         if (esModoArena(modo)) empezarArena({ modo, arena, jugadores, apuesta });
@@ -698,7 +706,9 @@ function precargarNivel() {
     // solo los efectos de los poderes equipados (en la arena, también los de los orbes)
     cargarPoderes(this, [...equipados(personajeId).filter(Boolean), ...(arenaActiva() ? PODERES_ORBE : []),
         ...(!arenaActiva() && nivelPorIndice(nivelActual)?.estilo === 'minas' ? ['supernova'] : [])]); // (nivel 3: el cofre secreto)
-    if (this.load.list.size) mostrarCarga(this, ZOOM);
+    // (el nombre del nivel arriba de la barra; en la carrera, la arena y la noche, sin nombre)
+    const titulo = arenaActiva() || enLinea() ? '' : `NIVEL ${nivelActual + 1} · ${nivelPorIndice(nivelActual)?.nombre || ''}`;
+    if (this.load.list.size) mostrarCarga(this, ZOOM, titulo);
 }
 
 function create() {
@@ -744,7 +754,7 @@ function create() {
     this.nivelTerminado = false;
     // con la mejora de héroe comprada en la tienda (si la tiene)
     // y con los colores elegidos en el vestidor (anim: prefijo de sus animaciones)
-    const pjBase = personajeConMejoras(PERSONAJES.find(pj => pj.id === personajeId));
+    const pjBase = personajeConMejoras(PERSONAJES.find(pj => pj.id === personajeId) || PERSONAJES[0]); // (si ya no existe: Gesi)
     this.pj = { ...pjBase, anim: prepararVariante(this, animDe(pjBase)) };
     flechas = FLECHAS_INICIALES;
     this.mana = MANA_MAXIMO;
@@ -848,6 +858,9 @@ function create() {
     // monedas (las que quedan detrás del punto de control no reaparecen: ya se guardaron al pasar)
     // (al reaparecer no están las de antes del punto de control; en los niveles en orden, el camino vuelve: todas)
     monedas(this, checkpointX == null || nivel.puntosControl ? nivel.monedas : (nivel.monedas || []).filter(([x]) => x > checkpointX));
+    // monedas de oro (economia.js): las únicas del camino que dan ◉ de la tienda (no en la carrera)
+    this.oroPendiente = [];
+    if (!pista) marcarOro(this, nivelActual);
 
     // carteles, monedas trampa, rocas, estatuas falsas, plataformas que muerden, banderas falsas y gigantes
     crearSorpresas(this, nivel, checkpointX ?? 0);
@@ -1230,6 +1243,10 @@ function prepararAnimaciones(scene) {
 // enorme, sus ESTADÍSTICAS en barras, sus habilidades y el botón "DESPLEGAR"
 const HEROE = { x: 318, pie: 306, escala: 3.1 };
 const LISTA = { x: 14, y: 56, w: 150, h: 29, paso: 31 };
+// las tarjetas de los héroes (izquierda): 2 columnas, retrato grande arriba y el nombre en una franja abajo
+const TARJ = { x: 14, y: 58, w: 72, h: 86, gx: 6, gy: 6, cols: 2, foto: 62 };
+// la letra pixel no tiene mayúsculas con tilde (RUBÍ salía mal): para los textos en pixel
+const sinTildes = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
 const PANEL = { x: 484, y: 56, w: 292, h: 276 };
 const ESTADISTICAS = ['VELOCIDAD', 'SALTO', 'ALCANCE', 'DEFENSA'];
 // de 0 a 1, según cómo es cada héroe (personajes.js)
@@ -1242,6 +1259,13 @@ function estadisticasDe(pj) {
 }
 // símbolos de las habilidades en el celular (los mismos de los botones táctiles: tactil.js)
 const SIMBOLO_HAB = { espacio: '⚔', x: '✦', c: '❖' };
+// qué hace una habilidad, en pocas palabras (la pantalla de elegir héroe: antes solo decía el nombre)
+function queHace(h) {
+    const base = { proyectil: 'disparo', golpe: h.ambosLados ? 'golpe a los dos lados' : 'golpe cercano', rayo: 'rayo', embestida: 'embestida',
+        escudo: 'escudo', voltereta: 'esquiva' }[h.tipo] || h.tipo;
+    const extra = [h.congela && 'congela', h.perfora && 'atraviesa', h.parada && 'para golpes', (h.daño || 0) >= 2 && 'fuerte'].filter(Boolean);
+    return extra.length ? `${base} que ${extra.join(' y ')}` : base;
+}
 
 // botón redondeado de esta pantalla: fondo, texto y zona para tocar; se ilumina con el mouse encima
 function botonSel(scene, { x, y, w, h, texto, tam = 12, color = '#eef1f7', fondo = 0xffffff, alfa = 0.1, borde = 0xffffff, alfaBorde = 0.16, alTocar }) {
@@ -1300,13 +1324,13 @@ function crearSeleccion() {
     this.add.text(216, 20, `${pr.xp}/${pr.falta} XP`, { fontSize: '8px', color: '#9aa3bf' }).setOrigin(1, 0.5).setDepth(6);
     // tu título (hitos.js) y lo que falta para el próximo hito
     const titulo = tituloActual(), prox = proximoHito(nivelMaximo());
-    const lineaHito = [titulo ? `${titulo.icono} ${titulo.titulo}` : '', prox ? `🏆 próximo hito: nivel ${prox.nivel} (faltan ${prox.nivel - nivelMaximo()})` : '👑 ¡todos los hitos!'].filter(Boolean).join('  ·  ');
-    this.add.text(LISTA.x + 76, LISTA.y - 8, lineaHito, { fontSize: '8px', color: '#ffd27a', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(6);
+    const lineaHito = [titulo ? `${titulo.icono} ${titulo.titulo}` : '', prox ? `🏆 premio en el nivel ${prox.nivel}` : '👑 ¡todos los premios!'].filter(Boolean).join('  ·  ');
+    this.add.text(LISTA.x + LISTA.w, LISTA.y - 8, lineaHito, { fontSize: '8px', color: '#ffd27a', fontStyle: '700' }).setOrigin(1, 0.5).setDepth(6);
 
     // si hay partida guardada, se elige el personaje con el que se venía jugando
     this.partida = leerPartida();
     if (this.partida && this.partida.nivel === 0 && !this.partida.score) this.partida = null; // nada que continuar
-    if (this.partida) personajeId = this.partida.personaje || personajeId;
+    if (this.partida && PERSONAJES.some(p => p.id === this.partida.personaje)) personajeId = this.partida.personaje;
     this.indiceSel = Math.max(0, PERSONAJES.findIndex(pj => pj.id === personajeId));
 
     // escenario del héroe: luz de su color, nombre gigante detrás, sombra y aro de luz en el piso
@@ -1322,7 +1346,10 @@ function crearSeleccion() {
     if (!reducirMovimientoSel()) this.tweens.add({ targets: e.anillos, alpha: 0.45, yoyo: true, repeat: -1, duration: 1400, ease: 'Sine.inOut' });
     e.sprite = this.add.sprite(HEROE.x, HEROE.pie + 4, `${animSel(this, PERSONAJES[this.indiceSel])}-idle`).setOrigin(0.5, 1)
         .setScale(HEROE.escala / resDe(PERSONAJES[this.indiceSel])).setDepth(4).setInteractive({ useHandCursor: true });
-    e.sprite.on('pointerdown', () => empezarJuego(this, true));
+    e.sprite.on('pointerdown', () => { // (antes empezaba el juego: fácil de tocar sin querer) — ahora se luce
+        const pj = PERSONAJES[this.indiceSel], lucirse = pj.hojas.atk1 ? 'atk1' : pj.hojas.slash ? 'slash' : null;
+        if (lucirse) e.sprite.anims.play(`${animSel(this, pj)}-${lucirse}`, true);
+    });
     // después de un ataque vuelve a quedarse quieto
     e.sprite.on('animationcomplete', anim => {
         if (!anim.key.endsWith('-idle')) e.sprite.anims.play(`${animSel(this, PERSONAJES[this.indiceSel])}-idle`, true);
@@ -1347,7 +1374,7 @@ function crearSeleccion() {
     this.franjaSel = this.add.graphics().setDepth(4.5);
     const X = P.x + 18;
     this.detalle = {
-        nombre: this.add.text(X, P.y + 26, '', { fontSize: '30px', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5),
+        nombre: this.add.text(X, P.y + 27, '', { pixel: true, fontSize: '22px' }).setOrigin(0, 0.5).setDepth(5),
         titulo: this.add.text(X, P.y + 52, '', { fontSize: '10px', color: '#9aa3bf', fontStyle: '600' }).setOrigin(0, 0.5).setDepth(5),
         pasiva: this.add.text(X, P.y + 72, '', { fontSize: '10px', color: '#eef1f7', backgroundColor: 'rgba(255, 255, 255, 0.07)', padding: { x: 7, y: 3 } })
             .setOrigin(0, 0.5).setDepth(5),
@@ -1359,8 +1386,10 @@ function crearSeleccion() {
         teclas: ['espacio', 'x', 'c'].map((k, i) => this.add.text(X, P.y + 160 + i * 19, tactil ? SIMBOLO_HAB[k] : k === 'espacio' ? 'ESPACIO' : k.toUpperCase(), {
             fontSize: tactil ? '11px' : '8px', fontStyle: '700', color: '#c9d0e6', backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: { x: tactil ? 6 : 5, y: 2 },
         }).setOrigin(0, 0.5).setDepth(5)),
-        poderes: [0, 1, 2].map(i => this.add.text(X + (tactil ? 32 : 64), P.y + 160 + i * 19, '', { fontSize: '11px', color: '#eef1f7' })
+        poderes: [0, 1, 2].map(i => this.add.text(X + (tactil ? 32 : 64), P.y + 160 + i * 19, '', { fontSize: '11px', color: '#eef1f7', fontStyle: '600' })
             .setOrigin(0, 0.5).setDepth(5)),
+        // (al lado del nombre, en gris: qué hace)
+        queHace: [0, 1, 2].map(i => this.add.text(0, P.y + 160 + i * 19, '', { fontSize: '9px', color: '#8a93b0' }).setOrigin(0, 0.5).setDepth(5)),
     };
 
     // al pie del panel: 🎨 personalizar (vestidor) y el botón para jugar, del color del héroe (marcarSeleccion)
@@ -1370,7 +1399,7 @@ function crearSeleccion() {
     this.botonElegir = {
         ...B,
         fondo: this.add.graphics().setDepth(5),
-        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2, '', { fontSize: '13px', fontStyle: '700', color: '#ffffff' }).setOrigin(0.5).setDepth(6),
+        texto: this.add.text(B.x + B.w / 2, B.y + B.h / 2 - 1, '', { pixel: true, fontSize: '10px', color: '#2a1600' }).setOrigin(0.5).setDepth(6),
         encima: false,
     };
     const zonaElegir = this.add.zone(B.x + B.w / 2, B.y + B.h / 2, B.w, B.h).setDepth(7).setInteractive({ useHandCursor: true });
@@ -1381,40 +1410,47 @@ function crearSeleccion() {
     // ---- la lista de héroes (izquierda): cada fila con su retrato, nombre y clase ----
     this.add.text(LISTA.x + 2, LISTA.y - 8, `HÉROES · ${PERSONAJES.length}`, { fontSize: '8px', color: '#8a93b0', fontStyle: '700' }).setOrigin(0, 0.5).setDepth(5);
     this.tarjetas = PERSONAJES.map((pj, i) => {
-        const y = LISTA.y + i * LISTA.paso;
+        // tarjeta de personaje: el retrato GRANDE (cabeza y torso, recortado al marco) y el nombre abajo
+        const T = TARJ, x = T.x + (i % T.cols) * (T.w + T.gx), y = T.y + Math.floor(i / T.cols) * (T.h + T.gy);
         const fondo = this.add.graphics().setDepth(5);
-        // (retrato: el personaje recortado a la altura de la fila)
-        const sprite = this.add.sprite(LISTA.x + 20, y + LISTA.h + 7, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1).setScale(0.36 / resDe(pj)).setDepth(6);
-        sprite.setCrop(0, 0, sprite.width, sprite.height - 30 * resDe(pj));
-        const nombre = this.add.text(LISTA.x + 40, y + 10, pj.nombre.toUpperCase(), { fontSize: '10px', fontStyle: '700', color: '#eef1f7' }).setOrigin(0, 0.5).setDepth(6);
-        const sub = this.add.text(LISTA.x + 40, y + 21, pj.titulo, { fontSize: '8px', color: '#8a93b0' }).setOrigin(0, 0.5).setDepth(6);
-        const zona = this.add.zone(LISTA.x + LISTA.w / 2, y + LISTA.h / 2, LISTA.w, LISTA.h).setDepth(7).setInteractive({ useHandCursor: true });
+        const sprite = this.add.sprite(x + T.w / 2, y + T.foto + 30, `${animSel(this, pj)}-idle`).setOrigin(0.5, 1)
+            .setScale(1.25 / resDe(pj)).setDepth(5.5);
+        const marco = this.make.graphics({ add: false }).fillRect(x + 1, y + 1, T.w - 2, T.foto);
+        sprite.setMask(marco.createGeometryMask());
+        const frente = this.add.graphics().setDepth(6); // (franja del nombre y borde: por encima del retrato)
+        const nombre = this.add.text(x + 7, y + T.foto + 9, sinTildes(pj.nombre.toUpperCase()), { pixel: true, fontSize: '8px', color: '#eef1f7' }).setOrigin(0, 0.5).setDepth(6.5);
+        const sub = this.add.text(x + 7, y + T.foto + 18, pj.titulo, { fontSize: '7px', color: '#8a93b0', fontStyle: '600' }).setOrigin(0, 0.5).setDepth(6.5);
+        const zona = this.add.zone(x + T.w / 2, y + T.h / 2, T.w, T.h).setDepth(7).setInteractive({ useHandCursor: true });
         zona.on('pointerdown', () => {
             if (this.tiendaAbierta) return;
             if (this.indiceSel === i) empezarJuego(this, true);
             else { this.indiceSel = i; marcarSeleccion(this); this.sound.play('menu_mover', { volume: 0.5 }); }
         });
-        return { fondo, y, sprite, nombre, sub, pj };
+        zona.on('pointerover', () => { t.encima = true; marcarSeleccion(this, true, true); });
+        zona.on('pointerout', () => { t.encima = false; marcarSeleccion(this, true, true); });
+        const t = { fondo, frente, x, y, sprite, nombre, sub, pj, encima: false };
+        return t;
     });
 
     if (this.partida) {
         // partida guardada: dónde sigue y, a la derecha, empezar de cero (pide un segundo toque para confirmar)
         const n = this.partida.nivel;
         // (cortado si es largo: que no llegue al botón de la derecha)
-        const lugar = `💾 Nivel ${n + 1}: ${nivelPorIndice(n).nombre}`;
-        this.add.text(X, pie - 14, lugar.length > 28 ? `${lugar.slice(0, 27)}…` : lugar, { fontSize: '9px', color: '#9aa3bf' }).setOrigin(0, 0.5).setDepth(5);
-        const boton = this.add.text(P.x + P.w - 18, pie - 14, '↺ De cero', {
-            fontSize: '9px', fontStyle: '600', color: '#ff8a94', backgroundColor: 'rgba(255, 107, 120, 0.14)', padding: { x: 8, y: 4 },
+        const lugar = `💾 Tu partida: ${nivelPorIndice(n).nombre}`;
+        this.add.text(X, pie - 15, lugar.length > 30 ? `${lugar.slice(0, 29)}…` : lugar, { fontSize: '9px', color: '#c9d0e6', fontStyle: '600' }).setOrigin(0, 0.5).setDepth(5);
+        // (empezar desde el nivel 1 borra la partida: pide un segundo toque para confirmar)
+        const boton = this.add.text(P.x + P.w - 18, pie - 15, '↺ Nueva partida', {
+            fontSize: '9px', fontStyle: '700', color: '#c9d6ff', backgroundColor: 'rgba(143, 180, 255, 0.12)', padding: { x: 8, y: 4 },
         }).setOrigin(1, 0.5).setDepth(5).setInteractive({ useHandCursor: true });
         let confirmar = false;
         boton.on('pointerdown', () => {
             if (this.tiendaAbierta) return;
             if (!confirmar) {
                 confirmar = true;
-                boton.setText('¿Seguro? Otra vez').setBackgroundColor('rgba(255, 107, 120, 0.32)');
+                boton.setText('¿Borrar y empezar? Toca otra vez').setColor('#ffb0b8').setBackgroundColor('rgba(255, 107, 120, 0.25)');
                 this.sound.play('vacio', { volume: 0.5 });
                 this.time.delayedCall(3000, () => {
-                    if (boton.active) { confirmar = false; boton.setText('↺ De cero').setBackgroundColor('rgba(255, 107, 120, 0.14)'); }
+                    if (boton.active) { confirmar = false; boton.setText('↺ Nueva partida').setColor('#c9d6ff').setBackgroundColor('rgba(143, 180, 255, 0.12)'); }
                 });
             } else {
                 empezarJuego(this, false);
@@ -1423,9 +1459,7 @@ function crearSeleccion() {
     }
     // ayuda de teclado (solo en la PC)
     if (!tactil) {
-        const ayuda = this.partida
-            ? `↑ ↓ elegir  ·  Enter: continuar en el nivel ${this.partida.nivel + 1}  ·  N: nueva partida  ·  V: personalizar  ·  T: tienda  ·  M: mundos`
-            : '↑ ↓ elegir  ·  Enter: desplegar  ·  V: personalizar  ·  T: tienda  ·  M: mundos';
+        const ayuda = `↑ ↓ héroe  ·  Enter ${this.partida ? 'continuar' : 'jugar'}  ·  V colores  ·  T tienda  ·  M mapa`;
         this.add.text(VISTA.width / 2, 371, ayuda, { fontSize: '8px', color: '#6c7591' }).setOrigin(0.5).setDepth(5);
     }
 
@@ -1442,7 +1476,7 @@ function crearSeleccion() {
         this.tiendaAbierta = true; // (bloquea las teclas igual que la tienda)
         abrirVestidor(PERSONAJES[this.indiceSel].id, () => {
             this.tiendaAbierta = false;
-            this.tarjetas.forEach(t => t.sprite.setTexture(`${animSel(this, t.pj)}-idle`, 0));
+            this.tarjetas.forEach(t => t.sprite.setTexture(`${animSel(this, t.pj)}-idle`, 0));  // (pintarTarjetas anima al elegido)
             marcarSeleccion(this, true);
         });
     };
@@ -1477,20 +1511,34 @@ function resplandor(scene) {
     t.refresh();
 }
 
-function marcarSeleccion(scene, inicio = false) {
-    const pj = PERSONAJES[scene.indiceSel], h = pj.habilidades, d = scene.detalle, e = scene.escenario;
-    // la lista: el elegido, con una franja de su color a la izquierda y la fila inclinada que sobresale
+function pintarTarjetas(scene) {
+    const T = TARJ;
     scene.tarjetas.forEach((t, i) => {
-        const elegido = i === scene.indiceSel, L = LISTA, extra = elegido ? 8 : 0;
+        const elegido = i === scene.indiceSel, c = t.pj.color, x = t.x, y = t.y;
+        // fondo: degradado oscuro con el color del héroe abajo (más fuerte si es el elegido)
         t.fondo.clear()
-            .fillStyle(elegido ? t.pj.color : 0x0a0e1c, elegido ? 0.28 : 0.62)
-            .fillPoints([{ x: L.x, y: t.y }, { x: L.x + L.w + extra, y: t.y }, { x: L.x + L.w + extra - 8, y: t.y + L.h }, { x: L.x, y: t.y + L.h }], true)
-            .lineStyle(1, elegido ? t.pj.color : 0xffffff, elegido ? 0.9 : 0.08)
-            .strokePoints([{ x: L.x, y: t.y }, { x: L.x + L.w + extra, y: t.y }, { x: L.x + L.w + extra - 8, y: t.y + L.h }, { x: L.x, y: t.y + L.h }], true);
-        if (elegido) t.fondo.fillStyle(t.pj.color, 1).fillRect(L.x, t.y, 3, L.h);
-        t.sprite.setAlpha(elegido ? 1 : 0.5);
-        t.nombre.setColor(elegido ? '#ffffff' : '#aab2cc');
+            .fillGradientStyle(0x0b0f1f, 0x0b0f1f, c, c, 0.92, 0.92, elegido ? 0.55 : 0.18, elegido ? 0.55 : 0.18)
+            .fillRect(x, y, T.w, T.foto);
+        if (elegido) t.fondo.fillStyle(c, 0.25).fillRect(x - 3, y - 3, T.w + 6, T.h + 6); // (resplandor alrededor)
+        // franja del nombre y borde
+        t.frente.clear()
+            .fillStyle(elegido ? c : 0x070a16, elegido ? 0.95 : 0.92).fillRect(x, y + T.foto, T.w, T.h - T.foto)
+            .lineStyle(elegido ? 2 : 1, elegido ? 0xffffff : t.encima ? c : 0xffffff, elegido ? 0.95 : t.encima ? 0.8 : 0.14)
+            .strokeRect(x, y, T.w, T.h);
+        if (elegido) t.frente.fillStyle(0xffffff, 1).fillTriangle(x + T.w - 12, y, x + T.w, y, x + T.w, y + 12); // (esquina: elegido)
+        t.sprite.setAlpha(elegido ? 1 : t.encima ? 0.85 : 0.5).setTint(elegido || t.encima ? 0xffffff : 0x9aa3c0);
+        t.nombre.setColor(elegido ? '#ffffff' : '#c9d0e6').setShadow(0, 1, elegido ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0)', 0);
+        t.sub.setColor(elegido ? '#ffffff' : '#7f88a6').setAlpha(elegido ? 0.85 : 1);
+        // el elegido se mueve (los demás, quietos en su primer cuadro)
+        if (elegido) t.sprite.anims.play(`${animSel(scene, t.pj)}-idle`, true);
+        else { t.sprite.anims.stop(); t.sprite.setFrame(0); }
     });
+}
+
+function marcarSeleccion(scene, inicio = false, soloTarjetas = false) {
+    pintarTarjetas(scene);
+    if (soloTarjetas) return;
+    const pj = PERSONAJES[scene.indiceSel], h = pj.habilidades, d = scene.detalle, e = scene.escenario;
     // el haz de luz y los anillos del color del héroe
     e.haz.clear().fillGradientStyle(pj.color, pj.color, pj.color, pj.color, 0, 0, 0.22, 0.22).fillRect(HEROE.x - 70, 40, 140, HEROE.pie - 40);
     e.anillos.clear().lineStyle(2, pj.color, 0.8).strokeEllipse(HEROE.x, HEROE.pie, 150, 24)
@@ -1518,24 +1566,35 @@ function marcarSeleccion(scene, inicio = false) {
         e.marca.setAlpha(0);
         scene.tweens.add({ targets: e.marca, alpha: 0.05, duration: 400 });
     }
-    d.nombre.setText(pj.nombre.toUpperCase()).setColor(colorTexto(pj));
+    d.nombre.setText(sinTildes(pj.nombre.toUpperCase())).setColor(colorTexto(pj));
     // maestría del héroe (progreso.js): estrellas y, al máximo, su título
     const m = maestria(pj.id);
     d.titulo.setText(`${(tituloHeroe(pj.id) || pj.titulo).toUpperCase()}  ·  ⭐ MAESTRÍA ${m}${m >= MAESTRIA_MAX ? ' (MÁX.)' : ''}`);
-    d.pasiva.setText(`★ ${pj.pasiva}`);
+    d.pasiva.setText(`★ Ventaja: ${pj.pasiva}`);
     d.frase.setText(`"${pj.frase}"`);
     const mejorado = personajeConMejoras(pj).habilidades;
-    ['espacio', 'x', 'c'].forEach((k, i) => d.poderes[i].setText(`${h[k].nombre}${mejorado[k].mejorada ? '  ✦ mejorada' : ''}`));
+    ['espacio', 'x', 'c'].forEach((k, i) => {
+        d.poderes[i].setText(`${h[k].nombre}${mejorado[k].mejorada ? ' ✦' : ''}`);
+        // qué hace, a continuación del nombre (si no entra en el panel, no se muestra)
+        const x = d.poderes[i].x + d.poderes[i].width + 6, txt = `· ${queHace(mejorado[k])}`;
+        d.queHace[i].setText(txt).setPosition(x, d.poderes[i].y);
+        d.queHace[i].setVisible(x + d.queHace[i].width < PANEL.x + PANEL.w - 10);
+    });
     pintarBotonElegir(scene);
 }
 
-// botón "Jugar con ..." del color del héroe marcado (más claro con el mouse encima)
+// el botón principal: dorado con relieve (como JUGAR en el título), más claro con el mouse encima
 function pintarBotonElegir(scene) {
-    const b = scene.botonElegir, pj = PERSONAJES[scene.indiceSel];
-    const color = b.encima ? Phaser.Display.Color.ValueToColor(pj.color).lighten(12).color : pj.color;
-    const pts = [{ x: b.x + 10, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x + b.w - 10, y: b.y + b.h }, { x: b.x, y: b.y + b.h }];
-    b.fondo.clear().fillStyle(color, 1).fillPoints(pts, true).lineStyle(1, 0xffffff, b.encima ? 0.8 : 0.35).strokePoints(pts, true);
-    b.texto.setText(scene.partida ? `CONTINUAR · NIVEL ${scene.partida.nivel + 1}  ▶` : 'DESPLEGAR  ▶');
+    const b = scene.botonElegir, k = b.encima ? 1 : 0;
+    b.fondo.clear()
+        .fillStyle(0x6b3a00, 1).fillRoundedRect(b.x, b.y + 4, b.w, b.h, 9) // (el canto de abajo: relieve)
+        .fillGradientStyle(k ? 0xfff0b0 : 0xffe58a, k ? 0xfff0b0 : 0xffe58a, k ? 0xffb43a : 0xf09a1e, k ? 0xffb43a : 0xf09a1e, 1)
+        .fillRoundedRect(b.x, b.y, b.w, b.h, 9)
+        .lineStyle(2, 0x3a1f00, 1).strokeRoundedRect(b.x, b.y, b.w, b.h, 9)
+        .fillStyle(0xffffff, 0.45).fillRect(b.x + 8, b.y + 3, b.w - 16, 2); // (brillo de arriba)
+    b.texto.setText(scene.partida ? `▶ CONTINUAR · NIVEL ${scene.partida.nivel + 1}` : '▶ JUGAR');
+    // (la letra pixel es ancha: se achica hasta que entre en el botón)
+    for (let t = 10; t >= 6; t--) { b.texto.setFontSize(t); if (b.texto.width <= b.w - 24) break; }
 }
 
 function actualizarSeleccion(time) {
@@ -1929,10 +1988,13 @@ function construirNivel(scene, nivel) {
         scene.floor.create(x0, arriba, 'suelo' + scene.sufijo)
             .setOrigin(0, 0).setScale((x1 - x0) / 128, grosor / 32).refreshBody().setVisible(false);
     });
-    // techos de túnel: roca maciza desde arriba hasta 'abajo' (queda poco espacio para saltar)
+    // techos de túnel: roca maciza desde arriba hasta 'abajo' (queda poco espacio para saltar).
+    // "Desde arriba" es desde el TOPE del nivel: en los niveles que crecen hacia arriba (nivel.alto) antes
+    // terminaba en y = -40 y desde una plataforma alta se caminaba por encima del túnel en vez de cruzarlo
+    const topeTecho = -(nivel.alto || 0) - 40;
     (nivel.techos || []).forEach(([x0, x1, abajo]) => {
-        const pieza = scene.floor.create(x0, -40, 'suelo' + scene.sufijo)
-            .setOrigin(0, 0).setScale((x1 - x0) / 128, (abajo + 40) / 32).refreshBody();
+        const pieza = scene.floor.create(x0, topeTecho, 'suelo' + scene.sufijo)
+            .setOrigin(0, 0).setScale((x1 - x0) / 128, (abajo - topeTecho) / 32).refreshBody();
         vestirTecho(scene, pieza);
     });
     // antorchas en las paredes (su luz se ve a través de la oscuridad)
@@ -2618,8 +2680,7 @@ function usarBloque(scene, bloque, x, remoto = false) {
     scene.tweens.add({ targets: moneda, y: moneda.y - 40, alpha: 0, duration: 500, onComplete: () => moneda.destroy() });
     scene.sound.play('moneda');
     if (remoto) return; // (la moneda es del que lo golpeó)
-    addToScore(100, bloque, scene);
-    sumarABolsa(scene);
+    addToScore(100, bloque, scene); // (solo puntaje, como las monedas del camino: economia.js)
 }
 
 function revelarBloque(_mascotaGesi, bloque, remoto = false) {
@@ -2958,7 +3019,16 @@ function collectCoin(_mascotaGesi, coin) {
     }
     this.sound.play('moneda');
     addToScore(100, coin, this);
-    sumarABolsa(this);
+    // (las monedas del camino dan solo puntaje; las de oro, ◉ para la tienda: economia.js)
+    if (coin.oro) {
+        sumarABolsa(this, ORO_VALE);
+        tomarOro(this, coin);
+        this.sound.play('victoria', { volume: 0.35, rate: 1.6 });
+        const t = this.add.text(coin.x, coin.y - 10, `◉ +${ORO_VALE}`, {
+            fontFamily: 'system-ui, sans-serif', fontSize: '16px', fontStyle: 'bold', color: '#ffd84a', stroke: '#000', strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(45);
+        this.tweens.add({ targets: t, y: t.y - 40, alpha: 0, duration: 1100, onComplete: () => t.destroy() });
+    }
     if (!this.carrera && !enLinea()) contarMoneda(nivelActual); // (estrella de las monedas: mundos.js)
     if (this.carrera) tomeMonedaCarrera(coin); // (en la carrera, la que tomo ya no está para los demás)
 }
@@ -2969,6 +3039,7 @@ function sumarABolsa(scene, n = 1) {
     actualizarMonedasHud(scene);
 }
 function guardarBolsa(scene) {
+    confirmarOro(scene); // (las de oro tomadas quedan cobradas para siempre)
     if (!scene.bolsa) return;
     sumarMonedas(scene.bolsa);
     scene.bolsa = 0;
@@ -3119,7 +3190,11 @@ function completarNivel(mascotaGesi) {
     const ultimo = nivelActual === TOTAL_NIVELES - 1;
     // estrellas (mundos.js): terminar, sin morir y el 80 % de las monedas
     const est = enLinea() ? null : ganarEstrellas(nivelActual, muertesNivel[nivelActual] || 0, (nivelPorIndice(nivelActual).monedas || []).length);
-    const linea = est ? `\n${textoEstrellas(est.estrellas)}${est.estrellas > est.antes && est.antes ? '  ¡RÉCORD!' : ''}` : '';
+    // premio en ◉ (economia.js): la 1ª vez, repetirlo y cada estrella nueva
+    const monedasPremio = premioNivel(nivelActual, primeraVez, est ? Math.max(0, est.estrellas - est.antes) : 0);
+    sumarMonedas(monedasPremio);
+    actualizarMonedasHud(this);
+    const linea = (est ? `\n${textoEstrellas(est.estrellas)}${est.estrellas > est.antes && est.antes ? '  ¡RÉCORD!' : ''}` : '') + `\n◉ +${monedasPremio}`;
     mostrarMensaje(this, ultimo
         ? `¡GANASTE EL JUEGO!\nPuntaje: ${score}`
         : `¡NIVEL ${nivelActual + 1} COMPLETADO!${linea}`);

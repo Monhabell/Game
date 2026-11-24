@@ -10,6 +10,8 @@ import { crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
 import { PERSONAJES, resDe } from "./personajes.js"
 import { animDe, prepararVariante } from "./vestidor.js"
 import { escalaTroll } from "./jefes.js"
+import { nivelJugador } from "./progreso.js"
+import { saldo } from "./tienda.js"
 
 const ANCHO = 790;
 const ALTO = 380;
@@ -50,25 +52,51 @@ function marcarHistoriaVista() {
 }
 
 // barra de carga (se llama desde el preload de la pantalla de título): fina, redondeada, color de acento
-export function mostrarCarga(scene, zoom) {
-    const w = ANCHO * zoom, h = ALTO * zoom, z = zoom;
-    const ancho = 260 * z, alto = 4 * z;
-    const fondo = scene.add.graphics();
-    fondo.fillStyle(0xffffff, 0.08).fillRoundedRect(w / 2 - ancho / 2, h / 2 + 24 * z, ancho, alto, alto / 2);
-    const barra = scene.add.graphics();
-    const titulo = scene.add.text(w / 2, h / 2 - 6 * z, 'TROLL NIGHT', moderno(30 * z, '#eef1f7', 700, { resolution: 1 })).setOrigin(0.5);
-    const pie = scene.add.text(w / 2, h / 2 + 46 * z, 'Cargando…', moderno(10 * z, '#7f88a6', 500, { resolution: 1 })).setOrigin(0.5);
-    // (la portada de carga es HTML, sobre el juego: index.html, .portada-carga; aquí solo se le pasa el avance)
-    const html = document.querySelector('.portada-carga');
-    const barraHtml = html?.querySelector('i'), textoHtml = html?.querySelector('p');
+// Pantalla de carga (HTML sobre el juego: index.html, .portada-carga). Al abrir el juego, sobre la portada;
+// al cargar un nivel, sobre un fondo de noche con su nombre. Abajo, una cápsula: Gesi corre sobre la
+// barra (avanza con el porcentaje), el porcentaje y un consejo que va cambiando.
+const CONSEJOS = [
+    'Entra cada día: la recompensa diaria sube con la racha.',
+    'Las monedas de oro brillan: dan monedas para la tienda.',
+    'Termina un nivel por primera vez para ganar más monedas.',
+    'Los poderes V y B rompen los muros agrietados.',
+    'En la carrera, las cajas de poder ayudan más al que va atrás.',
+    'Con amigos, la cadena te sostiene si te caes al vacío.',
+    'Cada estrella nueva de un nivel da monedas extra.',
+    'Los suelos que tiemblan… mejor no pisarlos.',
+    'El rayo deja a tu rival tiznado y quieto: ¡aprovecha!',
+];
+export function mostrarCarga(scene, _zoom, titulo = '') {
+    let html = document.querySelector('.portada-carga');
+    if (!html) {
+        // (al cargar un nivel la portada ya no está: se arma la misma cápsula sobre fondo de noche)
+        html = document.createElement('div');
+        html.className = 'portada-carga sin-portada';
+        html.setAttribute('aria-live', 'polite');
+        html.innerHTML = `${titulo ? `<p class="carga-titulo"></p>` : ''}<div class="carga-caja"><div class="carga-pista"><span class="carga-heroe" aria-hidden="true"></span><div class="portada-barra"><i></i></div></div><div class="carga-fila"><p>Cargando…</p><b>0 %</b></div><p class="carga-consejo"></p></div>`;
+        if (titulo) html.querySelector('.carga-titulo').textContent = titulo;
+        document.getElementById('game')?.append(html);
+    }
+    const barra = html.querySelector('.portada-barra i'), heroe = html.querySelector('.carga-heroe');
+    const pct = html.querySelector('.carga-fila b'), consejo = html.querySelector('.carga-consejo');
+    // consejos: uno al azar y cambia cada 3,2 s (se desvanece y aparece el otro)
+    let i = Math.floor(Math.random() * CONSEJOS.length);
+    if (consejo) consejo.textContent = CONSEJOS[i];
+    const rotar = setInterval(() => {
+        if (!consejo) return;
+        consejo.classList.add('cambia');
+        setTimeout(() => { i = (i + 1) % CONSEJOS.length; consejo.textContent = CONSEJOS[i]; consejo.classList.remove('cambia'); }, 350);
+    }, 3200);
     scene.load.on('progress', p => {
-        barra.clear().fillStyle(ACENTO, 1).fillRoundedRect(w / 2 - ancho / 2, h / 2 + 24 * z, Math.max(alto, ancho * p), alto, alto / 2);
-        if (barraHtml) barraHtml.style.width = `${Math.round(p * 100)}%`;
-        if (textoHtml) textoHtml.textContent = `Cargando… ${Math.round(p * 100)} %`;
+        const n = Math.round(p * 100);
+        if (barra) barra.style.width = `${n}%`;
+        if (heroe) heroe.style.left = `${n}%`;
+        if (pct) pct.textContent = `${n} %`;
     });
     scene.load.once('complete', () => {
-        [fondo, barra, titulo, pie].forEach(o => o.destroy());
-        if (html) { html.classList.add('lista'); setTimeout(() => html.remove(), 700); }
+        clearInterval(rotar);
+        html.classList.add('lista');
+        setTimeout(() => html.remove(), 700);
     });
 }
 
@@ -88,6 +116,10 @@ function fondoNoche(scene, zoom) {
 export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     scene.cameras.main.setOrigin(0).setZoom(zoom);
     const quieto = reducirMovimiento();
+    // PORTADA (assets/portada.jpg): la imagen del juego ocupa la pantalla y el menú es HTML encima (menuTitulo)
+    const portada = scene.textures.exists('portada');
+    // el héroe: sin portada, grande a la derecha; con portada, abajo a la izquierda sobre un aro de luz
+    const H = portada ? { x: 92, pie: ALTO - 14, escala: 1.55 } : HEROE;
     const capas = []; // [objeto, profundidad] para el movimiento con el mouse
 
     // cielo: degradado de azul noche a casi negro
@@ -112,12 +144,12 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     capas.push([rey, 0.4]);
 
     // el héroe: grande, con una luz de su color detrás y un aro de luz en el piso
-    const luz = scene.add.image(HEROE.x, HEROE.pie - 100, 'resplandor').setScale(3.4).setAlpha(0.3).setBlendMode('ADD').setDepth(7);
-    const piso = scene.add.image(HEROE.x, HEROE.pie, 'resplandor').setScale(1.8, 0.3).setAlpha(0.55).setBlendMode('ADD').setDepth(7);
-    scene.add.ellipse(HEROE.x, HEROE.pie, 100, 14, 0x000000, 0.45).setDepth(7);
-    const heroe = scene.add.sprite(HEROE.x, HEROE.pie + 4, `${PERSONAJES[0].id}-idle`).setOrigin(0.5, 1)
-        .setScale(HEROE.escala).setFlipX(true).setDepth(8);
-    const nombreHeroe = scene.add.text(HEROE.x, HEROE.pie + 22, '', moderno(11, '#ffffff', 600)).setOrigin(0.5).setDepth(10);
+    const luz = scene.add.image(H.x, H.pie - 100, 'resplandor').setScale(3.4).setAlpha(0.3).setBlendMode('ADD').setDepth(7);
+    const piso = scene.add.image(H.x, H.pie, 'resplandor').setScale(1.8, 0.3).setAlpha(0.55).setBlendMode('ADD').setDepth(7);
+    const sombraHeroe = scene.add.ellipse(H.x, H.pie, 100, 14, 0x000000, 0.45).setDepth(7);
+    const heroe = scene.add.sprite(H.x, H.pie + 4, `${PERSONAJES[0].id}-idle`).setOrigin(0.5, 1)
+        .setScale(H.escala).setFlipX(true).setDepth(8);
+    const nombreHeroe = scene.add.text(H.x, H.pie + 22, '', moderno(11, '#ffffff', 600)).setOrigin(0.5).setDepth(10);
     let cual = Math.floor(Math.random() * PERSONAJES.length);
     heroe.on('animationcomplete', anim => {
         if (!anim.key.endsWith('-idle') && !anim.key.endsWith('-run')) heroe.anims.play(`${prepararVariante(scene, animDe(PERSONAJES[cual]))}-idle`, true);
@@ -128,14 +160,14 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         const pj = PERSONAJES[cual];
         const a = prepararVariante(scene, animDe(pj)); // con los colores del vestidor
         [luz, piso].forEach(o => o.setTint(pj.color));
-        heroe.setScale(HEROE.escala / resDe(pj)); // (héroes HD: hojas al doble)
+        heroe.setScale(H.escala / resDe(pj));
         nombreHeroe.setText(`${pj.nombre} · ${pj.titulo}`).setColor(hex(pj.color));
         if (quieto) { heroe.anims.play(`${a}-idle`, true); return; }
         heroe.anims.play(`${a}-run`, true);
-        heroe.setAlpha(0).x = HEROE.x + 70;
+        heroe.setAlpha(0).x = H.x + 70;
         nombreHeroe.setAlpha(0);
         scene.tweens.add({
-            targets: heroe, x: HEROE.x, alpha: 1, duration: 450, ease: 'Cubic.out',
+            targets: heroe, x: H.x, alpha: 1, duration: 450, ease: 'Cubic.out',
             onComplete: () => heroe.anims.play(`${a}-idle`, true),
         });
         scene.tweens.add({ targets: nombreHeroe, alpha: 1, delay: 250, duration: 400 });
@@ -146,7 +178,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         scene.time.delayedCall(4300, () => {
             if (!heroe.active) return;
             heroe.anims.play(`${a}-run`, true);
-            scene.tweens.add({ targets: [heroe], x: HEROE.x - 60, alpha: 0, duration: 380, ease: 'Cubic.in' });
+            scene.tweens.add({ targets: [heroe], x: H.x - 60, alpha: 0, duration: 380, ease: 'Cubic.in' });
             scene.tweens.add({
                 targets: nombreHeroe, alpha: 0, duration: 300,
                 onComplete: () => { cual = (cual + 1) % PERSONAJES.length; mostrarHeroe(); },
@@ -191,7 +223,6 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
 
     // PORTADA (assets/portada.jpg): la imagen del juego ocupa toda la pantalla, se acerca y se aleja muy
     // despacio, y abajo una sombra deja leer los botones (que van en fila). Sin la imagen: el título de antes
-    const portada = scene.textures.exists('portada');
     if (portada) {
         velo.setVisible(false);
         const img = scene.add.image(ANCHO / 2, ALTO / 2, 'portada').setDepth(9);
@@ -229,13 +260,15 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     const app = window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.App;
     if (app) opciones.push(['Salir del juego', () => app.exitApp()]);
     let sel = 0, elegido = false;
+    const menu = portada ? menuTitulo(opciones, { alElegir: i => elegir(opciones[i][1]), alMarcar: i => { if (sel !== i) { sel = i; marcar(); scene.sound.play('menu_mover', { volume: 0.4 }); } } }) : null;
+    if (menu) scene.events.once('shutdown', () => menu.quitar());
     // con 4 opciones los botones van un poco más juntos (para que quepa la ayuda de abajo)
     // con la portada, los botones van en FILA abajo al centro; si no, en columna a la izquierda
     const enFila = portada;
     const BOTON = enFila ? { w: opciones.length > 3 ? 166 : 182, h: 34, paso: opciones.length > 3 ? 176 : 196, y0: ALTO - 52 }
         : opciones.length > 3 ? { w: 220, h: 30, paso: 38, y0: 210 } : { w: 220, h: 34, paso: 44, y0: 222 };
     const x0Fila = ANCHO / 2 - ((opciones.length - 1) * BOTON.paso + BOTON.w) / 2;
-    const items = opciones.map(([nombre, accion], i) => {
+    const items = (menu ? [] : opciones).map(([nombre, accion], i) => {
         const ix = enFila ? x0Fila + i * BOTON.paso : X;
         const y = enFila ? BOTON.y0 : BOTON.y0 + i * BOTON.paso;
         const marco = scene.add.graphics().setDepth(10);
@@ -247,6 +280,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         return { t, flecha, marco, y, ix };
     });
     function marcar() {
+        if (menu) { menu.marcar(sel); return; }
         items.forEach((it, i) => {
             const activo = i === sel, top = it.y - BOTON.h / 2;
             it.marco.clear();
@@ -273,16 +307,17 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         if (elegido) return;
         elegido = true;
         scene.sound.play('menu_ok', { volume: 0.6 });
+        menu?.salir();
         scene.cameras.main.fadeOut(380, 5, 6, 12);
         scene.cameras.main.once('camerafadeoutcomplete', accion);
     }
 
     // ayuda de teclas y créditos (discretos)
     const ayuda = opciones.length > 1 ? '↑ ↓  elegir   ·   Enter  jugar   ·   F  pantalla completa' : 'Enter  empezar   ·   F  pantalla completa';
-    const pie = enFila
+    const pie = menu ? scene.add.text(0, 0, '') : enFila
         ? scene.add.text(ANCHO / 2, ALTO - 22, ayuda.replace('↑ ↓', '← →'), moderno(9, '#8a93b0', 500)).setOrigin(0.5).setDepth(10)
         : scene.add.text(X, ALTO - 26, ayuda, moderno(9, '#6c7591', 500)).setOrigin(0, 0.5).setDepth(10);
-    const autor = enFila
+    const autor = menu ? scene.add.text(0, 0, '') : enFila
         ? scene.add.text(ANCHO / 2, ALTO - 9, '© 2026 · Desarrollado por Gabriel Monhabell', moderno(8, '#6c7591', 500)).setOrigin(0.5).setDepth(10)
         : scene.add.text(X, ALTO - 12, '© 2026 · Desarrollado por Monhabell', moderno(8, '#4f5770', 500)).setOrigin(0, 0.5).setDepth(10);
 
@@ -306,12 +341,17 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
             },
         });
         heroe.setAlpha(0);
-        if (!portada) scene.time.delayedCall(1300, mostrarHeroe);
-    } else if (!portada) {
+        scene.time.delayedCall(portada ? 900 : 1300, mostrarHeroe);
+    } else {
         mostrarHeroe();
     }
-    // (con la portada el héroe no se muestra: la imagen ocupa todo)
-    if (portada) [heroe, nombreHeroe, luz, piso].forEach(o => o.setVisible(false));
+    // con la portada: el héroe por delante de la imagen (sin su nombre: lo dice el menú)
+    if (portada) {
+        luz.setDepth(9.3).setScale(1.9).setAlpha(0.35); piso.setDepth(9.3).setScale(1.1, 0.22); sombraHeroe.setDepth(9.3).setScale(0.6);
+        heroe.setDepth(9.4); nombreHeroe.setVisible(false);
+        // (en el celular la fila de botones llega hasta el borde y lo taparía: ahí no va)
+        if (globalThis.matchMedia?.('(pointer: coarse)').matches) [heroe, luz, piso, sombraHeroe].forEach(o => o.setVisible(false));
+    }
 
     // profundidad: las capas se corren un poco según dónde esté el mouse
     let mx = 0, my = 0;
@@ -331,7 +371,7 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
         const JD = Phaser.Input.Keyboard.JustDown;
         const sig = JD(k.abajo) || JD(k.der), ant = JD(k.arriba) || JD(k.izq);
         if (sig || ant) {
-            sel = (sel + (sig ? 1 : opciones.length - 1)) % opciones.length;
+            sel = menu ? menu.vecina(sel, sig ? 1 : -1) : (sel + (sig ? 1 : opciones.length - 1)) % opciones.length;
             marcar();
             scene.sound.play('menu_mover', { volume: 0.4 });
         }
@@ -343,6 +383,69 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     scene.musica.play();
     scene.events.once('shutdown', () => scene.musica.destroy());
     scene.cameras.main.fadeIn(600, 5, 6, 12);
+}
+
+// ---------- Menú del título (HTML sobre la portada) ----------
+// Jerarquía de juego: JUGAR grande y dorado al centro (la acción principal), debajo las secundarias con su
+// ícono, arriba a la izquierda tu perfil (nivel, monedas y racha diaria). Teclado (← → ↑ ↓ y Enter, ver
+// actualizarTitulo), mouse y dedo. Entrada en cascada; con "reducir movimiento", todo quieto.
+const ICONOS = {
+    jugar: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>',
+    amigos: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    historia: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg>',
+    salir: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
+    racha: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2s5 4.5 5 9.5a5 5 0 0 1-10 0c0-2 1-3.5 1-3.5s.5 2 2 2.5C10 7 12 2 12 2z" fill="currentColor"/></svg>',
+};
+const iconoDe = nombre => /amigo/i.test(nombre) ? ICONOS.amigos : /historia/i.test(nombre) ? ICONOS.historia : /salir/i.test(nombre) ? ICONOS.salir : ICONOS.jugar;
+
+function menuTitulo(opciones, { alElegir, alMarcar }) {
+    const caja = document.createElement('div');
+    caja.className = 'titulo-ui';
+    const quieto = reducirMovimiento();
+    if (!quieto) caja.classList.add('entra');
+    const racha = racha_hoy();
+    // una sola fila abajo (la portada ocupa casi todo el alto): [amigos] [JUGAR] [historia…]
+    const secundario = i => (opciones[i] ? `<button type="button" class="tm-secundario" data-i="${i}">${iconoDe(opciones[i][0])}<span>${opciones[i][0]}</span></button>` : '');
+    // orden en pantalla (para las flechas ← →): la 1ª secundaria, JUGAR y las demás
+    const orden = [1, 0, ...opciones.map((_o, i) => i).slice(2)].filter(i => i < opciones.length);
+    caja.innerHTML = `
+        <div class="titulo-perfil" aria-label="Tu perfil">
+            <span class="tp-nivel" title="Tu nivel"><b>${nivelJugador()}</b><small>NIVEL</small></span>
+            <span class="tp-dato" title="Monedas"><i class="moneda" aria-hidden="true"></i>${saldo()}</span>
+            ${racha ? `<span class="tp-dato tp-racha" title="Días seguidos">${ICONOS.racha}${racha}</span>` : ''}
+        </div>
+        <nav class="titulo-menu" aria-label="Menú principal">
+            <div class="tm-lado izq">${secundario(1)}</div>
+            <button type="button" class="tm-principal" data-i="0">${iconoDe(opciones[0][0])}<span>${opciones[0][0].toUpperCase()}</span></button>
+            <div class="tm-lado der">${opciones.slice(2).map((_o, k) => secundario(k + 2)).join('')}</div>
+        </nav>
+        <p class="titulo-autor">© 2026 · Gabriel Monhabell</p>`;
+    document.getElementById('game').append(caja);
+    const botones = [...caja.querySelectorAll('[data-i]')];
+    botones.forEach(b => {
+        const i = Number(b.dataset.i);
+        b.addEventListener('click', () => alElegir(i));
+        b.addEventListener('pointerenter', () => alMarcar(i));
+        b.addEventListener('focus', () => alMarcar(i));
+    });
+    // (las teclas las atiende el juego: que no se dupliquen con las del botón enfocado)
+    caja.addEventListener('keydown', e => { if (['Enter', ' '].includes(e.key)) e.preventDefault(); });
+    return {
+        marcar(sel) { botones.forEach(b => b.classList.toggle('activo', Number(b.dataset.i) === sel)); },
+        // la opción de al lado en pantalla (dir: 1 a la derecha, -1 a la izquierda)
+        vecina: (sel, dir) => orden[(orden.indexOf(sel) + dir + orden.length) % orden.length],
+        salir() { caja.classList.add('sale'); },
+        quitar() { caja.remove(); },
+    };
+}
+// racha de la recompensa diaria (diario.js) para el perfil: los días seguidos que llevas (0 si no hay)
+function racha_hoy() {
+    try {
+        const g = JSON.parse(localStorage.getItem('troll-night-diario'));
+        const hoy = new Date(), ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+        const f = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return g && (g.ultimo === f(hoy) || g.ultimo === f(ayer)) ? g.racha : 0;
+    } catch (_e) { return 0; }
 }
 
 // ---------- Historia de introducción ----------

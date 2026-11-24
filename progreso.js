@@ -45,10 +45,10 @@ export const textoNivel = nv => `Nv ${nv}${rangoDe(nv) ? ` ${rangoDe(nv)}` : ''}
 const PROPIOS = {
     arquera: ['flecha_jade', 'lanzas_hielo'], espadachin: ['tajo_carmesi', 'doble_tajo'], mago: ['nova_arcana', 'cometa_arcano'],
     hechicera: ['llama_esmeralda', 'niebla_venenosa'], caballera: ['golpe_sismico', 'escudo_arcano'], mosquetera: ['chispa', 'rayo_celestial'],
-    paladina: ['pilares_luz', 'bendicion'], asesina: ['zarpazo_sombra', 'bomba_humo'], elfa: ['latigo', 'torbellino_hojas'],
+   
 };
 const TITULOS = { arquera: 'Maestra arquera', espadachin: 'Maestro espadachín', mago: 'Gran mago', hechicera: 'Gran hechicera',
-    caballera: 'Caballera legendaria', mosquetera: 'Tiradora maestra', paladina: 'Paladina sagrada', asesina: 'Sombra maestra', elfa: 'Guardiana del bosque' };
+    caballera: 'Caballera legendaria', mosquetera: 'Tiradora maestra' };
 
 function leer() {
     try {

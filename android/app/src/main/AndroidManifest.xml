@@ -42,4 +42,13 @@
     <!-- chat de voz en las partidas en línea -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Funciones de hardware OPCIONALES (Play Store): sin esto, la pantalla horizontal (sensorLandscape) y el
+         permiso de micrófono las vuelven obligatorias y la app no se puede instalar en algunos equipos
+         (tablets, Chromebooks, Google Play Games en PC). El juego igual se muestra horizontal; sin micrófono,
+         solo no hay chat de voz. -->
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 </manifest>

@@ -16,6 +16,7 @@
     "@capacitor/android": "8.5.3",
     "@capacitor/app": "^8.1.2",
     "@capacitor/cli": "8.5.3",
-    "@capacitor/core": "8.5.3"
+    "@capacitor/core": "8.5.3",
+    "@capawesome/capacitor-app-update": "8.1.1"
   }
 }

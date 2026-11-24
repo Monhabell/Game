@@ -528,6 +528,17 @@
         .t-caja b { font-size: 24px; line-height: 1; }
         .t-caja small { font-size: 7px; }
         .t-caja.llena { opacity: 1; box-shadow: 0 0 14px rgba(255, 194, 58, 0.6); }
+        /* en la carrera (sin cadena) va abajo, en el lugar del ancla, junto al ataque: arriba quedaba
+           flotando en medio de la pantalla y se perdía. Bien visible y, con objeto, palpita */
+        .tactil.con-caja:not(.con-cadena) .t-caja {
+            bottom: calc(var(--t-borde-abajo) + 8px); opacity: 0.9;
+            background: rgba(40, 28, 6, 0.7); border: 2px solid rgba(255, 194, 58, 0.85);
+        }
+        .tactil.con-caja .t-caja.llena { opacity: 1; background: rgba(90, 60, 8, 0.85); animation: caja-palpita 0.9s ease-in-out infinite; }
+        @keyframes caja-palpita {
+            0%, 100% { box-shadow: 0 0 8px rgba(255, 194, 58, 0.5); }
+            50% { box-shadow: 0 0 22px rgba(255, 210, 90, 0.95); }
+        }
         .tactil.con-caja .t-caja, .tactil.editando .t-caja { display: flex; }
 
         /* ---------- mover los botones (⚙ → Mover botones) ---------- */
@@ -1602,6 +1613,42 @@
             background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--rareza) 30%, transparent), rgba(10, 13, 24, 0.9) 75%);
         }
         .poder-item.nuevo .poder-icono { filter: saturate(0.85); }
+        /* vitrina (tienda.js): vista previa animada del efecto, sellos NUEVO / −30% y la oferta del día */
+        .poder-vista { position: relative; display: block; cursor: pointer; }
+        .poder-vista .poder-icono { transition: opacity 0.2s; }
+        .poder-anim {
+            position: absolute; inset: 0; margin: auto; width: calc(var(--w) * 1px); height: calc(var(--h) * 1px);
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .poder-anim.color { background: var(--url) 0 0 / calc(var(--w) * var(--n) * 1px) calc(var(--h) * 1px) no-repeat; }
+        .poder-anim.tenido {
+            background-color: var(--tinte);
+            -webkit-mask: var(--url) 0 0 / calc(var(--w) * var(--n) * 1px) calc(var(--h) * 1px) no-repeat;
+            mask: var(--url) 0 0 / calc(var(--w) * var(--n) * 1px) calc(var(--h) * 1px) no-repeat;
+            filter: drop-shadow(0 0 4px var(--tinte));
+        }
+        .poder-item:hover .poder-anim, .poder-item.viendo .poder-anim { opacity: 1; animation: poder-anim 0.75s steps(var(--n)) infinite; }
+        .poder-item:hover .poder-vista .poder-icono, .poder-item.viendo .poder-vista .poder-icono { opacity: 0.18; }
+        @keyframes poder-anim {
+            to { background-position: calc(var(--w) * var(--n) * -1px) 0; -webkit-mask-position: calc(var(--w) * var(--n) * -1px) 0; mask-position: calc(var(--w) * var(--n) * -1px) 0; }
+        }
+        .poder-sello { margin-left: 4px; padding: 1px 6px; border-radius: 6px; font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: 0.05em; }
+        .poder-sello.nuevo { background: #4fd1a5; color: #04241a; }
+        .poder-sello.oferta { background: #ff5a4a; color: #fff; }
+        .poder-item.en-oferta { box-shadow: 0 0 0 2px #ff7a5a, 0 0 18px rgba(255, 110, 80, 0.35); }
+        .tienda-comprar s, .poder-oferta s { opacity: 0.6; font-weight: 500; }
+        .poder-oferta {
+            display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 6px; padding: 5px 10px; border-radius: 12px; cursor: pointer;
+            background: linear-gradient(90deg, rgba(255, 90, 74, 0.2), rgba(255, 201, 74, 0.1)); border: 1px solid rgba(255, 122, 90, 0.6);
+            color: #fff; font: 600 12px var(--letra); text-align: left;
+        }
+        .poder-oferta:hover, .poder-oferta:focus-visible { filter: brightness(1.12); }
+        .poder-oferta-etq { color: #ffb4a0; font-weight: 800; white-space: nowrap; }
+        .poder-oferta img { border-radius: 6px; border: 1px solid var(--rareza); }
+        .poder-oferta b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .poder-oferta-precio { color: #ffd56b; font-weight: 800; white-space: nowrap; }
+        .poder-oferta small { color: #c9b2a8; white-space: nowrap; }
+        @media (prefers-reduced-motion: reduce) { .poder-item:hover .poder-anim, .poder-item.viendo .poder-anim { animation-duration: 2.5s; } }
         .poder-nivel { font-style: normal; font-size: 12px; line-height: 1; letter-spacing: 1px; color: #ffc94a; text-shadow: 0 0 6px rgba(255, 201, 74, 0.5); white-space: nowrap; }
         .poder-nivel span { color: rgba(255, 255, 255, 0.18); text-shadow: none; }
         /* (si falta lugar se recortan primero las ventajas, nunca el nombre ni la descripción) */
@@ -1868,7 +1915,135 @@
         /* en la carrera: debajo del premio (y lo que viene, un poco más abajo) */
         body.en-carrera .minimapa:not(.grande) { top: calc(max(46px, 11%) + 68px); }
         body.en-carrera .carrera-hud .carrera-aviso { top: calc(max(46px, 11%) + 166px); }
+        /* en el celular, arriba a la derecha lo tapaban los botones de los poderes (V/B): al centro, más chico */
+        body.movil .minimapa:not(.grande) { right: auto; left: 50%; transform: translateX(-50%); width: 170px; }
+        body.movil.en-carrera .minimapa:not(.grande) { top: calc(max(46px, 11%) + 52px); }
         .carrera-hud > * { position: absolute; top: max(46px, 11%); }
+        /* letra pixel (assets/fuentes, licencia OFL): títulos y botones de juego */
+        @font-face { font-family: 'Press Start 2P'; src: url("assets/fuentes/press-start-2p.ttf") format('truetype'); font-display: swap; }
+        /* ---------- menú del título (historia.js: menuTitulo) ---------- */
+        .titulo-ui { position: absolute; inset: 0; z-index: 8; pointer-events: none; container-type: size; font-family: var(--letra); color: #eef1f7; }
+        .titulo-ui > * { pointer-events: auto; }
+        .titulo-perfil {
+            position: absolute; top: max(10px, 3.5cqh); left: max(12px, 2cqw); display: flex; align-items: center; gap: 8px;
+            padding: 5px 12px 5px 5px; border-radius: 999px; background: rgba(6, 8, 20, 0.72); border: 1px solid rgba(143, 180, 255, 0.25);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        }
+        .tp-nivel {
+            display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; line-height: 1;
+            background: radial-gradient(circle at 35% 30%, #8fa8ff, #4a5fe0 70%); box-shadow: 0 0 0 2px #c7d4ff, 0 0 12px rgba(111, 140, 255, 0.6);
+        }
+        .tp-nivel b { font: 400 13px 'Press Start 2P', monospace; color: #fff; text-shadow: 0 2px 0 #1b245e; margin-top: 3px; }
+        .tp-nivel small { font: 700 6px var(--letra); letter-spacing: 0.08em; color: #dfe6ff; margin-top: -6px; }
+        .tp-dato { display: inline-flex; align-items: center; gap: 5px; font: 700 14px var(--letra); font-variant-numeric: tabular-nums; }
+        .tp-racha { color: #ffb15a; }
+        .tp-racha svg { width: 15px; height: 15px; }
+        /* JUGAR siempre al centro (columna del medio) y las otras a sus lados */
+        .titulo-menu {
+            position: absolute; left: 2cqw; right: 2cqw; bottom: max(14px, 5cqh);
+            display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: max(10px, 1.8cqw);
+        }
+        .tm-lado { display: flex; gap: max(8px, 1.4cqw); }
+        .tm-lado.izq { justify-content: flex-end; }
+        .tm-lado.der { justify-content: flex-start; }
+        .titulo-menu button { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+        .titulo-menu svg { flex: none; }
+        /* JUGAR: la acción principal, dorada, con relieve (se hunde al tocarla) y un brillo que late */
+        .tm-principal {
+            position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 14px;
+            min-width: min(250px, 40cqw); min-height: max(48px, 12.5cqh); padding: 0 28px; border-radius: 14px;
+            font: 400 clamp(14px, 4.4cqh, 20px) 'Press Start 2P', monospace; letter-spacing: 0.06em; color: #2a1600;
+            background: linear-gradient(180deg, #ffe58a 0%, #ffc43d 48%, #f09a1e 100%);
+            border: 3px solid #3a1f00; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.65), inset 0 -4px 0 rgba(150, 70, 0, 0.45),
+                0 6px 0 #6b3a00, 0 10px 22px rgba(0, 0, 0, 0.55), 0 0 26px rgba(255, 196, 61, 0.35);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.15s;
+            animation: tm-late 2.4s ease-in-out infinite;
+        }
+        .tm-principal svg { width: clamp(16px, 5cqh, 22px); height: clamp(16px, 5cqh, 22px); }
+        .tm-principal::after { /* destello que la recorre */
+            content: ''; position: absolute; inset: 0; border-radius: 11px; pointer-events: none;
+            background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%) -150% 0 / 200% 100% no-repeat;
+            animation: tm-destello 3.2s ease-in-out 1.2s infinite;
+        }
+        .tm-principal:hover, .tm-principal.activo { filter: brightness(1.08); transform: translateY(-2px); }
+        .tm-principal:active { transform: translateY(4px); box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 0 rgba(150, 70, 0, 0.45), 0 2px 0 #6b3a00, 0 4px 10px rgba(0, 0, 0, 0.5); }
+        @keyframes tm-late { 50% { box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.65), inset 0 -4px 0 rgba(150, 70, 0, 0.45), 0 6px 0 #6b3a00, 0 10px 22px rgba(0, 0, 0, 0.55), 0 0 40px rgba(255, 196, 61, 0.6); } }
+        @keyframes tm-destello { 0%, 55% { background-position: -150% 0; } 85%, 100% { background-position: 250% 0; } }
+        /* secundarias: piedra oscura con borde azul del logo */
+        .tm-secundarios { display: flex; gap: max(8px, 1.6cqw); flex-wrap: wrap; justify-content: center; }
+        .tm-secundario {
+            display: inline-flex; align-items: center; gap: 8px; min-height: max(44px, 11cqh); padding: 0 18px; border-radius: 12px;
+            font: 600 clamp(12px, 3.6cqh, 15px) var(--letra); color: #dfe6ff;
+            background: linear-gradient(180deg, rgba(30, 38, 78, 0.92), rgba(12, 15, 34, 0.92));
+            border: 2px solid rgba(120, 150, 255, 0.45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 0 rgba(4, 6, 16, 0.9), 0 8px 16px rgba(0, 0, 0, 0.45);
+            transition: transform 0.12s ease, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+        }
+        .tm-secundario svg { width: 18px; height: 18px; color: #8fb4ff; }
+        .tm-secundario:hover, .tm-secundario.activo { border-color: #9fc0ff; color: #fff; transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 6px 0 rgba(4, 6, 16, 0.9), 0 0 18px rgba(111, 150, 255, 0.45); }
+        .tm-secundario:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(4, 6, 16, 0.9); }
+        .titulo-menu button:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+        .titulo-autor { position: absolute; left: 0; right: 0; bottom: 2px; margin: 0; text-align: center; pointer-events: none; font: 500 9px var(--letra); color: #5d6684; }
+        /* (la fila de abajo tapa el pie de la portada: un degradado oscuro detrás para que se lea) */
+        .titulo-ui::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 24cqh; pointer-events: none; background: linear-gradient(transparent, rgba(3, 4, 10, 0.75)); }
+        /* entrada en cascada y salida */
+        .titulo-ui.entra .titulo-perfil { animation: tm-baja 0.5s 0.5s ease-out both; }
+        .titulo-ui.entra .tm-principal { animation: tm-sube 0.55s 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both, tm-late 2.4s 1.4s ease-in-out infinite; }
+        .titulo-ui.entra .tm-secundario { animation: tm-sube 0.45s ease-out both; }
+        .titulo-ui.entra .tm-secundario { animation-delay: 0.95s; }
+        .titulo-ui.entra .tm-principal ~ .tm-secundario { animation-delay: 1.05s; }
+        .titulo-ui.entra .titulo-autor { animation: tm-aparece 0.6s 1.3s ease-out both; }
+        .titulo-ui.sale { opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        @keyframes tm-sube { from { opacity: 0; transform: translateY(18px) scale(0.94); } }
+        @keyframes tm-baja { from { opacity: 0; transform: translateY(-12px); } }
+        @keyframes tm-aparece { from { opacity: 0; } }
+        @media (prefers-reduced-motion: reduce) {
+            .tm-principal, .tm-principal::after, .titulo-ui.entra * { animation: none !important; }
+        }
+        /* aviso de versión nueva (actualizar.js): arriba al centro, sin tapar el juego */
+        .aviso-version {
+            position: absolute; z-index: 30; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 12px; border-radius: 14px; max-width: calc(100% - 24px);
+            background: rgba(10, 13, 28, 0.94); border: 1px solid rgba(255, 201, 74, 0.55); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            font: 600 13px var(--letra); color: #eef1f7; animation: aviso-version-entra 0.35s ease-out;
+        }
+        .aviso-version-icono { font-size: 18px; }
+        .aviso-version-texto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .aviso-version button { border: 0; border-radius: 10px; cursor: pointer; font: 800 12px var(--letra); }
+        .aviso-version-si { padding: 7px 12px; background: linear-gradient(180deg, #ffd56b, #f0a92e); color: #2a1a00; }
+        .aviso-version-no { width: 28px; height: 28px; background: rgba(255, 255, 255, 0.08); color: #c9d6ff; }
+        @keyframes aviso-version-entra { from { transform: translate(-50%, -16px); opacity: 0; } }
+        /* recompensa diaria (diario.js): 7 días, el de hoy resaltado y el 7º un cofre */
+        .diario-panel { max-width: 560px; text-align: center; }
+        .diario-panel h2 { margin: 0; }
+        .diario-sub { margin: 2px 0 6px; color: #c9d6ff; font-size: 13px; }
+        .diario-dias { list-style: none; margin: 6px 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .diario-dia {
+            display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 6px; border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #9aa3bd;
+        }
+        .diario-dia small { font-size: 10px; letter-spacing: 0.04em; }
+        .diario-dia .diario-icono { font-size: 20px; line-height: 1.2; color: #ffd27a; }
+        .diario-dia b { font-size: 14px; color: #e9eefc; font-variant-numeric: tabular-nums; }
+        .diario-dia.hecho { opacity: 0.5; }
+        .diario-dia.hecho .diario-icono { color: #4fd1a5; }
+        .diario-dia.hoy {
+            background: linear-gradient(180deg, rgba(255, 201, 74, 0.25), rgba(255, 201, 74, 0.08));
+            border-color: #ffc94a; color: #ffe8b0; transform: translateY(-3px);
+            box-shadow: 0 0 16px rgba(255, 201, 74, 0.35);
+        }
+        .diario-dia.cofre { background: rgba(183, 123, 255, 0.12); border-color: rgba(183, 123, 255, 0.5); }
+        .diario-dia.cofre.hoy { background: linear-gradient(180deg, rgba(183, 123, 255, 0.35), rgba(255, 201, 74, 0.15)); }
+        .diario-dia.cobrado { animation: diario-cobro 0.5s ease-out; }
+        @keyframes diario-cobro { 50% { transform: translateY(-3px) scale(1.15); } }
+        .diario-cobrar { margin-top: 6px; background: linear-gradient(180deg, #ffd56b, #f0a92e); color: #2a1a00; border-color: #ffe3a0; font-weight: 800; }
+        .diario-cobrar:hover, .diario-cobrar:focus-visible { filter: brightness(1.08); }
+        .diario-cobrar:disabled { opacity: 1; filter: none; }
+        .diario-nota { margin: 2px 0 0; font-size: 11px; color: #7f89a6; }
+        @media (max-height: 420px) {
+            .diario-dias { gap: 4px; }
+            .diario-dia { padding: 5px 1px 4px; }
+            .diario-dia .diario-icono { font-size: 16px; }
+        }
         /* copa (carrera.js): la pista que va en el HUD y la tabla entre pistas */
         .carrera-copa { font-size: 10px; font-weight: 700; color: #ffd27a; letter-spacing: 0.3px; }
         .copa-lista { list-style: none; margin: 10px auto; padding: 0; display: flex; flex-direction: column; gap: 6px; max-width: 340px; }
@@ -2268,14 +2443,47 @@
         /* portada de carga (historia.js: mostrarCarga) */
         .portada-carga {
             position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-            padding-bottom: 7%; background: #05060c url("assets/portada.jpg") center / cover no-repeat;
+            padding-bottom: 2%; background: #05060c url("assets/portada.jpg") center / cover no-repeat;
             transition: opacity 0.6s ease;
         }
-        .portada-carga::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(3, 4, 10, 0.9)); }
+        /* abajo se oscurece para que la cápsula se lea sin tapar el logo */
+        .portada-carga::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 58%, rgba(3, 4, 10, 0.92)); }
         .portada-carga.lista { opacity: 0; pointer-events: none; }
-        .portada-barra { position: relative; width: min(320px, 60%); height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, 0.12); }
-        .portada-barra i { display: block; width: 0; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4f7bff, #9fd8ff); box-shadow: 0 0 12px #6f9bff; transition: width 0.2s; }
-        .portada-carga p { position: relative; margin: 10px 0 0; font: 600 13px var(--letra); color: #c9d6ff; letter-spacing: 0.08em; text-shadow: 0 2px 6px #000; }
+        /* al cargar un nivel (sin la portada): fondo de noche */
+        .portada-carga.sin-portada { background: radial-gradient(ellipse at 50% 35%, #1b2140 0%, #0a0c18 60%, #05060c 100%); justify-content: center; padding-bottom: 0; }
+        .portada-carga.sin-portada::before { display: none; }
+        .carga-titulo { position: relative; margin: 0 0 18px; font: 800 clamp(18px, 4vmin, 28px) var(--letra); letter-spacing: 0.12em; color: #eef1f7; text-shadow: 0 0 18px rgba(111, 155, 255, 0.45); }
+        /* la cápsula: Gesi corre sobre la barra, el porcentaje y un consejo */
+        .carga-caja {
+            position: relative; width: min(400px, 74%); padding: 4px 14px 8px; border-radius: 14px;
+            background: rgba(8, 10, 22, 0.62); border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        }
+        .carga-pista { position: relative; height: 46px; }
+        .carga-heroe {
+            position: absolute; bottom: -2px; left: 0; width: 64px; height: 64px; transform: translateX(-50%);
+            background: url("assets/personajes/arquera/Run.png") 0 0 / 512px 64px no-repeat; image-rendering: pixelated;
+            animation: carga-correr 0.62s steps(8) infinite; transition: left 0.25s linear;
+        }
+        @keyframes carga-correr { to { background-position: -512px 0; } }
+        .portada-barra { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, 0.1); }
+        .portada-barra i {
+            position: relative; display: block; width: 0; height: 100%; border-radius: 4px; overflow: hidden;
+            background: linear-gradient(90deg, #f0a92e, #ffd56b); box-shadow: 0 0 10px rgba(255, 201, 74, 0.7); transition: width 0.25s linear;
+        }
+        .portada-barra i::after {
+            content: ''; position: absolute; inset: 0; width: 40%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+            animation: carga-brillo 1.4s ease-in-out infinite;
+        }
+        @keyframes carga-brillo { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+        .carga-fila { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; }
+        .carga-fila p { margin: 0; font: 600 12px var(--letra); color: #c9d6ff; letter-spacing: 0.05em; }
+        .carga-fila b { font: 800 13px var(--letra); color: #ffd56b; font-variant-numeric: tabular-nums; }
+        .carga-consejo { margin: 3px 0 0; min-height: 15px; font: 500 11px var(--letra); color: #8f9abb; transition: opacity 0.35s; }
+        .carga-consejo.cambia { opacity: 0; }
+        @media (prefers-reduced-motion: reduce) { .carga-heroe, .portada-barra i::after { animation: none; } }
+        @media (max-height: 420px) { .carga-caja { padding: 6px 12px; } .carga-consejo { display: none; } }
         /* botón para reportar un cuerpo (troll.js) */
         .noche-reportar {
             position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 90px); z-index: 11;
@@ -2321,7 +2529,7 @@
         <h1 class="title">TROLL NIGHT</h1>
         <div id="game">
             <!-- portada de carga: la imagen del juego a pantalla completa mientras se carga (historia.js: mostrarCarga) -->
-            <div class="portada-carga" aria-live="polite"><div class="portada-barra"><i></i></div><p>Cargando…</p></div>
+            <div class="portada-carga" aria-live="polite"><div class="carga-caja"><div class="carga-pista"><span class="carga-heroe" aria-hidden="true"></span><div class="portada-barra"><i></i></div></div><div class="carga-fila"><p>Cargando el mundo…</p><b>0 %</b></div><p class="carga-consejo"></p></div></div>
             <!-- botones sobre el juego: siguen visibles en itch.io y en pantalla completa -->
             <div class="botones-flotantes">
                 <button type="button" class="boton-flotante" id="btn-sonido" aria-pressed="false"

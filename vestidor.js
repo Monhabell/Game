@@ -32,16 +32,6 @@ export const PARTES = {
         ['Pelo', ['#f8a870', '#ce704d', '#843d36', '#44232f']], ['Ojos', ['#00c219', '#79dc2b', '#005137', '#cbf257']]],
     mosquetera: [['Abrigo', ['#491f30']], ['Chaleco', ['#005137', '#001a1a']],
         ['Pelo', ['#d21a26', '#87102a', '#421020']], ['Ojos', ['#ffa400', '#ffd62a', '#ff6a00']]],
-    // HD: [nombre, [color de muestra], { h: [desde, hasta] (grados), s: [mín, máx], l: [mín, máx] }]
-    paladina: [['Pelo y dorados', ['#f2c230'], { h: [35, 60], s: [0.45, 1], l: [0.25, 0.9] }],
-        ['Armadura', ['#a8adb8'], { h: [0, 360], s: [0, 0.15], l: [0.3, 0.97] }],
-        ['Detalles', ['#c8303a'], { h: [330, 20], s: [0.35, 1], l: [0.1, 0.8] }]],
-    asesina: [['Pelo', ['#c8401e'], { h: [350, 32], s: [0.5, 1], l: [0.1, 0.62] }],
-        ['Armadura', ['#f0b828'], { h: [38, 60], s: [0.4, 1], l: [0.2, 0.92] }],
-        ['Hombreras', ['#9aa0aa'], { h: [0, 360], s: [0, 0.15], l: [0.3, 0.97] }]],
-    elfa: [['Pelo', ['#2c4a78'], { h: [195, 240], s: [0.2, 1], l: [0.08, 0.8] }],
-        ['Cuero y arco', ['#7a4a26'], { h: [15, 45], s: [0.25, 1], l: [0.08, 0.5] }],
-        ['Gema', ['#d8406a'], { h: [330, 20], s: [0.4, 1], l: [0.2, 0.8] }]],
 };
 
 // colores para elegir (todos gratis)

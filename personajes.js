@@ -28,7 +28,7 @@
 //                       débil: alcance corto y ninguna defensa
 //   Elara (DISTANCIA):  arquera élfica: flechas sin gastar nada, flecha triple perforante y voltereta
 //                       débil: casi nada de daño de cerca
-//   (Valeria, Kira y Elara: CraftPix "2D Fantasy Woman Warrior", en HD)
+//   (Valeria, Kira y Elara —las HD de CraftPix— se quitaron: no eran pixel art como los demás)
 //
 // res: resolución de las hojas (1 = cuadros de 128x128; 2 = HD, cuadros de 256x256 que el juego dibuja
 //      a la mitad: así una ilustración grande se ve nítida). Todo lo que dibuja un héroe usa resDe()
@@ -208,90 +208,6 @@ export const PERSONAJES = [
             espacio: { nombre: 'Estocada', anim: 'atk3', soltar: 4, tipo: 'golpe', alcance: 90, enfriamiento: 300, sonido: 'espada', rate: 1.4 },
             x: { nombre: 'Corte de viento', anim: 'atk2', soltar: 2, tipo: 'proyectil', textura: 'onda', escala: 1.6, tinte: 0xffb08a, vel: 560, vida: 450, perfora: true, enfriamiento: 950, sonido: 'espada', rate: 1.2 },
             c: { nombre: 'Arremetida', anim: 'atk4', soltar: 0, tipo: 'embestida', duracion: 240, vel: 580, enfriamiento: 1700, sonido: 'espada', rate: 0.7 },
-        },
-    },
-    {
-        id: 'paladina',
-        nombre: 'Valeria',
-        titulo: 'La Paladina',
-        frase: 'Su escudo ya paró a tres trolls. Hoy va por el cuarto.',
-        color: 0xf2c94c,
-        carpeta: 'assets/personajes/paladina',
-        res: 2, // HD (CraftPix "2D Fantasy Woman Warrior")
-        hojas: {
-            idle: ['Idle', 8, 10, -1],
-            walk: ['Walk', 8, 12, -1],
-            run: ['Run', 8, 14, -1],
-            jump: ['Jump', 8, 12, 0],
-            hurt: ['Hurt', 6, 14, 0],
-            dead: ['Dead', 8, 10, 0],
-            atk1: ['Attack', 8, 18, 0],
-        },
-        velocidad: 0.98,
-        salto: 485,
-        dobleSalto: false,
-        recurso: 'ninguno',
-        pasiva: 'Espada y escudo',
-        habilidades: {
-            espacio: { nombre: 'Espadazo', anim: 'atk1', soltar: 4, tipo: 'golpe', alcance: 72, enfriamiento: 420, sonido: 'espada', rate: 1 },
-            x: { nombre: 'Carga con escudo', anim: 'run', soltar: 0, tipo: 'embestida', duracion: 240, vel: 520, enfriamiento: 1900, sonido: 'espada', rate: 0.6 },
-            c: { nombre: 'Defensa', anim: 'hurt', soltar: 0, tipo: 'escudo', duracion: 1800, enfriamiento: 6500, sonido: 'magia', rate: 0.8 },
-        },
-    },
-    {
-        id: 'asesina',
-        nombre: 'Kira',
-        titulo: 'La Asesina',
-        frase: 'Dos dagas, cero paciencia.',
-        color: 0xe0503a,
-        carpeta: 'assets/personajes/asesina',
-        res: 2, // HD
-        hojas: {
-            idle: ['Idle', 8, 10, -1],
-            walk: ['Walk', 8, 12, -1],
-            run: ['Run', 8, 14, -1],
-            jump: ['Jump', 8, 12, 0],
-            hurt: ['Hurt', 6, 14, 0],
-            dead: ['Dead', 8, 10, 0],
-            atk1: ['Attack', 8, 18, 0],
-        },
-        velocidad: 1.15,
-        salto: 500,
-        dobleSalto: true,
-        recurso: 'ninguno',
-        pasiva: 'La más rápida · doble salto',
-        habilidades: {
-            espacio: { nombre: 'Dagas', anim: 'atk1', soltar: 3, tipo: 'golpe', alcance: 60, enfriamiento: 260, sonido: 'espada', rate: 1.4 },
-            x: { nombre: 'Cuchilla lanzada', anim: 'atk1', soltar: 3, tipo: 'proyectil', textura: 'onda', escala: 1.2, tinte: 0xff7a5a, vel: 600, vida: 420, enfriamiento: 900, sonido: 'espada', rate: 1.5 },
-            c: { nombre: 'Arremetida', anim: 'run', soltar: 0, tipo: 'embestida', duracion: 220, vel: 600, enfriamiento: 1600, sonido: 'espada', rate: 0.8 },
-        },
-    },
-    {
-        id: 'elfa',
-        nombre: 'Elara',
-        titulo: 'La Elfa',
-        frase: 'Nunca falla. Bueno, casi nunca.',
-        color: 0x4fb3c8,
-        carpeta: 'assets/personajes/elfa',
-        res: 2, // HD
-        hojas: {
-            idle: ['Idle', 8, 10, -1],
-            walk: ['Walk', 8, 12, -1],
-            run: ['Run', 8, 14, -1],
-            jump: ['Jump', 8, 12, 0],
-            hurt: ['Hurt', 6, 14, 0],
-            dead: ['Dead', 8, 10, 0],
-            atk1: ['Attack', 8, 18, 0],
-        },
-        velocidad: 1,
-        salto: 510,
-        dobleSalto: false,
-        recurso: 'ninguno',
-        pasiva: 'Flechas infinitas',
-        habilidades: {
-            espacio: { nombre: 'Flecha', anim: 'atk1', soltar: 5, tipo: 'proyectil', textura: 'flecha_pj', vel: 560, vida: 1300, enfriamiento: 650, sonido: 'arco' },
-            x: { nombre: 'Flecha élfica', anim: 'atk1', soltar: 5, tipo: 'proyectil', textura: 'flecha_pj', escala: 1.4, tinte: 0x7fffd4, vel: 760, vida: 1400, perfora: true, enfriamiento: 1300, sonido: 'arco', rate: 0.8 },
-            c: { nombre: 'Voltereta', anim: 'jump', soltar: 0, tipo: 'voltereta', duracion: 350, vel: 380, enfriamiento: 1700, sonido: 'salto', rate: 1.5 },
         },
     },
 ];
