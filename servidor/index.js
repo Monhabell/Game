@@ -24,7 +24,7 @@
 //     volver   {}                        (solo anfitrión) todos vuelven a la sala de espera
 //     saldo    { monedas }               cuántas monedas tiene (para la apuesta de la arena)
 //     apostar  { apuesta }               (carrera y noche) lo que apuesta este jugador; vuelve a 'no listo'
-//     listo    { listo }                 (carrera) ya eligió su apuesta y está listo para correr
+//     listo    { listo }                 está listo para empezar (en la carrera, ya eligió su apuesta)
 //     estado / evento { ... }            se reenvía a los demás con { de: tuId } (sin 'de' si trae anonimo: true)
 //     ping     { n }                     se contesta al momento (para medir la demora en el juego)
 //   servidor -> cliente
@@ -52,7 +52,7 @@ const MODOS = new Set(['aventura', 'duelo', 'equipos', 'carrera', 'troll']);
 const MIN_NOCHE = 4;
 const NOMBRES_BOT = ['Brisa', 'Toto', 'Lumi', 'Pipo', 'Nala', 'Rulo'];
 const esArena = modo => modo === 'duelo' || modo === 'equipos';
-const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo', 'abismo', 'criptas']); // (en la Noche del Troll: el mapa)
+const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo', 'abismo', 'cementerio', 'ruinas', 'criptas']); // (en la Noche del Troll: el mapa)
 const MAX_ARENA = 4; // jugadores en una batalla de la arena
 const APUESTAS = new Set([0, 10, 25, 50, 100]);
 const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera', 'paladina', 'asesina', 'elfa']);
@@ -218,6 +218,7 @@ function atender(ws, m) {
             if (pobre) return enviar(ws, { t: 'error', motivo: `${pobre.nombre} no tiene ${apuesta} monedas para la apuesta` });
             if (sala.modo === 'troll' && n < 2) return enviar(ws, { t: 'error', motivo: 'La Noche del Troll necesita al menos 2 jugadores' });
             sala.empezada = true;
+            listosAFalso(sala); // (al volver a la sala, cada uno vuelve a decir LISTO)
             const semilla = Math.floor(Math.random() * 2 ** 31);
             const inicio = { t: 'empezar', nivel: Number(m.nivel) || 0, semilla, jugadores: lista(sala), modo: sala.modo, arena: sala.arena, apuesta };
             if (sala.modo === 'troll') empezarNoche(sala, inicio);

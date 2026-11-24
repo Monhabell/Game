@@ -45,6 +45,42 @@ const BURBUJA_TROLL = 0.25;     // el aire que te quita la burbuja troll
 let api = null;
 export const configurarAgua = a => { api = a; };
 
+// CRIATURAS en pixel art (CraftPix "Octopus, Jellyfish, Shark and Turtle", cuadros de 48 px):
+//   pez (el rape: pez abisal con farol) · medusa · espada (pez espada: patrulla largo y embiste rápido y lejos)
+//   anguila (eléctrica: quieta en el fondo; cada 3 s se carga y suelta una descarga alrededor)
+//   pulpo (te persigue despacio si te acercas) · tortuga (inofensiva: nada cerca de la superficie)
+// [cuadros nadando, cuadros atacando]
+const MAR = { medusa: [4, 4], tortuga: [6, 6], espada: [4, 6], rape: [4, 6], anguila: [6, 6], pulpo: [6, 6] };
+const SPRITE_DE = { pez: 'rape', medusa: 'medusa', espada: 'espada', anguila: 'anguila', pulpo: 'pulpo', tortuga: 'tortuga', kraken: 'pulpo' };
+const ESPADA_VEL = 105, ESPADA_LANZA = 430, ESPADA_VE = 230;
+const ANGUILA_CADA = 3000, ANGUILA_DESCARGA = 900, ANGUILA_RADIO = 75;
+const PULPO_VEL = 42, PULPO_VE = 230;
+// el Kraken (final de los niveles de mar abierto): sube y baja frente a la salida y escupe tinta hacia ti
+const KRAKEN_MS = 3400, KRAKEN_TINTA = 1700, TINTA_VEL = 150, KRAKEN_RADIO = 52;
+export function cargarMar(scene) {
+    Object.keys(MAR).forEach(n => ['walk', 'attack', 'death'].forEach(a => {
+        const k = `mar_${n}_${a}`;
+        if (!scene.textures.exists(k)) scene.load.spritesheet(k, `assets/enemigos/mar/${n}_${a}.png`, { frameWidth: 48, frameHeight: 48 });
+    }));
+    if (!scene.textures.exists('agua_salpica')) scene.load.spritesheet('agua_salpica', 'assets/agua/salpica.png', { frameWidth: 64, frameHeight: 43 });
+    if (!scene.textures.exists('agua_estallido')) scene.load.spritesheet('agua_estallido', 'assets/agua/estallido.png', { frameWidth: 80, frameHeight: 76 });
+    if (!scene.textures.exists('agua_sale')) scene.load.spritesheet('agua_sale', 'assets/agua/sale.png', { frameWidth: 56, frameHeight: 51 });
+    if (!scene.textures.exists('agua_remolino')) scene.load.spritesheet('agua_remolino', 'assets/agua/remolino.png', { frameWidth: 72, frameHeight: 32 });
+}
+function animacionesMar(scene) {
+    Object.entries(MAR).forEach(([n, [nada, ataca]]) => [['walk', nada, 8, -1], ['attack', ataca, 12, 0], ['death', 6, 10, 0]].forEach(([a, cuadros, fps, rep]) => {
+        const k = `mar_${n}_${a}`;
+        if (scene.textures.exists(k) && !scene.anims.exists(k)) scene.anims.create({ key: k, frames: scene.anims.generateFrameNumbers(k, { start: 0, end: cuadros - 1 }), frameRate: fps, repeat: rep });
+    }));
+    if (scene.textures.exists('agua_salpica') && !scene.anims.exists('agua_salpica'))
+        scene.anims.create({ key: 'agua_salpica', frames: scene.anims.generateFrameNumbers('agua_salpica', { start: 0, end: 9 }), frameRate: 22, repeat: 0 });
+    [['agua_estallido', 14, 24], ['agua_sale', 15, 26]].forEach(([k, n, fps]) => {
+        if (scene.textures.exists(k) && !scene.anims.exists(k)) scene.anims.create({ key: k, frames: scene.anims.generateFrameNumbers(k, { start: 0, end: n - 1 }), frameRate: fps, repeat: 0 });
+    });
+    if (scene.textures.exists('agua_remolino') && !scene.anims.exists('agua_remolino'))
+        scene.anims.create({ key: 'agua_remolino', frames: scene.anims.generateFrameNumbers('agua_remolino', { start: 0, end: 15 }), frameRate: 14, repeat: -1 });
+}
+
 export function crearAgua(scene, nivel) {
     scene.aguas = [];
     scene.burbujasAgua = [];
@@ -60,14 +96,19 @@ export function crearAgua(scene, nivel) {
     (nivel.burbujas || []).forEach(x => agregarBurbujas(scene, x));
     (nivel.burbujasFalsas || []).forEach(x => agregarBurbujas(scene, x, true));
     (nivel.criaturas || []).forEach(([x, tipo, y]) => crearCriatura(scene, x, tipo, y));
-    (nivel.corrientes || []).forEach(([a, b, dir]) => {
+    (nivel.corrientes || []).forEach(([a, b, dir, fuerza = 1]) => {
         const agua = scene.aguas.find(q => a >= q.x0 - 1 && b <= q.x1 + 1);
         if (!agua) return;
         const lineas = scene.add.particles(0, 0, 'agua_linea', {
             x: dir > 0 ? a : b, y: { min: agua.sup + 20, max: SUELO_Y - 10 }, speedX: dir * 160, lifespan: (b - a) / 160 * 1000,
             alpha: { start: 0.5, end: 0 }, frequency: 120,
         }).setDepth(34.05);
-        scene.corrientesAgua.push({ a, b, dir, agua, lineas });
+        // (remolinos que muestran hacia dónde empuja)
+        animacionesMar(scene);
+        if (scene.anims.exists('agua_remolino')) for (let x = a + 80; x < b - 40; x += 220) {
+            scene.add.sprite(x, Math.round((agua.sup + SUELO_Y) / 2), 'agua_remolino').setDepth(33.55).setAlpha(0.55).setScale(1.4).setFlipX(dir < 0).play('agua_remolino');
+        }
+        scene.corrientesAgua.push({ a, b, dir, fuerza, agua, lineas });
     });
     (nivel.algas || []).forEach(x => {
         const algas = [0, 1, 2, 3].map(i => scene.add.image(x - 45 + i * 30, SUELO_Y + 4, 'agua_alga').setOrigin(0.5, 1).setDepth(33.7)
@@ -132,11 +173,30 @@ export function agregarBurbujas(scene, x, falsa = false) {
 function crearCriatura(scene, x, tipo, y) {
     const agua = scene.aguas.find(a => x > a.x0 && x < a.x1);
     if (!agua) return;
-    const yy = y ?? Math.round((agua.sup + SUELO_Y) / 2 + 20);
-    const img = scene.add.image(x, yy, tipo === 'pez' ? 'agua_pez' : 'agua_medusa').setDepth(33.6);
-    const c = { tipo, img, agua, x0: x, y0: yy, dir: 1, estado: 'nada', hasta: 0, fase: Math.random() * Math.PI * 2 };
-    if (tipo === 'medusa') { img.setAlpha(0.85); scene.tweens.add({ targets: img, scaleX: 0.85, scaleY: 1.12, yoyo: true, repeat: -1, duration: 500 }); }
+    animacionesMar(scene);
+    const fondo = tipo === 'anguila' ? SUELO_Y - 22 : tipo === 'tortuga' ? agua.sup + 24 : null;
+    const yy = y ?? fondo ?? Math.round((agua.sup + SUELO_Y) / 2 + 20);
+    const sprite = SPRITE_DE[tipo], conSprite = sprite && scene.textures.exists(`mar_${sprite}_walk`);
+    let img;
+    if (conSprite) {
+        img = scene.add.sprite(x, yy, `mar_${sprite}_walk`).setDepth(33.6).setScale(tipo === 'kraken' ? 3.2 : tipo === 'espada' || tipo === 'pulpo' ? 1.25 : 1.1);
+        if (tipo === 'kraken') img.setTint(0xb04a70);
+        img.anims.play(`mar_${sprite}_walk`);
+        img.anims.setProgress(Math.random());
+    } else {
+        // (sin las imágenes: los dibujos de antes)
+        img = scene.add.image(x, yy, tipo === 'medusa' ? 'agua_medusa' : 'agua_pez').setDepth(33.6);
+        if (tipo === 'medusa') { img.setAlpha(0.85); scene.tweens.add({ targets: img, scaleX: 0.85, scaleY: 1.12, yoyo: true, repeat: -1, duration: 500 }); }
+    }
+    const c = { tipo, img, sprite: conSprite ? sprite : null, agua, x0: x, y0: yy, dir: 1, estado: 'nada', hasta: 0, fase: Math.random() * Math.PI * 2,
+        prox: ANGUILA_CADA * Math.random() };
     scene.criaturasAgua.push(c);
+}
+// una criatura ataca: su animación de ataque y vuelve a nadar
+function atacar(c) {
+    if (!c.sprite || !c.img.anims) return;
+    c.img.anims.play(`mar_${c.sprite}_attack`, true);
+    c.img.once('animationcomplete', () => { if (c.img.active) c.img.anims.play(`mar_${c.sprite}_walk`, true); });
 }
 
 // reja: corta el paso (física) hasta que se toca su palanca
@@ -233,7 +293,7 @@ export function actualizarNado(scene, time, delta) {
     const enAlgas = scene.algasAgua.some(q => Math.abs(b.center.x - q.x) < 60 && b.bottom > SUELO_Y - 60);
     g.setVelocityX(b.velocity.x * LENTO * (enAlgas ? 0.55 : 1));
     // corrientes: empujan hacia un lado
-    scene.corrientesAgua.forEach(c => { if (b.center.x > c.a && b.center.x < c.b && c.agua === agua) g.x += c.dir * CORRIENTE * delta / 1000; });
+    scene.corrientesAgua.forEach(c => { if (b.center.x > c.a && b.center.x < c.b && c.agua === agua) g.x += c.dir * CORRIENTE * (c.fuerza ?? 1) * delta / 1000; });
     // rejas: se abren tocando su palanca
     scene.rejasAgua.forEach(r => {
         if (r.abierta || Math.abs(b.center.x - r.xPalanca) > 26 || b.bottom < SUELO_Y - 50) return;
@@ -322,26 +382,114 @@ function animarNado(scene, time) {
 }
 
 // peces y medusas: se mueven y, si te tocan, golpean como un enemigo
+// las flechas y los disparos de los poderes matan a las criaturas (la tortuga es amiga y el Kraken no muere)
+const MORTALES = new Set(['pez', 'medusa', 'espada', 'anguila', 'pulpo']);
+function golpesACriaturas(scene) {
+    const flechas = scene.flechasGrupo?.getChildren() || [], disparos = scene.proyPoderes || [];
+    scene.criaturasAgua.forEach(c => {
+        if (c.muerta || !MORTALES.has(c.tipo) || !c.img.active) return;
+        const toca = o => o?.active && Math.abs(o.x - c.img.x) < 24 && Math.abs(o.y - c.img.y) < 24;
+        const flecha = flechas.find(toca), disparo = !flecha && disparos.find(d => !d.remoto && toca(d.s));
+        if (!flecha && !disparo) return;
+        if (flecha && !flecha.perfora) flecha.destroy();
+        matarCriatura(scene, c);
+    });
+    scene.criaturasAgua = scene.criaturasAgua.filter(c => !c.borrar);
+}
+function matarCriatura(scene, c) {
+    c.muerta = true;
+    efectoAgua(scene, 'agua_estallido', c.img.x, c.img.y + 30, 0.9);
+    scene.sound.play('matar', { volume: 0.4 });
+    (c.bolas || []).forEach(t => t.bola.destroy());
+    if (c.sprite && scene.anims.exists(`mar_${c.sprite}_death`)) {
+        c.img.anims.play(`mar_${c.sprite}_death`, true);
+        c.img.once('animationcomplete', () => scene.tweens.add({ targets: c.img, alpha: 0, y: c.img.y - 20, duration: 400, onComplete: () => { c.img.destroy(); c.borrar = true; } }));
+    } else scene.tweens.add({ targets: c.img, alpha: 0, angle: 180, duration: 500, onComplete: () => { c.img.destroy(); c.borrar = true; } });
+}
+
 function moverCriaturas(scene, time, delta) {
     const g = scene.mascotaGesi, b = g.body;
     if (!b) return;
+    golpesACriaturas(scene);
     const dt = delta / 1000;
     scene.criaturasAgua.forEach(c => {
         const a = c.agua, img = c.img;
-        if (!img.active) return;
+        if (!img.active || c.muerta) return;
         if (c.tipo === 'medusa') {
             // sube y baja despacio entre la superficie y el fondo
             const k = (Math.sin(time / MEDUSA_MS * Math.PI * 2 + c.fase) + 1) / 2;
             img.y = a.sup + 50 + k * (SUELO_Y - 40 - a.sup - 50);
+        } else if (c.tipo === 'tortuga') {
+            // nada tranquila de un lado a otro cerca de la superficie (no hace daño)
+            img.x += c.dir * 38 * dt;
+            if (Math.abs(img.x - c.x0) > 220 || img.x < a.x0 + 30 || img.x > a.x1 - 30) c.dir = Math.sign(c.x0 - img.x) || -c.dir;
+            img.y = c.y0 + Math.sin(time / 700 + c.fase) * 4;
+            img.setFlipX(c.dir < 0);
+            return;
+        } else if (c.tipo === 'anguila') {
+            // quieta en el fondo, ondulando; cada tanto se carga y suelta una descarga alrededor
+            img.x = c.x0 + Math.sin(time / 900 + c.fase) * 18;
+            if (!c.descargaHasta && time > c.prox) {
+                c.descargaHasta = time + ANGUILA_DESCARGA;
+                atacar(c);
+                const aro = scene.add.circle(img.x, img.y, ANGUILA_RADIO, 0x9fe8ff, 0.12).setStrokeStyle(2, 0xd8fbff, 0.8).setDepth(33.7);
+                scene.tweens.add({ targets: aro, alpha: 0, scale: 1.15, duration: ANGUILA_DESCARGA, onComplete: () => aro.destroy() });
+            }
+            if (c.descargaHasta && time > c.descargaHasta) { c.descargaHasta = 0; c.prox = time + ANGUILA_CADA; }
+            if (c.descargaHasta && !g.isDead && Phaser.Math.Distance.Between(b.center.x, b.center.y, img.x, img.y) < ANGUILA_RADIO) {
+                scene.cameras.main.flash(80, 180, 230, 255);
+                api?.killgesi(scene, undefined, img.x);
+            }
+        } else if (c.tipo === 'kraken') {
+            // sube y baja entre la superficie y el fondo (deja pasar por arriba o por abajo según el momento)
+            const k = (Math.sin(time / KRAKEN_MS * Math.PI * 2 + c.fase) + 1) / 2;
+            img.y = a.sup + 40 + k * (SUELO_Y - 50 - a.sup - 40);
+            img.x = c.x0 + Math.sin(time / 1300) * 14;
+            const dx = b.center.x - img.x, dy = b.center.y - img.y, cerca = Math.abs(dx) < 520;
+            if (cerca && !c.avisado) { c.avisado = true; api?.mensaje?.(scene, '🐙 ¡EL KRAKEN!', 1200); }
+            // la tinta: una bola oscura que va hacia ti (despacio: se esquiva)
+            if (cerca && scene.bajoAgua && time > (c.tinta || 0)) {
+                c.tinta = time + KRAKEN_TINTA;
+                atacar(c);
+                const d = Math.hypot(dx, dy) || 1;
+                const bola = scene.add.circle(img.x - 20, img.y, 9, 0x1a0a2a, 0.95).setStrokeStyle(2, 0x6a3a8a).setDepth(33.8);
+                (c.bolas ||= []).push({ bola, vx: dx / d * TINTA_VEL, vy: dy / d * TINTA_VEL, hasta: time + 4000 });
+            }
+            (c.bolas || []).forEach(t => {
+                if (!t.bola.active) return;
+                t.bola.x += t.vx * dt; t.bola.y += t.vy * dt;
+                if (time > t.hasta || t.bola.y < a.sup || t.bola.y > SUELO_Y) { t.bola.destroy(); return; }
+                if (!g.isDead && Math.abs(b.center.x - t.bola.x) < 16 && Math.abs(b.center.y - t.bola.y) < 26) {
+                    t.bola.destroy();
+                    scene.cameras.main.flash(80, 40, 10, 60);
+                    api?.killgesi(scene, undefined, t.bola.x);
+                }
+            });
+            c.bolas = (c.bolas || []).filter(t => t.bola.active);
+            // tocarlo duele (es grande)
+            if (!g.isDead && Math.hypot(dx, dy) < KRAKEN_RADIO) api?.killgesi(scene, undefined, img.x);
+            return;
+        } else if (c.tipo === 'pulpo') {
+            // si estás cerca te sigue despacio; si no, flota en su lugar
+            const dx = b.center.x - img.x, dy = b.center.y - img.y;
+            if (scene.bajoAgua && Math.hypot(dx, dy) < PULPO_VE) {
+                img.x += Math.sign(dx) * PULPO_VEL * dt;
+                img.y += Math.sign(dy) * PULPO_VEL * 0.7 * dt;
+                if (time > (c.hasta || 0)) { c.hasta = time + 1800; atacar(c); }
+            } else img.y = c.y0 + Math.sin(time / 600 + c.fase) * 8;
+            img.x = Phaser.Math.Clamp(img.x, a.x0 + 20, a.x1 - 20);
+            img.y = Phaser.Math.Clamp(img.y, a.sup + 24, SUELO_Y - 20);
         } else {
+            // pez (el rape) y pez espada: patrullan; si te ven, avisan y se lanzan (el espada, más rápido y más lejos)
+            const espada = c.tipo === 'espada';
             const dx = b.center.x - img.x, dy = b.center.y - img.y;
             if (c.estado === 'nada') {
-                img.x += c.dir * PEZ_VEL * dt;
-                if (Math.abs(img.x - c.x0) > 120) c.dir = Math.sign(c.x0 - img.x);
+                img.x += c.dir * (espada ? ESPADA_VEL : PEZ_VEL) * dt;
+                if (Math.abs(img.x - c.x0) > (espada ? 220 : 120)) c.dir = Math.sign(c.x0 - img.x);
                 img.y = c.y0 + Math.sin(time / 400 + c.fase) * 6;
                 img.setFlipX(c.dir < 0);
                 // te ve: avisa y se lanza
-                if (scene.bajoAgua && Math.abs(dx) < PEZ_VE && Math.abs(dy) < 60 && time > c.hasta) {
+                if (scene.bajoAgua && Math.abs(dx) < (espada ? ESPADA_VE : PEZ_VE) && Math.abs(dy) < 60 && time > c.hasta) {
                     c.estado = 'aviso';
                     c.hasta = time + 450;
                     c.dir = Math.sign(dx) || 1;
@@ -351,9 +499,9 @@ function moverCriaturas(scene, time, delta) {
                     scene.tweens.add({ targets: t, y: t.y - 8, alpha: 0, duration: 450, onComplete: () => t.destroy() });
                 }
             } else if (c.estado === 'aviso') {
-                if (time > c.hasta) { c.estado = 'lanza'; c.hasta = time + 650; }
+                if (time > c.hasta) { c.estado = 'lanza'; c.hasta = time + (espada ? 800 : 650); atacar(c); }
             } else if (c.estado === 'lanza') {
-                img.x += c.dir * PEZ_LANZA * dt;
+                img.x += c.dir * (espada ? ESPADA_LANZA : PEZ_LANZA) * dt;
                 img.y += Math.sign(dy) * 40 * dt;
                 if (time > c.hasta || img.x < a.x0 + 10 || img.x > a.x1 - 10) { c.estado = 'nada'; c.hasta = time + 1500; c.dir = Math.sign(c.x0 - img.x) || 1; }
             }
@@ -370,8 +518,17 @@ function moverCriaturas(scene, time, delta) {
     });
 }
 
+// un efecto de agua que se anima una vez y desaparece
+function efectoAgua(scene, k, x, y, escala = 1) {
+    if (!scene.anims.exists(k)) return;
+    const s = scene.add.sprite(x, y, k).setOrigin(0.5, 1).setDepth(35).setScale(escala).setAlpha(0.9);
+    s.anims.play(k);
+    s.once('animationcomplete', () => s.destroy());
+}
+
 // al entrar o salir del agua: salpicadura
 function chapuzon(scene, x, sup, entra) {
+    efectoAgua(scene, entra || !scene.anims.exists('agua_sale') ? 'agua_salpica' : 'agua_sale', x, sup + 4, entra ? 1.3 : 1);
     for (let i = 0; i < 7; i++) {
         const gota = scene.add.circle(x, sup, 2 + Math.random() * 2, 0xbfe8ff, 0.9).setDepth(35);
         scene.tweens.add({ targets: gota, x: x + (Math.random() - 0.5) * 70, y: sup - 20 - Math.random() * 40, alpha: 0, duration: 450, ease: 'Quad.out', onComplete: () => gota.destroy() });

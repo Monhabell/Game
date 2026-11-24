@@ -123,6 +123,58 @@ export function tramoTorre(pasos) {
     return t;
 }
 
+// ---------- SUBIR A LO ALTO, DE VARIAS FORMAS ----------
+// El reto es el mismo que la torre (un muro corta el paso y hay que llegar a su cima), pero cada nivel
+// lo arma distinto para que no se sienta repetido (el generador elige la variante: niveles.js):
+//   zigzag      la torre de siempre (escalones a izquierda y derecha)
+//   ramas       el zigzag con tablones de madera que crujen y se rompen (1,5 s encima): ¡sube rápido!
+//               (vuelven a los 3 s: nunca se queda atascado)
+//   ascensor    un ascensor largo pegado al muro... y un espíritu que ataca mientras subes
+//   escalinata  escalones sueltos en diagonal, uno más alto que otro, hasta la cima
+//   vaiven      plataformas que van y vienen, una sobre otra: hay que saltar en el momento justo
+// Todas suben 96 px por piso (lo que se probó con los tres personajes) y la cima queda 16 px más arriba.
+export const VARIANTES_SUBIDA = ['zigzag', 'ramas', 'ascensor', 'escalinata', 'vaiven'];
+export function tramoSubida(pasos, variante = 'zigzag') {
+    if (variante === 'ramas') {
+        const t = tramoTorre(pasos);
+        t.plataformas = t.plataformas.map(p => [...p, 'rama']);
+        return t;
+    }
+    if (variante === 'zigzag' || !VARIANTES_SUBIDA.includes(variante)) return tramoTorre(pasos);
+    const cima = SUELO_Y - 96 * pasos - 16;
+    const t = { ancho: 750, alto: 96 * pasos + 120, suelo: [[0, 750]], plataformas: [], moviles: [], muros: [], antorchas: [], cristales: [], monedas: [], espiritus: [] };
+    let muro = 390;
+    if (variante === 'ascensor') {
+        // (el ascensor descansa en el suelo: nadie queda debajo; arriba queda al ras de la cima del muro)
+        t.moviles.push([322, SUELO_Y - 16, 'y', SUELO_Y - 16 - (cima + 16), 52]);
+        t.plataformas.push([40, SUELO_Y - 192, 120]); // (un descanso a mitad de camino)
+        t.monedas.push(...fila(55, SUELO_Y - 227, 3));
+        t.espiritus.push([180, cima + 40]);
+    } else if (variante === 'escalinata') {
+        muro = 470;
+        t.ancho = 830;
+        t.suelo = [[0, 830]];
+        const paso = (muro - 100) / Math.max(1, pasos - 1);
+        for (let k = 1; k <= pasos; k++) {
+            const px = 10 + (k - 1) * paso;
+            t.plataformas.push([px, SUELO_Y - 96 * k, 80]);
+            if (k % 2 === 0) t.monedas.push(...fila(px + 15, SUELO_Y - 96 * k - 35, 2));
+        }
+    } else if (variante === 'vaiven') {
+        // una plataforma por piso, cada una a otra velocidad. Las impares van y vienen a la izquierda y las pares
+        // a la derecha, sin cruzarse nunca (entre dos pisos quedan 64 px y el personaje mide 69: una encima de
+        // otra lo aplastaría). Se salta de una a otra cuando la distancia es corta
+        for (let k = 1; k <= pasos; k++) {
+            t.moviles.push(k % 2 ? [64, SUELO_Y - 96 * k + 16, 'x', 66, 40 + 10 * k] : [262, SUELO_Y - 96 * k + 16, 'x', 60, 46 + 10 * k]);
+            if (k % 2) t.monedas.push(...fila(40, SUELO_Y - 96 * k - 40, 3));
+        }
+    }
+    t.muros.push([muro, cima, 90]);
+    t.antorchas.push([muro - 14, SUELO_Y - 130], [muro - 14, cima + 110]);
+    t.cristales.push([muro + 45, cima - 40]);
+    return t;
+}
+
 // puentes altos: un ascensor sube a puentes colgantes sobre un lago de lava (no hay ruta por abajo)
 export function tramoPuentesAltos() {
     const l = 400;

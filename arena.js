@@ -77,7 +77,7 @@ export const ARENAS = [
     {
         id: 'bosque', nombre: 'Arena del Bosque', victorias: 0, peligro: 'un foso de lava en el centro',
         nivel: {
-            nubes: true, suelo: [...BORDES, [120, 360], [540, 780]], lava: [[360, 540]],
+            nubes: true, paisaje: { id: 'batalla3', tinte: 0x7a90a8 }, suelo: [...BORDES, [120, 360], [540, 780]], lava: [[360, 540]],
             plataformas: [[55, 236, 120], [725, 236, 120], [385, 250, 130], [225, 140, 110], [565, 140, 110]],
         },
     },
@@ -101,7 +101,7 @@ export const ARENAS = [
     {
         id: 'castillo', nombre: 'Castillo del Rey Troll', victorias: 30, peligro: 'pinchos ocultos y un muro en el centro',
         nivel: {
-            nubes: true, suelo: [...BORDES, [120, 780]],
+            nubes: true, paisaje: { id: 'batalla2', tinte: 0x9a90b0 }, suelo: [...BORDES, [120, 780]],
             muros: [[425, 250, 50]],
             pinchos: [[290, 2, true], [560, 2, true]],
             plataformas: [[150, 236, 110], [640, 236, 110], [395, 150, 110], [60, 130, 90], [750, 130, 90]],
@@ -119,6 +119,24 @@ export const ARENAS = [
             bolas: [[450, 3000]],
             // [x, pie, salto en x, y de llegada, ms abierto, ms cerrado]
             portales: [[165, 332, 520, 332, 1600, 3400], [735, 332, -520, 332, 1600, 3400]],
+        },
+    },
+    {
+        // fondo: CraftPix "Fantasy 2D Battlegrounds" (la cripta y las tumbas)
+        id: 'cementerio', nombre: 'Cementerio Maldito', victorias: 10, peligro: 'pinchos entre las tumbas y plataformas altas',
+        nivel: {
+            nubes: true, paisaje: { id: 'batalla4', tinte: 0x8a90b8 }, suelo: [...BORDES, [120, 780]],
+            pinchos: [[250, 2, true], [600, 2, true]],
+            plataformas: [[140, 236, 110], [650, 236, 110], [395, 200, 110], [250, 120, 100], [550, 120, 100]],
+        },
+    },
+    {
+        // fondo: CraftPix "Fantasy 2D Battlegrounds" (las ruinas con la estatua)
+        id: 'ruinas', nombre: 'Ruinas de la Estatua', victorias: 20, peligro: 'un foso de lava y un muro en el centro',
+        nivel: {
+            nubes: true, paisaje: { id: 'batalla1', tinte: 0x8094a8 }, suelo: [...BORDES, [120, 330], [570, 780]], lava: [[330, 570]],
+            muros: [[425, 230, 40]],
+            plataformas: [[60, 236, 110], [730, 236, 110], [330, 250, 80], [490, 250, 80], [230, 140, 100], [570, 140, 100]],
         },
     },
 ];
@@ -147,7 +165,7 @@ const copia = o => JSON.parse(JSON.stringify(o));
 for (let k = 1; k <= CUANTOS_TEMAS(); k++) {
     const t = temaCompleto(k), tipo = TIPO_TEMA[k] || 'normal';
     const forma = tipo === 'agua' ? FORMA_MAREA : tipo === 'lava' ? ARENAS[2].nivel : tipo === 'oscuro' ? ARENAS[0].nivel : ARENAS[k % 2 ? 0 : 3].nivel;
-    const { nubes, cueva, tinte, tema, ...geometria } = copia(forma);
+    const { nubes, cueva, tinte, tema, paisaje, ...geometria } = copia(forma);
     ARENAS.push({
         id: `tema${k}`, nombre: `Arena · ${t.nombre}`, victorias: k - 1,
         peligro: PELIGROS[tipo] || (k % 2 ? 'un foso de lava en el centro' : 'pinchos ocultos y un muro en el centro'),

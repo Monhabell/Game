@@ -31,6 +31,95 @@ import { saldo } from "./tienda.js"
 
 const MODOS = { aventura: 'Aventura (en cadena)', duelo: 'Arena · 1 contra 1', equipos: 'Arena · por equipos', carrera: '🏁 Carrera', troll: '🌙 Noche del Troll' };
 const esArena = modo => modo === 'duelo' || modo === 'equipos';
+// el letrero de la sala: icono y nombre corto de cada modo
+const MODO_CORTO = { aventura: ['⛓', 'Aventura en cadena'], duelo: ['⚔', 'Arena 1 contra 1'], equipos: ['⚔', 'Arena por equipos'], carrera: ['🏁', 'Carrera'], troll: ['🌙', 'Noche del Troll'] };
+const MINIMO = { duelo: 2, equipos: 2, carrera: 2, troll: 2 }; // jugadores para poder empezar (aventura: 1)
+const CUENTA_ATRAS = 5; // s: todos listos → arranca sola
+// ---------- el bosque de la sala, en cuadritos (SVG con rectángulos, sin suavizado) ----------
+const rect = (x, y, w, h, c) => `<rect x="${Math.round(x)}" y="${Math.round(y)}" width="${Math.max(1, Math.round(w))}" height="${Math.max(1, Math.round(h))}"${c ? ` fill="${c}"` : ''}/>`;
+const azarCon = semilla => { let s = semilla; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; };
+// un pino: pisos dentados (cada piso, tres escalones) cada vez más anchos. 'luz' (opcional): el borde del
+// lado de la fogata (lado = 1 derecha, -1 izquierda) más claro
+function pino(x, base, h, w, cuerpo, luz, lado = 1, tronco = '#1c1210') {
+    const pisos = Math.max(4, Math.min(8, Math.round(h / 80) + 3)), alto = h * 0.88 / pisos;
+    let r = rect(x - w * 0.06, base - h * 0.14, w * 0.12, h * 0.14, tronco);
+    for (let k = 0; k < pisos; k++) {
+        const ak = w * (0.28 + 0.72 * (k + 1) / pisos), y = base - h + alto * k;
+        [0.45, 0.72, 1].forEach((f, n) => {
+            const a = ak * f, yy = y + alto * 0.45 * n;
+            r += rect(x - a / 2, yy, a, alto * 0.5 + 1, cuerpo);
+            if (luz && n === 2) { const b = Math.max(3, a * 0.22); r += rect(lado > 0 ? x + a / 2 - b : x - a / 2, yy, b, alto * 0.5 + 1, luz); }
+        });
+    }
+    return r;
+}
+// una fila de pinos de fondo
+function arboles(clase, ancho, alto, cuantos, semilla, cuerpo = '', luz = '') {
+    const azar = azarCon(semilla);
+    let r = '';
+    for (let i = 0; i < cuantos; i++) {
+        const x = (i + azar() * 0.8) * ancho / cuantos, h = alto * (0.5 + azar() * 0.5);
+        r += pino(x, alto, h, h * (0.46 + azar() * 0.12), cuerpo, luz, x < ancho / 2 ? 1 : -1, cuerpo);
+    }
+    return `<svg class="campo-arboles ${clase}" viewBox="0 0 ${ancho} ${alto}" preserveAspectRatio="xMidYMax slice" shape-rendering="crispEdges">${r}</svg>`;
+}
+// troncos altos del bosque (como en un bosque cerrado), salvo donde está la luna
+function troncos(ancho, alto, semilla) {
+    const azar = azarCon(semilla);
+    let r = '';
+    for (let x = 20; x < ancho; x += 70 + azar() * 90) {
+        if (x / ancho > 0.72 && x / ancho < 0.92) continue;
+        const w = 10 + azar() * 16, h = alto * (0.5 + azar() * 0.22); // (bajos: no tapan la luna)
+        r += rect(x, alto - h, w, h, '#2a1b3a') + rect(x, alto - h, w * 0.3, h, '#33224a');
+        r += rect(x - w * 0.8, alto - h + h * (0.2 + azar() * 0.3), w * 0.8, 4, '#2a1b3a'); // (una rama)
+    }
+    return `<svg class="campo-troncos" viewBox="0 0 ${ancho} ${alto}" preserveAspectRatio="xMidYMax slice" shape-rendering="crispEdges">${r}</svg>`;
+}
+// matorrales en el borde del claro
+function matorrales(ancho, alto, semilla) {
+    const azar = azarCon(semilla);
+    let r = '';
+    for (let x = 0; x < ancho; x += 40 + azar() * 120) {
+        const w = 40 + azar() * 70, h = alto * (0.45 + azar() * 0.55);
+        r += rect(x, alto - h * 0.6, w, h * 0.6, '#14301f') + rect(x + w * 0.15, alto - h, w * 0.7, h * 0.45, '#14301f')
+            + rect(x + w * 0.2, alto - h, w * 0.45, h * 0.16, '#24502f') + rect(x + w * 0.05, alto - h * 0.6, w * 0.25, h * 0.12, '#24502f');
+    }
+    return `<svg class="campo-matas" viewBox="0 0 ${ancho} ${alto}" preserveAspectRatio="xMidYMax slice" shape-rendering="crispEdges">${r}</svg>`;
+}
+// los pinos grandes de adelante, a cada lado (enmarcan el claro; el borde de la fogata, iluminado)
+function pinosFrente(lado) {
+    const W = 280, H = 600, d = lado > 0 ? 1 : -1, xs = x => (d > 0 ? x : W - x);
+    const r = pino(xs(70), H, H * 1.02, 250, '#0f2c1d') + pino(xs(190), H, H * 0.7, 170, '#14381f');
+    return `<svg class="campo-frente ${lado > 0 ? 'izq' : 'der'}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="${lado > 0 ? 'xMinYMax' : 'xMaxYMax'} meet" shape-rendering="crispEdges">${r}</svg>`;
+}
+// el bosque de noche (lo comparten la entrada y la sala): cielo con luna, pinos, el claro, la carpa
+function bosqueDeNoche() {
+    return `<div class="campo-cielo" aria-hidden="true">
+            <i class="campo-estrellas"></i>
+            <i class="campo-luna"></i>
+            ${arboles('lejos', 1600, 150, 34, 7, '#1d1d4a')}
+            ${troncos(1600, 300, 5)}
+            ${arboles('cerca', 1600, 230, 15, 3, '#0d2019', '#1a3a2a')}
+            <i class="campo-ojos" style="left:14%;bottom:12%;--d:0s"></i>
+            <i class="campo-ojos" style="left:71%;bottom:18%;--d:-5.5s"></i>
+        </div>
+        <div class="sala-piso" aria-hidden="true"></div>
+        ${matorrales(1600, 60, 11)}
+        ${carpa()}
+        ${pinosFrente(1)}${pinosFrente(-1)}`;
+}
+// la carpa del campamento
+function carpa() {
+    let r = '';
+    const W = 120, H = 80, pasos = 10;
+    for (let k = 0; k < pasos; k++) {
+        const a = W * (k + 1) / pasos, y = H * k / pasos;
+        r += rect((W - a) / 2, y, a, H / pasos + 1, '#24364f') + rect((W - a) / 2, y, a * 0.18, H / pasos + 1, '#34506e');
+    }
+    for (let k = 3; k < pasos; k++) { const a = W * 0.36 * (k - 2) / (pasos - 3); r += rect((W - a) / 2, H * k / pasos, a, H / pasos + 1, '#0d1420'); }
+    r += rect(W / 2 - 1, -6, 3, 8, '#5a4030');
+    return `<svg class="campo-carpa" viewBox="0 -6 ${W} ${H + 6}" shape-rendering="crispEdges">${r}</svg>`;
+}
 import { animDe, prefijoValido, urlHoja } from "./vestidor.js"
 import { nivelDe, alCambiarNiveles, textoNivel } from "./progreso.js"
 
@@ -78,6 +167,8 @@ export function iniciarSala(juego, { alEmpezar }) {
     capa.hidden = true;
     capa.innerHTML = `
         <div class="menu-panel menu-panel-ancho sala-panel" role="dialog" aria-modal="true" aria-labelledby="titulo-sala">
+            <!-- la entrada también es de noche en el bosque (en la sala, el escenario tiene el suyo) -->
+            <div class="sala-fondo" aria-hidden="true">${bosqueDeNoche()}<i class="fondo-fogata"></i></div>
             <div class="sala-cabeza">
                 <h2 id="titulo-sala">JUGAR CON AMIGOS</h2>
                 <button type="button" class="sala-x" data-accion="cerrar" aria-label="Volver">✕</button>
@@ -101,7 +192,7 @@ export function iniciarSala(juego, { alEmpezar }) {
                         <p class="menu-nota">Te unimos a una sala con gente esperando (o creamos una y llegan otros).</p>
                         <div class="tarjeta-pie">
                             <select id="sala-buscar-modo" aria-label="Modo a buscar">
-                                <option value="">Cualquier modo</option>
+                                <option value="">Todos los modos</option>
                                 ${Object.entries(MODOS).map(([m, t]) => `<option value="${m}">${t}</option>`).join('')}
                             </select>
                             <button type="button" class="menu-boton sala-empezar" data-accion="buscar">Buscar</button>
@@ -128,18 +219,31 @@ export function iniciarSala(juego, { alEmpezar }) {
                 </div>
             </div>
 
-            <!-- la sala, como en Among Us: el escenario ocupa todo y encima van la partida (arriba a la izquierda),
-                 el código y cuántos son (abajo) y Personalizar / Empezar (abajo a la derecha); las opciones, en un cajón -->
+            <!-- la sala: el campamento antes de la noche. Un claro del bosque con la fogata al medio y el portal de
+                 piedra a la derecha (entrar al portal = LISTO). Encima: el letrero de la partida (arriba a la izquierda),
+                 qué falta (arriba al medio), los puestos de los jugadores (izquierda), el código abajo y UN botón
+                 principal abajo a la derecha (ESTOY LISTO / EMPEZAR). Las opciones, en un cajón -->
             <div class="sala-paso sala-lobby" data-paso="sala" hidden>
                 <div class="sala-escenario" data-escenario>
-                    <div class="sala-nave" aria-hidden="true"><i class="sala-ventana"></i><i class="sala-ventana"></i><i class="sala-ventana"></i></div>
-                    <div class="sala-piso" aria-hidden="true"></div>
+                    ${bosqueDeNoche()}
+                    <i class="campo-tronco izq" aria-hidden="true"></i><i class="campo-tronco der" aria-hidden="true"></i>
+                    <div class="campo-fogata" aria-hidden="true">
+                        <i class="fogata-luz"></i><i class="fogata-lenos"></i><i class="fogata-llama"></i>
+                        <i class="fogata-chispa"></i><i class="fogata-chispa"></i><i class="fogata-chispa"></i><i class="fogata-chispa"></i><i class="fogata-piedras"></i>
+                    </div>
+                    <div class="campo-portal" aria-hidden="true">
+                        <span class="portal-cartel" data-portal-cartel>LISTO</span>
+                        <i class="portal-antorcha"></i><i class="portal-remolino"></i><i class="portal-puerta"></i><i class="portal-antorcha der"></i>
+                    </div>
+                    <div class="campo-niebla" aria-hidden="true"></div>
                 </div>
-                <div class="lobby-partida">
-                    <b>Partida</b>
-                    <p data-modo-texto></p>
-                    <p class="lobby-espera" data-esperando>Esperando a que el anfitrión empiece…</p>
-                </div>
+                <button type="button" class="lobby-letrero" data-letrero>
+                    <span class="letrero-modo" data-modo-corto></span>
+                    <span class="letrero-detalle" data-modo-detalle></span>
+                    <span class="letrero-cambiar" data-solo-anfitrion>✎ cambiar</span>
+                </button>
+                <p class="lobby-estado" data-estado role="status" aria-live="polite"></p>
+                <ol class="lobby-puestos" data-puestos aria-label="Jugadores en la sala"></ol>
                 <button type="button" class="lobby-salir" data-accion="cerrar" aria-label="Salir de la sala">✕</button>
                 <!-- mover a tu personaje: en el celular, botones; en la PC, un recordatorio de las teclas -->
                 <div class="lobby-mando lobby-cruz">
@@ -147,16 +251,16 @@ export function iniciarSala(juego, { alEmpezar }) {
                     <button type="button" data-mover="der" aria-label="Caminar a la derecha">▶</button>
                 </div>
                 <button type="button" class="lobby-mando lobby-saltar" data-saltar aria-label="Saltar">▲</button>
-                <p class="lobby-teclas" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> caminar · <kbd>↑</kbd> saltar · o toca el piso</p>
+                <p class="lobby-teclas" aria-hidden="true"><kbd>←</kbd><kbd>→</kbd> caminar · <kbd>↑</kbd> saltar · entra al portal para decir LISTO</p>
                 <div class="lobby-abajo">
                     <div class="sala-codigo lobby-codigo">
                         <span>Código</span><b data-codigo></b>
                         <button type="button" class="sala-copiar" data-copiar aria-label="Copiar el código">Copiar</button>
+                        <button type="button" class="sala-copiar lobby-compartir" data-invitar aria-label="Invitar amigos">Invitar</button>
                     </div>
-                    <span class="lobby-cuenta" data-cuenta aria-label="Jugadores en la sala"></span>
                     <span class="lobby-hueco"></span>
-                    <button type="button" class="lobby-boton" data-cajon-abrir aria-expanded="false">⚙ Personalizar</button>
-                    <button type="button" class="lobby-boton lobby-empezar" data-accion="empezar" hidden>▶ Empezar</button>
+                    <button type="button" class="lobby-icono" data-cajon-abrir aria-expanded="false" aria-label="Personalizar: personaje, equipo y partida" title="Personalizar">⚙</button>
+                    <button type="button" class="lobby-principal" data-principal></button>
                 </div>
                 <aside class="lobby-cajon" data-cajon hidden aria-label="Personalizar">
                     <div class="lobby-cajon-cabeza">
@@ -191,7 +295,6 @@ export function iniciarSala(juego, { alEmpezar }) {
                                 <div class="menu-opciones">${APUESTAS.map(a =>
                                     `<button type="button" class="menu-opcion" data-apuesta="${a}">${a ? `◉ ${a}` : 'Nada'}</button>`).join('')}</div>
                                 <p class="menu-nota" data-nota-apuesta></p>
-                                <button type="button" class="menu-boton" data-listo>✔ Estoy listo</button>
                             </fieldset>
                         </div>
                         <div class="sala-columna" data-cajon-panel="partida" hidden>
@@ -301,7 +404,14 @@ export function iniciarSala(juego, { alEmpezar }) {
             const c = codigo.value.trim().toUpperCase();
             if (c.length !== 4) { avisar('El código tiene 4 letras', true); codigo.focus(); return; }
             conEspera(() => unirseSala(c, nombreLimpio(), pjElegido));
-        } else if (accion === 'empezar') {
+        } else if (accion === 'cerrar') {
+            if (red.codigo) salirSala();
+            cerrar();
+        }
+    });
+    // el anfitrión arranca la partida (con el botón principal o al terminar la cuenta atrás)
+    function empezar() {
+        {
             // la arena necesita rivales (el servidor también lo revisa)
             const n = red.jugadores.length, equipos = new Set(red.jugadores.map(j => j.equipo));
             if (red.modo === 'duelo' && n !== 2) { avisar('El 1 contra 1 es de 2 jugadores', true); return; }
@@ -327,24 +437,65 @@ export function iniciarSala(juego, { alEmpezar }) {
             // arena al azar: primero se avisa cuál (el servidor atiende los mensajes en orden)
             if (esArena(red.modo) && azar.arena) elegirModo(red.modo, arenaAlAzar(), red.apuesta);
             empezarPartida(red.modo === 'aventura' && azar.nivel ? nivelAlAzar() : Number($('#sala-nivel').value) || 0);
-        } else if (accion === 'cerrar') {
-            if (red.codigo) salirSala();
-            cerrar();
         }
-    });
-    // carrera: mi apuesta (no más de lo que tengo) y "listo"
+    }
+    // carrera y noche: mi apuesta (no más de lo que tengo; cambiarla me deja "no listo")
     capa.addEventListener('click', e => {
-        const b = e.target.closest('[data-apuesta], [data-listo]');
+        const b = e.target.closest('[data-apuesta]');
         if (!b || !red.codigo || (red.modo !== 'carrera' && red.modo !== 'troll')) return;
-        if (b.dataset.listo != null && red.modo !== 'carrera') return;
         const yo = red.jugadores.find(j => j.id === red.tuId);
-        if (b.dataset.apuesta != null) {
-            const a = Number(b.dataset.apuesta);
-            if (a > saldo()) { avisar(`No tienes ◉ ${a} monedas`, true); return; }
-            avisar('');
-            if (yo?.apuesta !== a) apostar(a);
-        } else marcarListo(!yo?.listo);
+        const a = Number(b.dataset.apuesta);
+        if (a > saldo()) { avisar(`No tienes ◉ ${a} monedas`, true); return; }
+        avisar('');
+        if (yo?.apuesta !== a) apostar(a);
     });
+    // ---------- el botón principal: ESTOY LISTO (los demás) o EMPEZAR (el anfitrión) ----------
+    const principal = $('[data-principal]');
+    let confirmarSinEsperar = 0;
+    principal.addEventListener('click', () => {
+        if (!red.codigo) return;
+        const yo = red.jugadores.find(j => j.id === red.tuId);
+        if (!esAnfitrion()) {
+            ponerListo(!yo?.listo);
+            return;
+        }
+        // el anfitrión puede empezar sin esperar a todos (menos en la carrera, donde todos confirman su apuesta):
+        // si falta alguien, pide un segundo toque
+        const faltan = red.jugadores.filter(j => j.id !== red.anfitrion && !j.listo);
+        if (faltan.length && red.modo !== 'carrera' && performance.now() > confirmarSinEsperar) {
+            confirmarSinEsperar = performance.now() + 3000;
+            principal.innerHTML = '<span>¿SIN ESPERAR?</span><small>toca otra vez para empezar</small>';
+            sonar('bump');
+            setTimeout(() => { if (performance.now() >= confirmarSinEsperar) pintarSala(); }, 3050);
+            return;
+        }
+        confirmarSinEsperar = 0;
+        empezar();
+    });
+    function ponerListo(si) {
+        const yo = red.jugadores.find(j => j.id === red.tuId);
+        if (!red.codigo || esAnfitrion() || !yo || !!yo.listo === si) return;
+        marcarListo(si);
+        if (si) sonar('moneda');
+    }
+    // invitar: el menú de compartir del teléfono (o WhatsApp); si no hay, copia el código
+    capa.addEventListener('click', async e => {
+        if (!e.target.closest('[data-invitar]') || !red.codigo) return;
+        const texto = `¡Juega conmigo a Troll Night: La Noche Eterna! Entra a "Jugar con amigos" y usa el código ${red.codigo}`;
+        try {
+            if (navigator.share) { await navigator.share({ text: texto }); return; }
+        } catch (err) { if (err?.name === 'AbortError') return; }
+        try { await navigator.clipboard.writeText(red.codigo); avisar(`Código ${red.codigo} copiado: pásaselo a tus amigos`); } catch (_e) { /* nada */ }
+        window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    });
+    // el letrero de la partida: el anfitrión lo toca para cambiar el modo y el mapa
+    $('[data-letrero]').addEventListener('click', () => {
+        if (!esAnfitrion()) return;
+        pestanaCajon('partida');
+        abrirCajon(true);
+    });
+    // el anfitrión cambia el nivel o la pista: el letrero lo dice
+    capa.addEventListener('change', e => { if (red.codigo && e.target.closest('[data-cajon]')) pintarSala(); });
     // modo y arena (anfitrión) y equipo (cada jugador)
     capa.addEventListener('click', e => {
         const b = e.target.closest('[data-modo], [data-equipo]');
@@ -453,14 +604,6 @@ export function iniciarSala(juego, { alEmpezar }) {
             b.classList.toggle('elegido', b.dataset.modo === red.modo);
             b.setAttribute('aria-pressed', String(b.dataset.modo === red.modo));
         });
-        const arenaSel = ARENAS.find(a => a.id === red.arena);
-        $('[data-modo-texto]').textContent = carrera
-            ? `Carrera: todos corren la misma pista y ven el avance de los demás. Hay caminos largos y seguros y atajos con trampas. Tus poderes especiales alcanzan a los rivales (empujan, aturden o congelan, sin quitar vidas). Gana el primero en llegar · hasta 8 jugadores · apostado en total ◉ ${red.jugadores.reduce((t, j) => t + (j.apuesta || 0), 0)}`
-            : enArena
-            ? `${MODOS[red.modo]} · ${arenaSel?.nombre || ''} (${arenaSel?.peligro || ''}) · al mejor de 3 · ${red.apuesta ? `apuesta ◉ ${red.apuesta} cada uno, el ganador se lleva el pozo` : 'sin apuesta'} · 🏆 Tu liga: ${ligaDe(copasArena())} (${copasArena()} copas)`
-            : red.modo === 'troll'
-            ? `Noche del Troll: uno de ustedes es el troll en secreto${red.jugadores.length >= 7 ? ' (con 7 u 8, son dos)' : ''}. Los héroes encienden las antorchas y descubren al troll en el Juicio; el troll pone trampas sin que lo vean · de 4 a 8 (si faltan, se completa con bots 🤖)`
-            : 'Aventura: todos atados con la cadena';
         const yo2 = red.jugadores.find(j => j.id === red.tuId);
         $('[data-equipos]').hidden = !porEquipos;
         capa.querySelectorAll('[data-equipo]').forEach(b => {
@@ -490,18 +633,112 @@ export function iniciarSala(juego, { alEmpezar }) {
             b.setAttribute('aria-pressed', String(si));
             b.disabled = Number(b.dataset.apuesta) > saldo();
         });
-        const botonListo = $('[data-listo]');
-        botonListo.hidden = anfitrion || !carrera;
-        botonListo.classList.toggle('sala-empezar', !yo2?.listo);
-        botonListo.textContent = yo2?.listo ? '✔ Listo (toca para cambiar)' : '✔ Estoy listo';
-        $('[data-accion="empezar"]').hidden = !anfitrion;
-        $('[data-esperando]').hidden = anfitrion;
-        // cuántos somos (y cuántos caben en este modo)
-        const cupo = red.modo === 'duelo' ? 2 : enArena ? 4 : 8;
-        $('[data-cuenta]').textContent = `👥 ${red.jugadores.length}/${cupo}`;
-        // carrera: el que no está listo tiene que entrar a Personalizar para apostar y confirmar
-        $('[data-cajon-abrir]').classList.toggle('atencion', carrera && !anfitrion && !yo2?.listo && cajon.hidden);
+        pintarSala();
         actualizarEscenario();
+    }
+
+    // ---------- el letrero, los puestos, el botón principal, qué falta y la cuenta atrás ----------
+    const otrosDe = () => red.jugadores.filter(j => j.id !== red.anfitrion);
+    const todosListos = () => red.jugadores.length >= Math.max(2, MINIMO[red.modo] || 1) && otrosDe().every(j => j.listo);
+    function pintarSala() {
+        if (!red.codigo) return;
+        const anfitrion = esAnfitrion(), carrera = red.modo === 'carrera', enArena = esArena(red.modo);
+        const yo = red.jugadores.find(j => j.id === red.tuId);
+        // letrero: modo y mapa
+        const [icono, nombreModo] = MODO_CORTO[red.modo] || MODO_CORTO.aventura;
+        const arenaSel = ARENAS.find(a => a.id === red.arena);
+        const nivelSel = NIVELES[Number($('#sala-nivel').value)];
+        const pistaSel = $('#sala-pista');
+        $('[data-modo-corto]').textContent = `${icono} ${nombreModo}`;
+        $('[data-modo-detalle]').textContent = carrera
+            ? `${anfitrion ? `${azar.pista ? '🎲 pista al azar' : pistaSel.selectedOptions[0]?.textContent || ''}${$('#sala-formato').value === 'copa' ? ' · 🏆 copa' : ''} · ` : ''}en juego ◉ ${red.jugadores.reduce((t, j) => t + (j.apuesta || 0), 0)}`
+            : enArena
+            ? `${azar.arena && anfitrion ? '🎲 arena al azar' : arenaSel?.nombre || ''} · al mejor de 3 · ${red.apuesta ? `◉ ${red.apuesta} cada uno` : 'sin apuesta'}`
+            : red.modo === 'troll'
+            ? `${azar.mapaNoche && anfitrion ? '🎲 mapa al azar' : MAPAS_NOCHE[red.arena] || ''} · uno es el troll en secreto`
+            : `Todos atados con la cadena${anfitrion ? ` · ${azar.nivel || !nivelSel ? '🎲 nivel al azar' : `nivel ${Number($('#sala-nivel').value) + 1}`}` : ''}`;
+        const letrero = $('[data-letrero]');
+        letrero.classList.toggle('editable', anfitrion);
+        letrero.setAttribute('aria-disabled', String(!anfitrion));
+        letrero.title = anfitrion ? 'Cambiar el modo y el mapa' : '';
+        // puestos: los que están (★ anfitrión, ✔ listo, … pensando) y los lugares libres
+        const cupo = red.modo === 'duelo' ? 2 : enArena ? 4 : 8;
+        const puestos = red.jugadores.map(j => {
+            const pj = PERSONAJES.find(p => p.id === j.pj) || PERSONAJES[0];
+            const host = j.id === red.anfitrion, estado = host ? 'anfitrion' : j.listo ? 'listo' : 'espera';
+            const dice = host ? 'anfitrión' : j.listo ? 'listo' : 'todavía no está listo';
+            return `<li class="puesto ${estado}${j.id === red.tuId ? ' yo' : ''}" style="--pj:${color(pj)}" title="${escapar(j.nombre)}: ${dice}">
+                <span class="puesto-cara" data-cara="${j.id}" aria-hidden="true"></span>
+                <span class="puesto-nombre">${escapar(j.nombre)}${j.id === red.tuId ? ' <small>(tú)</small>' : ''}</span>
+                <span class="puesto-estado" aria-label="${dice}">${host ? '★' : j.listo ? '✔' : '…'}</span></li>`;
+        });
+        // (lugares libres: hasta 2 en la PC para que la lista no tape la pantalla; en el celular van todos en fila)
+        const libres = cupo - red.jugadores.length;
+        for (let i = 0; i < libres; i++) puestos.push(`<li class="puesto vacio${i >= 2 ? ' extra' : ''}"><button type="button" data-invitar>＋ <span>Invitar${i === 1 && libres > 2 ? ` · ${libres} lugares` : ''}</span></button></li>`);
+        $('[data-puestos]').innerHTML = puestos.join('');
+        capa.querySelectorAll('[data-cara]').forEach(el => {
+            const j = red.jugadores.find(x => String(x.id) === el.dataset.cara), pj = PERSONAJES.find(p => p.id === j?.pj) || PERSONAJES[0];
+            const suyo = j?.id === red.tuId ? animDe(pj) : coloresDe.get(j?.id);
+            el.style.backgroundImage = `url("${urlHoja(juego, suyo && suyo.split('~')[0] === pj.id ? suyo : pj.id, 'idle')}")`;
+            el.style.setProperty('--n', pj.hojas.idle[1]);
+        });
+        // el botón principal
+        const otros = otrosDe(), listos = otros.filter(j => j.listo).length;
+        if (performance.now() < confirmarSinEsperar) { /* (está preguntando "¿sin esperar?") */ }
+        else if (anfitrion) {
+            principal.className = `lobby-principal empezar${todosListos() || !otros.length ? ' brilla' : ''}`;
+            principal.innerHTML = `<span>▶ EMPEZAR</span>${otros.length ? `<small>${listos} de ${otros.length} listos</small>` : '<small>o espera a tus amigos</small>'}`;
+        } else {
+            principal.className = `lobby-principal ${yo?.listo ? 'hecho' : 'brilla'}`;
+            principal.innerHTML = yo?.listo ? '<span>✔ LISTO</span><small>toca para cancelar</small>' : '<span>✋ ESTOY LISTO</span>';
+        }
+        $('[data-portal-cartel]').textContent = anfitrion ? '★ TÚ EMPIEZAS' : yo?.listo ? '✔ LISTO' : 'LISTO ➜';
+        $('[data-portal-cartel]').closest('.campo-portal').classList.toggle('abierto', !!yo?.listo || anfitrion);
+        // carrera y noche: la apuesta se elige en Personalizar (el engranaje avisa si aún no estás listo)
+        $('[data-cajon-abrir]').classList.toggle('atencion', carrera && !anfitrion && !yo?.listo && cajon.hidden);
+        revisarCuenta();
+        pintarEstado();
+    }
+    // qué falta, en una frase
+    function pintarEstado() {
+        const n = red.jugadores.length, anfitrion = esAnfitrion(), yo = red.jugadores.find(j => j.id === red.tuId);
+        const faltan = otrosDe().filter(j => !j.listo), minimo = MINIMO[red.modo] || 1;
+        const nombres = l => l.length <= 2 ? l.map(j => j.nombre).join(' y ') : `${l[0].nombre}, ${l[1].nombre} y ${l.length - 2} más`;
+        let texto;
+        if (cuenta?.fin) texto = `🔥 ¡Todos listos! Empieza en ${Math.max(1, Math.ceil((cuenta.fin - performance.now()) / 1000))}…`;
+        else if (n < minimo) texto = anfitrion ? `Faltan jugadores: este modo es de ${minimo} o más` : 'Esperando a que lleguen más jugadores…';
+        else if (n === 1) texto = 'Invita amigos o empieza solo';
+        else if (!anfitrion && !yo?.listo) texto = red.modo === 'carrera' ? '👉 Elige tu apuesta en ⚙ y toca ESTOY LISTO (o entra al portal)' : '👉 Toca ESTOY LISTO o entra al portal';
+        else if (faltan.length) texto = `Esperando a que ${nombres(faltan)} ${faltan.length > 1 ? 'digan' : 'diga'} LISTO`;
+        else texto = anfitrion ? '¡Todos listos! Toca ▶ EMPEZAR' : 'Esperando a que el anfitrión empiece';
+        const el = $('[data-estado]');
+        if (el.textContent !== texto) el.textContent = texto;
+        el.classList.toggle('cuenta', !!cuenta?.fin);
+    }
+    // todos listos: cuenta atrás de 5 s (la ven todos; al llegar a 0 arranca el anfitrión). Si alguien
+    // cancela, se corta. Termina una sola vez: si el servidor no deja empezar, no vuelve a contar sola
+    let cuenta = null;
+    function revisarCuenta() {
+        const si = todosListos() && !$('[data-paso="sala"]').hidden && !capa.hidden;
+        if (si && !cuenta) {
+            cuenta = { fin: performance.now() + CUENTA_ATRAS * 1000 };
+            cuenta.reloj = setInterval(() => {
+                if (!cuenta?.fin) return;
+                if (performance.now() >= cuenta.fin) {
+                    clearInterval(cuenta.reloj);
+                    cuenta = { hecha: true };
+                    escenario.classList.remove('contando');
+                    if (esAnfitrion()) empezar();
+                }
+                pintarEstado();
+            }, 200);
+            escenario.classList.add('contando');
+            sonar('aparece');
+        } else if (!si && cuenta) {
+            clearInterval(cuenta.reloj);
+            cuenta = null;
+            escenario.classList.remove('contando');
+        }
     }
 
     // ---------- escenario: los personajes de la sala paseando ----------
@@ -514,6 +751,7 @@ export function iniciarSala(juego, { alEmpezar }) {
     const MANDO_MS = 10000;  // un jugador que movió a su personaje hace poco: ese ya no pasea solo
     // el piso tiene fondo (como la nave de Among Us): y = px hacia el fondo; los de atrás se ven más chicos
     const fondoPiso = () => (escenario.clientHeight || 200) * 0.22;
+    const zonaPortal = () => Math.max(70, (escenario.clientWidth || 400) * 0.09); // (el portal, a la derecha)
     const pjDe = a => PERSONAJES.find(p => p.id === a.pj) || PERSONAJES[0];
     // cambia la animación solo si es otra (no se recarga la hoja en cada cuadro)
     const animar = (a, anim) => { if (a.sprite.dataset.anim !== anim) hoja(a.sprite, pjDe(a), anim, a.prefijo); };
@@ -607,8 +845,9 @@ export function iniciarSala(juego, { alEmpezar }) {
                 el.className = 'sala-heroe entrando';
                 el.innerHTML = '<span class="sala-etiqueta"></span><div class="sala-sprite"></div>';
                 escenario.append(el);
+                // (lejos del portal: entrar ahí es decir LISTO)
                 a = { el, sprite: el.querySelector('.sala-sprite'), etiqueta: el.querySelector('.sala-etiqueta'),
-                    x: 40 + Math.random() * Math.max(1, ancho - 80), y: Math.random() * fondoPiso(), destino: null, destinoY: 0, quieto: 0 };
+                    x: 40 + Math.random() * Math.max(1, ancho - 80 - zonaPortal()), y: Math.random() * fondoPiso(), destino: null, destinoY: 0, quieto: 0 };
                 a.el.addEventListener('animationend', () => a.el.classList.remove('entrando', 'saltando'));
                 actores.set(j.id, a);
                 if (actores.size > 1) sonar('aparece');
@@ -621,6 +860,7 @@ export function iniciarSala(juego, { alEmpezar }) {
             }
             a.el.style.setProperty('--pj', color(pj));
             a.el.classList.toggle('yo', j.id === red.tuId);
+            a.el.classList.toggle('listo', j.id !== red.anfitrion && !!j.listo);
             a.etiqueta.textContent = `${nivelDe(j.id) ? `${textoNivel(nivelDe(j.id))} · ` : ''}${j.id === red.anfitrion ? '★ ' : ''}${j.nombre}${red.modo === 'carrera' ? ` · ◉${j.apuesta || 0}${j.listo ? ' ✔' : ''}` : ''}`;
         });
         // los que se fueron se desvanecen
@@ -653,7 +893,7 @@ export function iniciarSala(juego, { alEmpezar }) {
                 a.quieto -= dt;
                 // los demás pasean solos (salvo que su jugador los esté moviendo); el tuyo solo camina si lo mueves
                 if (a.quieto <= 0 && ancho && !yo && !mandado) {
-                    a.destino = 40 + Math.random() * Math.max(1, ancho - 80);
+                    a.destino = 40 + Math.random() * Math.max(1, ancho - 80 - zonaPortal());
                     a.destinoY = Math.random() * fondo;
                     animar(a, 'run');
                 }
@@ -670,6 +910,15 @@ export function iniciarSala(juego, { alEmpezar }) {
             }
             a.x = Math.max(30, Math.min(Math.max(30, ancho - 30), a.x));
             a.y = Math.max(0, Math.min(fondo, a.y));
+            // entrar al portal (a la derecha) = LISTO
+            if (yo) {
+                const dentro = a.x > ancho - zonaPortal();
+                if (dentro && !a.enPortal) {
+                    if (esAnfitrion()) avisar('Tú eres el anfitrión: toca ▶ EMPEZAR cuando estén todos');
+                    else ponerListo(true);
+                }
+                a.enPortal = dentro;
+            }
             // mi posición a los demás (solo si cambió)
             if (yo && ahora - ultimaPos > ENVIO_POS_MS) {
                 const p = posDe(a), clave = `${p.x},${p.y}`;
@@ -690,7 +939,7 @@ export function iniciarSala(juego, { alEmpezar }) {
     function mostrarPaso(paso) {
         capa.querySelectorAll('.sala-paso').forEach(p => { p.hidden = p.dataset.paso !== paso; });
         capa.classList.toggle('en-sala', paso === 'sala'); // (en la sala: escenario a pantalla completa)
-        if (paso !== 'sala') { $('[data-accion="empezar"]').hidden = true; abrirCajon(false); }
+        if (paso !== 'sala') { abrirCajon(false); if (cuenta) { clearInterval(cuenta.reloj); cuenta = null; } }
     }
 
     function avisar(texto, error = false) {
@@ -701,6 +950,7 @@ export function iniciarSala(juego, { alEmpezar }) {
     function cerrar() {
         if (capa.contains(document.activeElement)) document.activeElement.blur();
         capa.hidden = true;
+        if (cuenta) { clearInterval(cuenta.reloj); cuenta = null; escenario.classList.remove('contando'); }
         // al salir de la sala se vacía el escenario (al volver, todos entran de nuevo)
         actores.forEach(a => a.el.remove());
         actores.clear();
@@ -718,6 +968,9 @@ export function iniciarSala(juego, { alEmpezar }) {
         pintarMinis();
         marcarPersonaje();
         anunciarColores();
+        // al volver de una partida: cada uno vuelve a decir LISTO (si no, la cuenta atrás arrancaría sola)
+        const yo = red.jugadores.find(j => j.id === red.tuId);
+        if (red.codigo && yo?.listo && !esAnfitrion()) marcarListo(false);
         capa.hidden = false;
         dibujarSala();
         teclado(false);

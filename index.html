@@ -843,56 +843,10 @@
         }
         .sala-capa.en-sala .sala-aviso:not(:empty) { padding: 6px 14px; }
         .sala-lobby:not([hidden]) { position: relative; flex: 1 1 auto; min-height: 0; display: block; border-radius: var(--radio); overflow: hidden; }
-        .sala-lobby .sala-escenario {
-            position: absolute; inset: 0; height: auto; border: 0; border-radius: 0; cursor: pointer;
-            background:
-                radial-gradient(70% 55% at 50% 100%, rgba(139, 156, 255, 0.16), transparent 70%),
-                linear-gradient(180deg, #0c1124 0%, #18203f 58%, #0b0f1e 58.2%);
-        }
-        /* la pared de la nave: paneles y tres ventanas con estrellas */
-        .sala-nave {
-            position: absolute; left: 0; right: 0; top: 0; height: 58%;
-            display: flex; align-items: center; justify-content: space-evenly; padding: 0 6%;
-            background:
-                repeating-linear-gradient(90deg, transparent 0 159px, rgba(255, 255, 255, 0.05) 159px 161px),
-                linear-gradient(180deg, transparent 0 82%, rgba(255, 255, 255, 0.05) 82% 83%, transparent 83%);
-            pointer-events: none;
-        }
-        .sala-ventana {
-            width: clamp(70px, 14vw, 190px); aspect-ratio: 16 / 10; border-radius: 22px;
-            border: 6px solid #2a3358; box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(139, 156, 255, 0.18), 0 10px 30px rgba(0, 0, 0, 0.45);
-            background:
-                radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),
-                radial-gradient(1px 1px at 70% 20%, #cfd8ff, transparent),
-                radial-gradient(1.5px 1.5px at 45% 70%, #fff, transparent),
-                radial-gradient(1px 1px at 85% 60%, #fff, transparent),
-                radial-gradient(1px 1px at 10% 80%, #cfd8ff, transparent),
-                radial-gradient(120% 90% at 80% 110%, rgba(120, 90, 255, 0.35), transparent 60%),
-                #050816;
-            animation: sala-estrellas 30s linear infinite;
-        }
-        @keyframes sala-estrellas { to { background-position: -200px 0, -140px 0, -260px 0, -120px 0, -180px 0, 0 0, 0 0; } }
-        /* el piso: baldosas que se pierden hacia la pared */
-        .sala-lobby .sala-piso {
-            top: 58%; height: auto; border-top: 2px solid rgba(139, 156, 255, 0.35);
-            background:
-                repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 96px),
-                repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0 2px, transparent 2px 48px),
-                linear-gradient(180deg, #1d2547, #121830);
-        }
         .sala-lobby .sala-heroe { --tam: clamp(96px, 19vh, 150px); bottom: 6%; transform-origin: 50% 100%; }
         .sala-lobby .sala-etiqueta { top: -4px; font-size: 12px; padding: 2px 9px; background: rgba(5, 7, 15, 0.75); text-shadow: 0 1px 0 #000; }
         .sala-lobby .sala-heroe.yo .sala-etiqueta { box-shadow: 0 0 0 1px var(--pj, #8b9cff); }
 
-        /* arriba a la izquierda: la partida (como el cartel de ajustes de Among Us) */
-        .lobby-partida {
-            position: absolute; left: 14px; top: 14px; z-index: 2000; max-width: min(380px, 46%);
-            padding: 10px 14px; border-radius: 14px; text-align: left; pointer-events: none;
-            background: rgba(5, 7, 15, 0.62); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(4px);
-        }
-        .lobby-partida b { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--acento); margin-bottom: 4px; }
-        .lobby-partida p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--texto); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-        .lobby-partida .lobby-espera { margin-top: 6px; font-size: 12px; color: var(--texto-2); font-style: italic; }
         .lobby-salir {
             position: absolute; right: 14px; top: 14px; z-index: 2000; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
             font: inherit; font-size: 18px; font-weight: 700; color: #ffb4b4; background: rgba(5, 7, 15, 0.7); border: 1px solid rgba(255, 120, 120, 0.4);
@@ -1056,13 +1010,11 @@
         body.movil .lobby-teclas { display: none; }
         @media (max-width: 900px) { .lobby-teclas { bottom: auto; top: 18px; } } /* (sin lugar en la barra: arriba, al medio) */
         @media (prefers-reduced-motion: reduce) {
-            .sala-ventana, .lobby-boton.atencion, .lobby-cajon { animation: none; }
+            .lobby-boton.atencion, .lobby-cajon { animation: none; }
         }
         /* celular horizontal: todo más compacto */
         @media (max-height: 520px) {
             .sala-capa.en-sala .sala-panel { padding: 0; }
-            .lobby-partida { left: 10px; top: 10px; padding: 6px 10px; max-width: 44%; }
-            .lobby-partida p { font-size: 11px; -webkit-line-clamp: 3; }
             .lobby-salir { right: 10px; top: 10px; width: 38px; height: 38px; font-size: 15px; }
             .lobby-abajo { left: 10px; right: 10px; bottom: 10px; gap: 6px; }
             .lobby-codigo b { font-size: 18px; letter-spacing: 4px; }
@@ -1082,7 +1034,365 @@
             .lobby-abajo { flex-wrap: wrap; }
             .lobby-hueco { flex-basis: 100%; height: 0; }
             .lobby-boton { flex: 1; }
-            .lobby-partida { max-width: calc(100% - 80px); }
+        }
+
+        /* ---------- la sala: el campamento antes de la noche (sala.js) ----------
+           cielo con luna, estrellas y dos filas de pinos en cuadritos; ojos rojos que a ratos miran desde el bosque;
+           el claro con la fogata al medio (el fuego del juego) y el portal de piedra a la derecha (entrar = LISTO) */
+        .sala-lobby .sala-escenario {
+            position: absolute; inset: 0; height: auto; border: 0; border-radius: 0; cursor: pointer;
+            background: linear-gradient(180deg, #07061a 0%, #1a1040 30%, #33195a 57%, #0b0f1e 58.2%);
+        }
+        .campo-cielo { position: absolute; left: 0; right: 0; top: 0; height: 58%; overflow: hidden; pointer-events: none; }
+        .campo-estrellas {
+            position: absolute; inset: 0 0 30% 0;
+            background:
+                radial-gradient(1.5px 1.5px at 6% 22%, #fff, transparent), radial-gradient(1px 1px at 14% 58%, #cfd8ff, transparent),
+                radial-gradient(1.5px 1.5px at 23% 12%, #fff, transparent), radial-gradient(1px 1px at 31% 40%, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 42% 20%, #dfe6ff, transparent), radial-gradient(1px 1px at 49% 62%, #fff, transparent),
+                radial-gradient(1.5px 1.5px at 57% 8%, #fff, transparent), radial-gradient(1px 1px at 63% 44%, #cfd8ff, transparent),
+                radial-gradient(1px 1px at 69% 70%, #fff, transparent), radial-gradient(1.5px 1.5px at 88% 52%, #fff, transparent),
+                radial-gradient(1px 1px at 94% 16%, #dfe6ff, transparent), radial-gradient(1px 1px at 36% 80%, #fff, transparent);
+            animation: campo-titilar 3.5s ease-in-out infinite alternate;
+        }
+        @keyframes campo-titilar { to { opacity: 0.55; } }
+        .campo-luna {
+            position: absolute; right: 17%; top: 9%; width: clamp(40px, 9vh, 86px); aspect-ratio: 1; border-radius: 50%;
+            background:
+                radial-gradient(circle at 64% 60%, rgba(160, 150, 120, 0.55) 0 9%, transparent 10%),
+                radial-gradient(circle at 34% 68%, rgba(160, 150, 120, 0.45) 0 6%, transparent 7%),
+                radial-gradient(circle at 46% 30%, rgba(160, 150, 120, 0.4) 0 7%, transparent 8%),
+                radial-gradient(circle at 38% 36%, #fffbe6 0 35%, #ebe3c2 68%, #cbc2a0 100%);
+            box-shadow: 0 0 26px 6px rgba(255, 244, 200, 0.28), 0 0 110px 40px rgba(140, 160, 255, 0.14);
+        }
+        .campo-arboles { position: absolute; left: 0; bottom: 0; width: 100%; }
+        .campo-arboles.lejos { height: 50%; }
+        .campo-arboles.cerca { height: 82%; }
+        .campo-troncos { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; }
+        /* lo de adelante (detrás de los personajes y el portal): matorrales en el borde del claro, la carpa,
+           los dos pinos grandes que enmarcan la escena y los troncos para sentarse junto a la fogata */
+        .campo-matas { position: absolute; left: 0; width: 100%; top: 53%; height: 7%; z-index: 2; pointer-events: none; }
+        .campo-carpa { position: absolute; left: 21%; bottom: 37%; height: clamp(44px, 13vh, 104px); aspect-ratio: 120 / 86; z-index: 3; pointer-events: none; }
+        .campo-frente { position: absolute; bottom: 0; height: 104%; aspect-ratio: 280 / 600; z-index: 4; pointer-events: none; }
+        .campo-frente.izq { left: -4%; }
+        .campo-frente.der { right: -4%; }
+        .campo-tronco {
+            --largo: clamp(64px, 11vw, 150px);
+            position: absolute; bottom: 11%; width: var(--largo); height: clamp(12px, 2.6vh, 20px); z-index: 940; pointer-events: none;
+            background: linear-gradient(180deg, #9a6634 0 28%, #64401f 28% 78%, #3e2412 78%); border: 2px solid #1e1006; border-radius: 4px;
+        }
+        .campo-tronco::after {
+            content: ''; position: absolute; top: -2px; bottom: -2px; aspect-ratio: 1; border: 2px solid #1e1006; border-radius: 50%;
+            background: radial-gradient(circle, #d8a868 0 28%, #9a6634 30% 58%, #64401f 60%);
+        }
+        .campo-tronco.izq { right: calc(50% + 60px); transform: rotate(-5deg); }
+        .campo-tronco.izq::after { right: -6px; }
+        .campo-tronco.der { left: calc(50% + 60px); transform: rotate(5deg); }
+        .campo-tronco.der::after { left: -6px; }
+        .fogata-piedras {
+            position: absolute; left: -20%; right: -20%; bottom: -5%; height: max(6px, 8%); border-radius: 3px;
+            background: repeating-linear-gradient(90deg, #8a8e98 0 9px, #5a5e68 9px 12px, transparent 12px 14px);
+        }
+        /* ojos del troll en el bosque: aparecen, parpadean y se van */
+        .campo-ojos { position: absolute; width: 16px; height: 4px; opacity: 0; animation: campo-ojos 11s steps(1) infinite; animation-delay: var(--d, 0s); }
+        .campo-ojos::before, .campo-ojos::after { content: ''; position: absolute; top: 0; width: 5px; height: 4px; background: #ff3b3b; box-shadow: 0 0 6px 2px rgba(255, 40, 40, 0.65); }
+        .campo-ojos::before { left: 0; }
+        .campo-ojos::after { right: 0; }
+        @keyframes campo-ojos { 0% { opacity: 0; } 62% { opacity: 1; } 70% { opacity: 0; } 72% { opacity: 1; } 84% { opacity: 0; } }
+        /* el claro: pasto oscuro con borde en cuadritos y la luz cálida de la fogata */
+        .sala-lobby .sala-piso, .sala-fondo .sala-piso {
+            top: 58%; height: auto; border-top: 0;
+            background:
+                radial-gradient(40% 60% at 50% 62%, rgba(255, 170, 60, 0.26), transparent 72%),
+                radial-gradient(75% 110% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.45)),
+                linear-gradient(180deg, #23432b 0%, #17301f 45%, #0c1a12 100%);
+        }
+        .sala-lobby .sala-piso::before, .sala-fondo .sala-piso::before {
+            content: ''; position: absolute; left: 0; right: 0; top: -4px; height: 8px;
+            background: repeating-linear-gradient(90deg, #26403a 0 8px, #1c2f2b 8px 12px, #2c4a42 12px 18px, transparent 18px 22px);
+        }
+        .campo-niebla {
+            position: absolute; left: -25%; right: -25%; top: 44%; height: 26%; pointer-events: none; z-index: 1;
+            background:
+                radial-gradient(40% 50% at 25% 50%, rgba(170, 180, 230, 0.1), transparent 70%),
+                radial-gradient(35% 45% at 72% 60%, rgba(170, 180, 230, 0.08), transparent 70%);
+            filter: blur(6px); animation: campo-niebla 24s ease-in-out infinite alternate;
+        }
+        @keyframes campo-niebla { to { transform: translateX(12%); } }
+        /* la fogata: el fuego del juego (assets/poderes/fuego4.png, 10 cuadros) sobre dos leños */
+        .campo-fogata {
+            --fw: clamp(50px, 10.5vh, 92px);
+            position: absolute; left: 50%; bottom: 13%; width: var(--fw); height: calc(var(--fw) * 1.19);
+            transform: translateX(-50%); z-index: 950; pointer-events: none;
+        }
+        .fogata-luz {
+            position: absolute; left: 50%; bottom: -14%; width: 520%; height: 150%; transform: translateX(-50%); z-index: -1;
+            background: radial-gradient(closest-side, rgba(255, 150, 60, 0.32), rgba(255, 110, 40, 0.1) 55%, transparent);
+            animation: fogata-luz 1.4s ease-in-out infinite alternate; transition: width 0.6s, height 0.6s;
+        }
+        @keyframes fogata-luz { to { opacity: 0.7; } }
+        .fogata-lenos { position: absolute; left: 4%; right: 4%; bottom: 0; height: 16%; }
+        .fogata-lenos::before, .fogata-lenos::after {
+            content: ''; position: absolute; left: 0; right: 0; bottom: 10%; height: 55%;
+            background: linear-gradient(180deg, #7a4a22, #4a2a12); border: 2px solid #1e1006; border-radius: 2px;
+        }
+        .fogata-lenos::before { transform: rotate(13deg); }
+        .fogata-lenos::after { transform: rotate(-13deg); }
+        .fogata-llama {
+            position: absolute; left: 0; right: 0; top: 0; bottom: 8%; transform-origin: 50% 100%; transition: transform 0.6s;
+            background: url("assets/poderes/fuego4.png") 0 0 / 1000% 100% no-repeat; image-rendering: pixelated;
+            animation: fogata-llama 1s steps(10) infinite;
+        }
+        @keyframes fogata-llama { to { background-position-x: 111.111%; } }
+        .fogata-chispa {
+            position: absolute; left: 50%; bottom: 45%; width: 3px; height: 3px; opacity: 0;
+            background: #ffd27a; box-shadow: 0 0 4px #ff9a3a; animation: fogata-chispa 2.4s linear infinite;
+        }
+        .fogata-chispa:nth-of-type(4) { --cx: -16px; }
+        .fogata-chispa:nth-of-type(5) { --cx: 10px; animation-delay: -0.6s; }
+        .fogata-chispa:nth-of-type(6) { --cx: -6px; animation-delay: -1.2s; }
+        .fogata-chispa:nth-of-type(7) { --cx: 18px; animation-delay: -1.8s; }
+        @keyframes fogata-chispa { 0% { opacity: 1; transform: translate(0, 0); } 100% { opacity: 0; transform: translate(var(--cx, 0), -110px); } }
+        /* todos listos: la fogata crece mientras corre la cuenta atrás */
+        .sala-escenario.contando .fogata-llama { transform: scale(1.45); }
+        .sala-escenario.contando .fogata-luz { width: 800%; height: 220%; }
+        /* el portal de piedra (assets/mazmorra/door.png) con un remolino y dos antorchas */
+        .campo-portal {
+            position: absolute; right: 1.5%; bottom: 20%; width: clamp(66px, 8.5vw, 128px); aspect-ratio: 1; z-index: 900; pointer-events: none;
+        }
+        .portal-puerta { position: absolute; inset: 0; background: url("assets/mazmorra/door.png") center / contain no-repeat; image-rendering: pixelated; }
+        .portal-remolino {
+            position: absolute; left: 33%; right: 33%; top: 24%; bottom: 10%; border-radius: 50% 50% 6% 6%; overflow: hidden; opacity: 0.45;
+            box-shadow: 0 0 18px 4px rgba(120, 90, 255, 0.45); transition: opacity 0.4s, box-shadow 0.4s;
+        }
+        .portal-remolino::before {
+            content: ''; position: absolute; inset: -60%;
+            background: conic-gradient(#6d3cff, #2bd4ff, #b04dff, #3a1a8a, #6d3cff); animation: portal-girar 2.6s linear infinite;
+        }
+        @keyframes portal-girar { to { transform: rotate(360deg); } }
+        .campo-portal.abierto .portal-remolino { opacity: 0.95; box-shadow: 0 0 30px 10px rgba(140, 110, 255, 0.6); }
+        .portal-antorcha {
+            position: absolute; bottom: 0; left: -30%; width: 44%; aspect-ratio: 1; image-rendering: pixelated;
+            background: url("assets/mazmorra/antorcha1.png") 0 0 / 400% 100% no-repeat; animation: portal-antorcha 0.6s steps(4) infinite;
+        }
+        .portal-antorcha.der { left: auto; right: -30%; animation-delay: -0.3s; }
+        @keyframes portal-antorcha { to { background-position-x: 133.333%; } }
+        .portal-cartel {
+            position: absolute; right: -6px; bottom: calc(100% + 6px); padding: 5px 7px; white-space: nowrap;
+            font: 400 9px/1 'Press Start 2P', monospace; color: #ffe27a; text-shadow: 0 1px 0 #000;
+            background: linear-gradient(180deg, #5a3a1e, #3e2712); border: 2px solid #1e1209; border-radius: 3px; box-shadow: 0 3px 0 #120a04;
+            animation: portal-cartel 1.3s ease-in-out infinite alternate;
+        }
+        .campo-portal.abierto .portal-cartel { color: #8dffbf; }
+        @keyframes portal-cartel { to { transform: translateY(-4px); } }
+        /* sobre la cabeza: ✔ de los que ya están listos */
+        .sala-lobby .sala-heroe.listo .sala-etiqueta { box-shadow: 0 0 0 1px #5eea9a; }
+        .sala-lobby .sala-heroe.listo .sala-etiqueta::before { content: '✔ '; color: #5eea9a; }
+
+        /* arriba a la izquierda: el letrero de madera con el modo y el mapa (el anfitrión lo toca para cambiarlo) */
+        .lobby-letrero {
+            position: absolute; left: 14px; top: 14px; z-index: 2000; max-width: min(320px, 30%);
+            display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 14px 11px; text-align: left;
+            font: inherit; color: #f4e6c8; cursor: default;
+            background: repeating-linear-gradient(180deg, transparent 0 9px, rgba(0, 0, 0, 0.12) 9px 11px), linear-gradient(180deg, #5d3c1f, #3e2712);
+            border: 2px solid #1e1209; border-radius: 6px;
+            box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.3), 0 4px 0 #1e1209, 0 10px 24px rgba(0, 0, 0, 0.45);
+        }
+        .lobby-letrero.editable { cursor: pointer; }
+        .lobby-letrero.editable:hover { filter: brightness(1.12); }
+        .lobby-letrero:focus-visible { outline: 2px solid #ffd27a; outline-offset: 3px; }
+        .letrero-modo { font: 400 11px/1.35 'Press Start 2P', monospace; color: #ffe9a8; text-shadow: 0 2px 0 #1e1209; }
+        .letrero-detalle { font-size: 12px; font-weight: 600; line-height: 1.35; color: #e8d6b0; }
+        .letrero-cambiar { font-size: 11px; font-weight: 800; color: #ffd27a; }
+        /* arriba al medio: qué falta para empezar (y la cuenta atrás) */
+        .lobby-estado {
+            position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 2000; margin: 0; max-width: min(400px, 34%);
+            padding: 8px 16px; border-radius: 999px; pointer-events: none; text-align: center;
+            font-size: 14px; font-weight: 700; line-height: 1.3; color: #fff;
+            background: rgba(5, 7, 15, 0.74); border: 1px solid rgba(255, 210, 122, 0.35);
+        }
+        .lobby-estado:empty { display: none; }
+        .lobby-estado.cuenta { font-size: 16px; background: linear-gradient(180deg, #ff9a3a, #c84a14); border-color: #ffd27a; animation: estado-latir 0.5s ease-in-out infinite alternate; }
+        @keyframes estado-latir { to { transform: translateX(-50%) scale(1.06); } }
+        /* a la izquierda: los puestos (★ anfitrión · ✔ listo · … pensando · ＋ invitar) */
+        .lobby-puestos {
+            position: absolute; left: 14px; top: 118px; z-index: 2000; width: 196px; margin: 0; padding: 0; list-style: none;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .puesto {
+            display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 5px 0 3px; border-radius: 8px;
+            font-size: 12px; font-weight: 700; color: #e8ecf8; background: rgba(5, 7, 15, 0.66); border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .puesto.yo { border-color: color-mix(in srgb, var(--pj) 70%, transparent); }
+        .puesto-cara {
+            --tam: 64px; flex: none; width: 26px; height: 26px; border-radius: 6px; image-rendering: pixelated;
+            background-color: color-mix(in srgb, var(--pj, #8b9cff) 28%, #0a0e1c); background-repeat: no-repeat;
+            background-size: calc(var(--tam) * var(--n, 1)) var(--tam); background-position: -19px -31px;
+        }
+        .puesto-nombre { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .puesto-nombre small { font-weight: 500; color: #9aa3bf; }
+        .puesto-estado { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; font-size: 12px; font-weight: 800; }
+        .puesto.listo .puesto-estado { color: #fff; background: #1fb565; }
+        .puesto.espera .puesto-estado { color: #9aa3bf; background: rgba(255, 255, 255, 0.08); animation: puesto-pensar 1.2s ease-in-out infinite; }
+        .puesto.anfitrion .puesto-estado { color: #ffd27a; background: rgba(255, 210, 122, 0.16); }
+        @keyframes puesto-pensar { 50% { opacity: 0.45; } }
+        .puesto.vacio { padding: 0; background: rgba(5, 7, 15, 0.3); border: 1px dashed rgba(255, 255, 255, 0.16); }
+        .puesto.vacio button {
+            width: 100%; height: 100%; padding: 0 10px; text-align: left; cursor: pointer; border: 0; border-radius: 8px;
+            font: inherit; font-size: 12px; font-weight: 700; color: #8a93b0; background: none;
+        }
+        .puesto.vacio.extra { display: none; }
+        .puesto.vacio button:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+        .puesto.vacio button:focus-visible { outline: 2px solid #ffd27a; outline-offset: 1px; }
+        /* abajo: invitar, el engranaje y EL botón principal (dorado: ESTOY LISTO / EMPEZAR; verde: ya estás listo) */
+        .lobby-compartir { color: #ffe9a8; border-color: rgba(255, 210, 122, 0.5); }
+        .lobby-icono {
+            flex: none; width: 52px; height: 52px; border-radius: 14px; cursor: pointer; font: inherit; font-size: 22px; color: #fff;
+            background: linear-gradient(180deg, #2a3358, #1b2240); border: 1px solid rgba(255, 255, 255, 0.16); box-shadow: 0 4px 0 #0d1226;
+        }
+        .lobby-icono:hover { filter: brightness(1.15); }
+        .lobby-icono[aria-expanded="true"] { border-color: var(--acento); }
+        .lobby-icono.atencion { border-color: #ffc94a; animation: lobby-latido 1.2s ease-in-out infinite; }
+        .lobby-icono:focus-visible { outline: 2px solid var(--acento); outline-offset: 3px; }
+        .lobby-principal {
+            flex: none; min-width: 220px; min-height: 60px; padding: 6px 22px 8px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+            font: inherit; color: #2a1600; border: 2px solid #3a1f00; border-radius: 12px;
+            background: linear-gradient(180deg, #fff0b0 0%, #ffd45a 45%, #f09a1e 100%);
+            box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 5px 0 #6b3a00, 0 12px 26px rgba(240, 154, 30, 0.35);
+            transition: filter 0.15s, transform 0.1s;
+        }
+        .lobby-principal span { font: 400 13px/1.2 'Press Start 2P', monospace; letter-spacing: 0.03em; }
+        .lobby-principal small { font-size: 11px; font-weight: 800; opacity: 0.8; }
+        .lobby-principal:hover { filter: brightness(1.08); }
+        .lobby-principal:active { transform: translateY(4px); box-shadow: 0 1px 0 #6b3a00; }
+        .lobby-principal:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+        .lobby-principal.brilla { animation: principal-brilla 1.3s ease-in-out infinite; }
+        @keyframes principal-brilla { 50% { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 5px 0 #6b3a00, 0 0 0 7px rgba(255, 210, 122, 0.32), 0 12px 32px rgba(240, 154, 30, 0.6); } }
+        .lobby-principal.hecho {
+            color: #fff; border-color: #0b4a28; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+            background: linear-gradient(180deg, #8dffbf, #2fcf78 45%, #1a9a55); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 5px 0 #0e5c33;
+        }
+        /* los avisos (errores) van abajo al medio: arriba está "qué falta" */
+        .sala-capa.en-sala .sala-aviso { top: auto; bottom: 88px; }
+        .sala-lobby .lobby-teclas { bottom: auto; top: 62px; }
+        @media (max-width: 900px) { .lobby-teclas { display: none; } }
+        @media (prefers-reduced-motion: reduce) {
+            .campo-estrellas, .campo-niebla, .fogata-luz, .fogata-chispa, .portal-remolino::before, .portal-cartel,
+            .lobby-estado.cuenta, .lobby-principal.brilla, .puesto.espera .puesto-estado { animation: none; }
+        }
+        /* celular horizontal: letrero arriba a la izquierda, puestos en fila arriba a la derecha (solo las caras),
+           "qué falta" abajo al medio (entre los botones de mover y el de saltar) */
+        @media (max-height: 520px) {
+            .lobby-letrero { left: 10px; top: 10px; max-width: 36%; gap: 3px; padding: 6px 10px 7px; }
+            .letrero-modo { font-size: 8px; }
+            .letrero-detalle { font-size: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+            .letrero-cambiar { font-size: 9px; }
+            .lobby-puestos { left: auto; right: 56px; top: 12px; width: auto; flex-direction: row; gap: 3px; }
+            .puesto { position: relative; width: 30px; height: 30px; padding: 0; justify-content: center; }
+            .puesto-cara { width: 24px; height: 24px; background-position: -20px -32px; }
+            .puesto-nombre, .puesto.vacio button span { display: none; }
+            .puesto-estado { position: absolute; right: -4px; bottom: -4px; width: 14px; height: 14px; font-size: 8px; }
+            .puesto.vacio button { padding: 0; text-align: center; }
+            .puesto.vacio.extra { display: flex; }
+            .lobby-estado { top: auto; bottom: 64px; max-width: 46%; padding: 5px 12px; font-size: 11px; }
+            .lobby-estado.cuenta { font-size: 13px; }
+            .sala-capa.en-sala .sala-aviso { top: 52px; bottom: auto; }
+            .campo-portal { bottom: 33%; }
+            .campo-luna { right: auto; left: 41%; top: 7%; }
+            .campo-fogata { bottom: 27%; }
+            .campo-tronco { bottom: 25%; }
+            .campo-carpa { left: 23%; bottom: 40%; }
+            .lobby-icono { width: 42px; height: 42px; font-size: 18px; border-radius: 12px; }
+            .lobby-principal { min-width: 150px; min-height: 46px; padding: 4px 14px 6px; gap: 3px; }
+            .lobby-principal span { font-size: 10px; }
+            .lobby-principal small { font-size: 9px; }
+        }
+        @media (max-width: 640px) {
+            .lobby-principal { flex: 1; min-width: 0; }
+        }
+
+        /* ---------- la entrada de "Jugar con amigos" (sala.js): de noche en el bosque, como la sala ----------
+           letrero de madera con letra pixel, nombre y héroes en paneles oscuros, y tres tarjetas con un medallón
+           dorado y su botón dorado (el mismo de JUGAR y de ESTOY LISTO) */
+        .sala-capa .sala-panel { position: relative; }
+        .sala-capa:not(.en-sala) .sala-panel { background: #07061a; border-color: rgba(255, 210, 122, 0.22); }
+        .sala-fondo {
+            position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; border-radius: inherit;
+            background: linear-gradient(180deg, #07061a 0%, #1a1040 30%, #33195a 57%, #0b0f1e 58.2%);
+        }
+        .sala-fondo::after { content: ''; position: absolute; inset: 0; background: radial-gradient(80% 70% at 50% 55%, rgba(4, 5, 14, 0.6), rgba(4, 5, 14, 0.25)); }
+        .fondo-fogata {
+            position: absolute; left: 50%; bottom: 0; width: 70%; height: 38%; transform: translateX(-50%);
+            background: radial-gradient(closest-side at 50% 100%, rgba(255, 150, 60, 0.32), transparent);
+            animation: fogata-luz 1.6s ease-in-out infinite alternate;
+        }
+        .sala-capa.en-sala .sala-fondo { display: none; }
+        .sala-capa:not(.en-sala) .sala-cabeza, .sala-capa:not(.en-sala) .sala-cuerpo, .sala-capa:not(.en-sala) .sala-aviso { position: relative; z-index: 1; }
+        /* título: letrero de madera */
+        .sala-capa:not(.en-sala) .sala-cabeza h2 {
+            padding: 10px 16px 9px; font: 400 15px/1.2 'Press Start 2P', monospace; letter-spacing: 0.04em; color: #ffe9a8; text-shadow: 0 2px 0 #1e1209;
+            background: repeating-linear-gradient(180deg, transparent 0 9px, rgba(0, 0, 0, 0.12) 9px 11px), linear-gradient(180deg, #5d3c1f, #3e2712);
+            border: 2px solid #1e1209; border-radius: 6px; box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.25), 0 4px 0 #1e1209, 0 10px 24px rgba(0, 0, 0, 0.45);
+        }
+        .sala-capa:not(.en-sala) .sala-x { background: rgba(5, 7, 15, 0.7); }
+        /* tu nombre y tu héroe */
+        .entrar-nombre { color: #e8d6b0; font-weight: 700; }
+        .sala-entrar #sala-nombre, .sala-entrar #sala-codigo, .sala-entrar #sala-buscar-modo {
+            background: rgba(5, 7, 15, 0.78); border: 2px solid rgba(255, 210, 122, 0.28); color: #fff; border-radius: 10px;
+        }
+        .sala-entrar #sala-nombre:focus-visible, .sala-entrar #sala-codigo:focus-visible, .sala-entrar #sala-buscar-modo:focus-visible {
+            border-color: #ffd27a; box-shadow: 0 0 0 3px rgba(255, 210, 122, 0.25);
+        }
+        .entrar-personajes .pj-boton { background: rgba(5, 7, 15, 0.7); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        .entrar-personajes .pj-boton:hover { border-color: rgba(255, 210, 122, 0.5); }
+        .entrar-personajes .pj-boton.elegido { border-color: #ffd27a; background: rgba(60, 40, 10, 0.7); box-shadow: 0 0 14px rgba(255, 190, 80, 0.35); }
+        .entrar-personajes .pj-boton > span:last-child { color: #f4e6c8; }
+        /* las tres formas de jugar */
+        .entrar-acciones .sala-tarjeta {
+            background: rgba(8, 10, 24, 0.78); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+            border: 2px solid rgba(255, 210, 122, 0.2); border-radius: 14px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+            transition: border-color 0.15s, transform 0.15s;
+        }
+        .entrar-acciones .sala-tarjeta:hover, .entrar-acciones .sala-tarjeta:focus-within { border-color: rgba(255, 210, 122, 0.6); transform: translateY(-2px); }
+        .entrar-acciones .sala-tarjeta > b { font: 400 12px/1.4 'Press Start 2P', monospace; color: #ffe9a8; text-shadow: 0 2px 0 #000; }
+        .entrar-acciones .menu-nota { color: #c9cfe0; }
+        .entrar-acciones .tarjeta-icono {
+            border-radius: 50%; font-size: 22px;
+            background: radial-gradient(circle at 50% 35%, #4a3414, #1a1208); border: 2px solid #ffd27a; box-shadow: 0 0 16px rgba(255, 190, 80, 0.35);
+        }
+        .entrar-acciones .tarjeta-pie .menu-boton {
+            min-height: 48px; cursor: pointer; color: #2a1600; border: 2px solid #3a1f00; border-radius: 10px;
+            font: 400 11px/1.2 'Press Start 2P', monospace; letter-spacing: 0.03em;
+            background: linear-gradient(180deg, #fff0b0 0%, #ffd45a 45%, #f09a1e 100%);
+            box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 4px 0 #6b3a00;
+        }
+        .entrar-acciones .tarjeta-pie .menu-boton:hover { filter: brightness(1.08); }
+        .entrar-acciones .tarjeta-pie .menu-boton:active { transform: translateY(3px); box-shadow: 0 1px 0 #6b3a00; }
+        .entrar-acciones .tarjeta-pie .menu-boton:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+        /* (compacto: el medallón va arriba a la derecha de la tarjeta y los héroes se achican para caber sin barra) */
+        .entrar-acciones .sala-tarjeta { position: relative; }
+        .entrar-acciones .tarjeta-icono { position: absolute; right: 12px; top: 12px; width: 40px; height: 40px; font-size: 18px; }
+        .entrar-acciones .sala-tarjeta > b, .entrar-acciones .sala-tarjeta > .menu-nota { padding-right: 46px; }
+        /* buscar: el modo y el botón en una fila (como unirse: código y botón) */
+        .sala-buscar .tarjeta-pie { flex-direction: row; }
+        .sala-buscar .tarjeta-pie #sala-buscar-modo { flex: 1 1 auto; width: auto; min-width: 0; }
+        .sala-buscar .tarjeta-pie .menu-boton { flex: none; padding: 0 16px; }
+        .entrar-personajes { scrollbar-width: none; }
+        .entrar-personajes::-webkit-scrollbar { display: none; }
+        .entrar-personajes .pj-boton { flex: 1 1 0; width: auto; min-width: 62px; max-width: 96px; }
+        .sala-capa:not(.en-sala) .sala-cuerpo { scrollbar-width: thin; scrollbar-color: rgba(255, 210, 122, 0.4) transparent; }
+        @media (max-height: 760px) {
+            .sala-entrar:not([hidden]) { gap: 12px; }
+            .entrar-acciones .sala-tarjeta { padding: 12px 14px; }
+            .pj-mini { --tam: 64px; }
+        }
+        @media (prefers-reduced-motion: reduce) { .fondo-fogata { animation: none; } .entrar-acciones .sala-tarjeta { transition: none; } }
+        @media (max-height: 520px) {
+            .sala-capa:not(.en-sala) .sala-cabeza h2 { font-size: 11px; padding: 7px 12px 6px; }
+            .entrar-acciones .sala-tarjeta > b { font-size: 9px; }
+            .entrar-acciones .tarjeta-pie .menu-boton { min-height: 36px; font-size: 9px; }
+            .entrar-acciones .sala-tarjeta > b, .entrar-acciones .sala-tarjeta > .menu-nota { padding-right: 0; }
         }
 
         /* ---------- menús de pausa y configuración (menu.js) ---------- */

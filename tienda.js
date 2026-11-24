@@ -32,7 +32,7 @@ import { PERSONAJES } from "./personajes.js"
 import { nivelJugador } from "./progreso.js"
 import {
     PODERES, RAREZAS, tienePoder, darPoder, equipados, equiparPoder, cuantosPoderes, urlIcono, filtroIcono, colorDe,
-    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX, ELEMENTOS, elementoDe, comboDe, BUILDS, vistaPrevia,
+    nivelPoder, costoSubir, subirPoder, conNivel, ventajas, queGana, NIVEL_MAX, ELEMENTOS, elementoDe, comboDe, BUILDS, vistaPrevia, nivelMinimoDe, precioDe,
 } from "./poderes.js"
 
 const CLAVE = 'monhabell-aventura-tienda';
@@ -41,51 +41,51 @@ const VERSION = 2; // 2: la estela se equipa por héroe (antes una sola para tod
 export const CATALOGO = [
     // ---------- mejoras permanentes ----------
     {
-        id: 'iman', tipo: 'permanente', icono: '🧲', nombre: 'Imán de monedas', precio: 60,
+        id: 'iman', tipo: 'permanente', icono: '🧲', nombre: 'Imán de monedas', precio: 300,
         descripcion: 'Atrae las monedas cercanas sin tocarlas. Ojo: también atrae las falsas.',
     },
     {
-        id: 'ojo', tipo: 'permanente', icono: '👁', nombre: 'Ojo del Alba', precio: 90,
+        id: 'ojo', tipo: 'permanente', icono: '👁', nombre: 'Ojo del Alba', precio: 450,
         descripcion: 'Las trampas de engaño dan su pista el doble de seguido. Igual hay que mirar.',
     },
     {
-        id: 'corazon', tipo: 'permanente', icono: '❤', nombre: 'Corazón de Albora', precio: 150,
+        id: 'corazon', tipo: 'permanente', icono: '❤', nombre: 'Corazón de Albora', precio: 750,
         descripcion: 'Un corazón más de vida en todos los niveles.',
     },
     // ---------- consumibles ----------
     {
-        id: 'escudo', tipo: 'consumible', icono: '🛡', nombre: 'Runa de reserva', precio: 30, max: 3,
+        id: 'escudo', tipo: 'consumible', icono: '🛡', nombre: 'Runa de reserva', precio: 150, max: 3,
         descripcion: 'La primera vez que se rompa tu escudo en un nivel, se recarga al momento. Solo se gasta si se usa.',
     },
     // ---------- mejoras de héroe (solo para ese héroe) ----------
     {
         id: 'mejora_arquera', tipo: 'heroe', heroe: 'arquera', habilidad: 'c', cambios: { enfriamiento: 1100 },
-        icono: '↺', nombre: 'Voltereta ágil', precio: 80, descripcion: 'La voltereta se recarga en 1,1 s (antes 1,6 s).',
+        icono: '↺', nombre: 'Voltereta ágil', precio: 400, descripcion: 'La voltereta se recarga en 1,1 s (antes 1,6 s).',
     },
     {
         id: 'mejora_espadachin', tipo: 'heroe', heroe: 'espadachin', habilidad: 'espacio', cambios: { parada: 400 },
-        icono: '⚔', nombre: 'Parada maestra', precio: 80, descripcion: 'Más tiempo para parar golpes de frente con el espadazo (0,4 s, antes 0,25 s).',
+        icono: '⚔', nombre: 'Parada maestra', precio: 400, descripcion: 'Más tiempo para parar golpes de frente con el espadazo (0,4 s, antes 0,25 s).',
     },
     {
         id: 'mejora_mago', tipo: 'heroe', heroe: 'mago', habilidad: 'c', cambios: { enfriamiento: 5000 },
-        icono: '✧', nombre: 'Escudo arcano', precio: 80, descripcion: 'El escudo mágico vuelve en 5 s (antes 7 s).',
+        icono: '✧', nombre: 'Escudo arcano', precio: 400, descripcion: 'El escudo mágico vuelve en 5 s (antes 7 s).',
     },
     {
         id: 'mejora_hechicera', tipo: 'heroe', heroe: 'hechicera', habilidad: 'espacio', cambios: { congela: 2500 },
-        icono: '❄', nombre: 'Escarcha eterna', precio: 80, descripcion: 'El cristal de hielo congela 2,5 s (antes 1,5 s).',
+        icono: '❄', nombre: 'Escarcha eterna', precio: 400, descripcion: 'El cristal de hielo congela 2,5 s (antes 1,5 s).',
     },
     {
         id: 'mejora_caballera', tipo: 'heroe', heroe: 'caballera', habilidad: 'c', cambios: { duracion: 3000 },
-        icono: '⛨', nombre: 'Guardia de hierro', precio: 80, descripcion: 'La guardia dura 3 s (antes 2 s).',
+        icono: '⛨', nombre: 'Guardia de hierro', precio: 400, descripcion: 'La guardia dura 3 s (antes 2 s).',
     },
     {
         id: 'mejora_mosquetera', tipo: 'heroe', heroe: 'mosquetera', habilidad: 'x', cambios: { vida: 650 },
-        icono: '≋', nombre: 'Viento cortante', precio: 80, descripcion: 'El corte de viento llega bastante más lejos.',
+        icono: '≋', nombre: 'Viento cortante', precio: 400, descripcion: 'El corte de viento llega bastante más lejos.',
     },
     // ---------- apariencias (solo visuales) ----------
-    { id: 'estela_luna', tipo: 'cosmetico', icono: '✦', nombre: 'Estela lunar', precio: 40, color: 0xb9c3ff, descripcion: 'Una estela de luz lavanda al correr.' },
-    { id: 'estela_brasas', tipo: 'cosmetico', icono: '✹', nombre: 'Estela de brasas', precio: 70, color: 0xff8a3d, descripcion: 'Chispas de fuego a tu paso.' },
-    { id: 'estela_bosque', tipo: 'cosmetico', icono: '❦', nombre: 'Estela del bosque', precio: 70, color: 0x7fd36a, descripcion: 'Hojas de luz verde detrás de ti.' },
+    { id: 'estela_luna', tipo: 'cosmetico', icono: '✦', nombre: 'Estela lunar', precio: 200, color: 0xb9c3ff, descripcion: 'Una estela de luz lavanda al correr.' },
+    { id: 'estela_brasas', tipo: 'cosmetico', icono: '✹', nombre: 'Estela de brasas', precio: 350, color: 0xff8a3d, descripcion: 'Chispas de fuego a tu paso.' },
+    { id: 'estela_bosque', tipo: 'cosmetico', icono: '❦', nombre: 'Estela del bosque', precio: 350, color: 0x7fd36a, descripcion: 'Hojas de luz verde detrás de ti.' },
     {
         id: 'estela_troll', tipo: 'cosmetico', icono: '♛', nombre: 'Estela del Rey Troll', precio: 0, color: 0xff4d6d,
         requisito: 3, descripcion: 'Premio: vence al jefe del nivel 3.',
@@ -186,15 +186,15 @@ export function ofertaDelDia() {
 }
 // horas que le quedan a la oferta (hasta medianoche)
 const horasOferta = () => { const d = new Date(); return 24 - d.getHours() - (d.getMinutes() > 0 ? 1 : 0); };
-export const precioBase = p => RAREZAS[p.rareza].precio;
+export const precioBase = p => precioDe(p);
 export const precioPoder = p => (ofertaDelDia()?.id === p.id ? Math.round(precioBase(p) * (1 - DESCUENTO) / 5) * 5 : precioBase(p));
 // los legendarios se compran desde cierto nivel del jugador (progreso.js)
-const faltaNivel = p => Math.max(0, (RAREZAS[p.rareza].nivelMinimo || 0) - nivelJugador());
+const faltaNivel = p => Math.max(0, nivelMinimoDe(p) - nivelJugador());
 export function comprarPoder(id) {
     const p = PODERES.find(q => q.id === id);
     if (!p) return { ok: false, mensaje: 'Ese poder no existe' };
     if (tienePoder(id)) return { ok: false, mensaje: 'Ya es tuyo' };
-    if (faltaNivel(p)) return { ok: false, mensaje: `Se desbloquea en el nivel ${RAREZAS[p.rareza].nivelMinimo}` };
+    if (faltaNivel(p)) return { ok: false, mensaje: `Se desbloquea en el nivel ${nivelMinimoDe(p)}` };
     if (estado.monedas < precioPoder(p)) return { ok: false, mensaje: `Te faltan ${precioPoder(p) - estado.monedas} monedas` };
     estado.monedas -= precioPoder(p);
     guardar();
@@ -456,7 +456,7 @@ export function iniciarTienda() {
                 ? `<div class="poder-ranuras" role="group" aria-label="Tecla para usarlo">${[0, 1].map(i => `<button type="button"
                     class="poder-tecla ${eq[i] === p.id ? 'activa' : ''}" data-poder="${p.id}" data-ranura="${i}" aria-pressed="${eq[i] === p.id}"
                     aria-label="${eq[i] === p.id ? `Equipado en ${i ? 'B' : 'V'}` : `Poner en ${i ? 'B' : 'V'}`}">${eq[i] === p.id ? '✓ ' : ''}${i ? 'B' : 'V'}</button>`).join('')}</div>` + subir
-                : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${RAREZAS[p.rareza].nivelMinimo} · ${moneda(precio)}</button>`
+                : faltaNivel(p) ? `<button type="button" class="menu-boton tienda-btn" disabled>🔒 Nivel ${nivelMinimoDe(p)} · ${moneda(precio)}</button>`
                 : `<button type="button" class="menu-boton tienda-btn tienda-comprar" data-comprar-poder="${p.id}" ${estado.monedas < precio ? 'disabled' : ''}>${estado.monedas < precio ? `Faltan ${precio - estado.monedas}` : `Comprar · ${precio < precioBase(p) ? `<s>${precioBase(p)}</s> ` : ''}${moneda(precio)}`}</button>`;
             // ventajas con los valores de su nivel actual (y qué gana al subir)
             const [ie, ne, ce] = ELEMENTOS[elementoDe(p)];

@@ -30,6 +30,16 @@ export function cargarMazmorra(scene) {
     scene.load.spritesheet('mz_corazon', `${M}/corazon.png`, { frameWidth: 32, frameHeight: 32 });
 }
 
+// cristales de colores (CraftPix "Free Crystals Pixel Art"): adornan el suelo de las cuevas de algunos temas
+// (tema.cristales: los colores). Se cargan solo los del nivel
+const TAMANOS_CRISTAL = [2, 3, 4]; // (y el 1, enorme, y el 5, chiquito: los grupos grandes)
+export function cargarCristales(scene, nivel) {
+    (nivel?.tema?.cristales || []).forEach(c => [1, ...TAMANOS_CRISTAL, 5].forEach(n => {
+        if (!scene.textures.exists(`cristal_${c}${n}`)) scene.load.image(`cristal_${c}${n}`, `assets/cristales/${c}${n}.png`);
+    }));
+}
+const COLOR_CRISTAL = { blue: 0x6ad0ff, violet: 0xc08aff, white_gold: 0xffe9a0, orange: 0xffa040, red_pink: 0xff6a9a, green: 0x6aff9a, black: 0x8a7aff, lime: 0xc8ff6a };
+
 export function crearAnimacionesMazmorra(scene) {
     if (scene.anims.exists('mz_antorcha1')) return;
     [1, 2, 3].forEach(k => scene.anims.create({
@@ -314,10 +324,15 @@ export function decorarNivel(scene, nivel, indice, sobreSuelo) {
         }
     }
 
-    // en el suelo: estalagmitas y hongos (los hongos brillan un poco)
+    // en el suelo: estalagmitas y hongos (los hongos brillan un poco); en los temas con cristales, también cristales
+    const cristales = (nivel.tema?.cristales || []).filter(c => scene.textures.exists(`cristal_${c}3`));
     for (let x = 120; x < nivel.ancho; x += 90 + azar() * 220) {
         if (!sobreSuelo(x)) continue;
-        if (azar() < 0.55) {
+        if (cristales.length && azar() < 0.45) {
+            const c = cristales[Math.floor(azar() * cristales.length)], n = TAMANOS_CRISTAL[Math.floor(azar() * 3)];
+            scene.add.image(x, SUELO_Y + 3, `cristal_${c}${n}`).setOrigin(0.5, 1).setScale(0.75 + azar() * 0.3);
+            scene.add.image(x, SUELO_Y - 12, 'brillo').setDepth(41).setScale(0.7).setTint(COLOR_CRISTAL[c] ?? 0xffffff).setAlpha(0.22).setBlendMode('ADD');
+        } else if (azar() < 0.55) {
             const n = 1 + Math.floor(azar() * 7);
             scene.add.image(x, SUELO_Y + 2, `mz_mushrum${n}`).setOrigin(0.5, 1).setScale(0.5 + azar() * 0.35).setTint(0xd8c9a0);
             if (n >= 5) {
@@ -331,13 +346,26 @@ export function decorarNivel(scene, nivel, indice, sobreSuelo) {
         }
     }
 
+    // cada tanto, un GRUPO de cristales: uno enorme con chiquitos alrededor (lo que se ve de lejos en la cueva)
+    if (cristales.length && scene.textures.exists(`cristal_${cristales[0]}1`)) {
+        for (let x = 900; x < nivel.ancho - 600; x += 1700 + azar() * 900) {
+            if (!sobreSuelo(x)) continue;
+            const c = cristales[Math.floor(azar() * cristales.length)];
+            scene.add.image(x, SUELO_Y + 4, `cristal_${c}1`).setOrigin(0.5, 1).setScale(0.8);
+            [-70, -40, 45, 75].forEach(dx => scene.add.image(x + dx, SUELO_Y + 3, `cristal_${c}5`).setOrigin(0.5, 1).setScale(1.2));
+            scene.add.image(x, SUELO_Y - 40, 'brillo').setDepth(41).setScale(1.6).setTint(COLOR_CRISTAL[c] ?? 0xffffff).setAlpha(0.25).setBlendMode('ADD');
+        }
+    }
+
     // antorchas en las paredes cada cierta distancia (sobre suelo firme)
     for (let x = 300; x < nivel.ancho - 200; x += cueva ? 520 + azar() * 260 : 800 + azar() * 400) {
         if (sobreSuelo(x)) crearAntorcha(scene, x, SUELO_Y - 105 - azar() * 30, cueva ? 2 : 1);
     }
 
     // puerta de la mazmorra al inicio del nivel
-    scene.add.image(48, SUELO_Y + 4, 'mz_door').setOrigin(0.5, 1).setScale(1.2).setTint(0x9a8f88);
+    // (bajo tierra: la entrada de una cueva; afuera, la puerta de la mazmorra)
+    if (cueva && scene.textures.exists('obj_cueva')) scene.add.image(60, SUELO_Y + 6, 'obj_cueva').setOrigin(0.5, 1).setScale(1.1).setTint(0xb8b0a8);
+    else scene.add.image(48, SUELO_Y + 4, 'mz_door').setOrigin(0.5, 1).setScale(1.2).setTint(0x9a8f88);
     crearAntorcha(scene, 120, SUELO_Y - 110, 1);
 }
 

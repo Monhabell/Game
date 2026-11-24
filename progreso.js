@@ -10,7 +10,7 @@
 //   XP para subir: +100 por nivel hasta el 50 (5100) y después +20 por nivel (100: 6100 · 300: 10100 ·
 //   500: 14100): cada nivel cuesta un poco más, pero los altísimos se pueden alcanzar.
 //   PRIMERA VICTORIA DEL DÍA (terminar un nivel, ganar una carrera o una arena): +150 XP extra.
-//   Premios: cada nivel, monedas (20 × nivel, hasta 1000) · cada 5 niveles, un poder nuevo (o una
+//   Premios: cada nivel, monedas (10 × nivel, hasta 300) · cada 5 niveles, un poder nuevo (o una
 //   mejora ★ gratis si ya los tienes todos) · cada 25 niveles, uno legendario (o su mejora) ·
 //   rangos: 🥉 25 · 🥈 50 · 🥇 100 · 💎 200 · 👑 300 · 🔥 500 (se ven junto al nivel para todos).
 // MAESTRÍA DE CADA HÉROE (hasta 100): la XP también la gana el héroe con el que se juega.
@@ -115,7 +115,7 @@ export function ganarXP(cantidad, pjId, { victoria = false } = {}) {
 
 function premiosCuenta(n) {
     const avisos = [`⬆ ¡NIVEL ${n}!`];
-    const monedas = 20 * Math.min(n, 50);
+    const monedas = 10 * Math.min(n, 30); // (◉ 10 × nivel, hasta ◉ 300: la tienda es cara a propósito)
     sumarMonedas(monedas);
     avisos.push(`◉ +${monedas} monedas`);
     if (n % 25 === 0) avisos.push(premioPoder(['legendario']));

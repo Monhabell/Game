@@ -20,8 +20,67 @@ import { crearFondoCueva, moverFondoCueva } from "./mazmorra.js"
 import { regionDe, eventosDeRegion, PAUSA_ENTRE_EVENTOS, OSCURIDAD_MAXIMA } from "./regiones.js"
 import { RESOLUCION } from "./ajustes.js"
 import { red, enLinea } from "./red.js"
+import { nubesTormenta, rayoEnElCielo } from "./nubes.js"
 
 const ANCHO = 790;
+
+// ---------- PAISAJES en capas (imágenes pixel art de CraftPix: "Free Nature Backgrounds" y
+// "Fantasy 2D Battlegrounds") ----------
+// Un tema (tema.paisaje) o una arena (nivel.paisaje) elige uno: { id, tinte }. El tinte lo vuelve de noche
+// (los originales son de día). capas: los archivos de atrás hacia adelante (sin la 1, el cielo de día: queda
+// el cielo nocturno del juego con su luna). cubre: una sola imagen fija que llena la pantalla (arenas).
+// Se cargan al entrar al nivel (precargarNivel en game.js); si no llegaron, queda el fondo de siempre.
+export const PAISAJES = {
+    bosque: { carpeta: 'naturaleza4', capas: [2, 3, 4] },
+    montana: { carpeta: 'naturaleza3', capas: [2, 4] },
+    pradera: { carpeta: 'naturaleza5', capas: [3, 4] },
+    colinas: { carpeta: 'naturaleza2', capas: [2, 3, 4] },
+    arbol: { carpeta: 'naturaleza1', capas: [3, 5, 6, 7, 8, 10] },
+    aurora: { carpeta: 'naturaleza6', capas: [1, 2, 3] },
+    rocas: { carpeta: 'naturaleza7', capas: [2] },
+    mar: { carpeta: 'naturaleza8', capas: [1] },
+    // (arenas: las capas por separado, con un poco de profundidad; 'vivas' titilan: velas, luciérnagas)
+    batalla1: { carpeta: 'batallas/1', capas: ['1_sky', '2_ruins_bg', '3_hills_trees', '4_ruins', '5_ruins2', '6_statue', '7_stones_grass'], cubre: true },
+    batalla2: { carpeta: 'batallas/2', capas: ['1_bg', '2_mountaims', '3_wall_windows', '4_columns_falgs', '5_candeliar', '6_dragon', '7_floor'], cubre: true, vivas: ['5_candeliar'] },
+    batalla3: { carpeta: 'batallas/3', capas: ['1_sky', '2_jungle_bg', '3_trees_bushes', '4_lianas', '5_tree_face', '6_grasses', '7_grass_road', '8_fireflys'], cubre: true, vivas: ['8_fireflys'] },
+    batalla4: { carpeta: 'batallas/4', capas: ['1_sky', '2_back_trees', '3_crypt', '4_graves', '5_tree', '6_wall', '7_ground', '8_bones'], cubre: true },
+};
+export function paisajeDe(nivel) {
+    const p = nivel?.paisaje || nivel?.tema?.paisaje;
+    return p && PAISAJES[p.id] && nivel.nubes ? { ...PAISAJES[p.id], ...p } : null;
+}
+const clavePaisaje = (p, i) => `pai_${p.carpeta}_${p.capas[i]}`;
+export function cargarPaisaje(scene, nivel) {
+    const p = paisajeDe(nivel);
+    if (!p) return;
+    p.capas.forEach((c, i) => {
+        if (!scene.textures.exists(clavePaisaje(p, i))) scene.load.image(clavePaisaje(p, i), `assets/paisajes/${p.carpeta}/${c}.png`);
+    });
+}
+// dibuja las capas (devuelve false si no están cargadas: se usa el fondo de siempre)
+function crearCapasPaisaje(scene, p) {
+    if (!p.capas.every((_c, i) => scene.textures.exists(clavePaisaje(p, i)))) return false;
+    const tinte = p.tinte ?? 0xffffff;
+    scene.capasMontanas = [];
+    p.capas.forEach((_c, i) => {
+        const clave = clavePaisaje(p, i), img = scene.textures.get(clave).getSourceImage();
+        if (p.cubre) {
+            // (las capas, fijas en pantalla; las 'vivas' titilan)
+            const e = Math.max(ANCHO / img.width, ALTO / img.height);
+            const capa = scene.add.image(ANCHO / 2, ALTO, clave).setOrigin(0.5, 1).setScale(e).setScrollFactor(0).setTint(tinte);
+            if ((p.vivas || []).includes(p.capas[i]) && !reducirMovimiento()) {
+                scene.tweens.add({ targets: capa, alpha: { from: 1, to: 0.45 }, yoyo: true, repeat: -1, duration: 900 + i * 120, ease: 'Sine.inOut' });
+            }
+            return;
+        }
+        const e = ALTO / img.height;
+        const capa = scene.add.tileSprite(0, 0, ANCHO, ALTO, clave).setOrigin(0).setScrollFactor(0).setTileScale(e).setTint(tinte);
+        // (lo lejano, más lento; cada capa un poco más clara que la de adelante: perspectiva)
+        if (i < p.capas.length - 1) capa.setTint(mezclar(tinte, 0xffffff, 0.12 * (p.capas.length - 1 - i) / p.capas.length));
+        scene.capasMontanas.push({ capa, factor: 0.03 + 0.09 * i / Math.max(1, p.capas.length - 1) });
+    });
+    return true;
+}
 const ALTO = 380;
 const SUELO_Y = 332;
 
@@ -299,7 +358,11 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
         if (!reducir) scene.tweens.add({ targets: r, alpha: r.alpha * 0.4, yoyo: true, repeat: -1, duration: 3000 + i * 900, ease: 'Sine.inOut' });
     });
 
-    if (tipo === 'afuera') {
+    const paisaje = tipo === 'afuera' ? paisajeDe(nivel) : null;
+    const conPaisaje = !!paisaje && crearCapasPaisaje(scene, paisaje);
+    if (conPaisaje) {
+        // (el paisaje de imagen reemplaza las montañas y el paisaje dibujado)
+    } else if (tipo === 'afuera') {
         if (nivel.fondo === 'montanas') {
             // montañas en silueta: las lejanas azuladas y las cercanas casi negras con árboles secos
             scene.capasMontanas = [
@@ -320,8 +383,13 @@ export function crearFondoAtmosferico(scene, nivel, indice) {
         crearFondoCueva(scene, mezclar(oscurecer(nivel.tinte ?? 0xffffff, 0.75 * luz), 0x3a1a10, 0.25));
     }
 
+    // tormenta: nubes negras que pasan por arriba (niveles con lluvia o relámpagos)
+    const tormenta = nivel.tema ? (nivel.tema.particulas === 'lluvia' || nivel.tema.relampagos) : regionDe(indice)?.relampagos;
+    if (tipo === 'afuera' && tormenta) nubesTormenta(scene, nivel);
+
     // niebla lejana, ruinas lejanas, niebla media, ruinas cercanas
-    bandaNiebla(scene, 150, 200, p.niebla, tipo === 'afuera' ? 0.28 : 0.38, 0.2, 0.006);
+    bandaNiebla(scene, 150, 200, p.niebla, tipo === 'afuera' ? (conPaisaje ? 0.16 : 0.28) : 0.38, 0.2, 0.006);
+    if (conPaisaje) { bandaNiebla(scene, 200, 200, p.niebla, 0.14, 0.4, 0.012); return; } // (sin ruinas dibujadas encima del paisaje)
     crearRuinas(scene, nivel, indice, mezclar(oscurecer(deTema(0x9a9aae, 0.35), 0.35 * luz), p.niebla, 0.45),
         { factor: 0.3, escala: [0.32, 0.5], semilla: 1, paso: [150, 330], base: -18, alpha: 0.85 });
     bandaNiebla(scene, 190, 200, p.niebla, tipo === 'afuera' ? 0.22 : 0.3, 0.4, 0.012);
@@ -385,6 +453,7 @@ export function crearAmbiente(scene, nivel, nivelIndice, lavaExtra = []) {
         const relampago = () => {
             if (!scene.peleaJefe) {
                 scene.cameras.main.flash(110, 90, 105, 150);
+                if (tipo === 'afuera') rayoEnElCielo(scene);
                 scene.time.delayedCall(Phaser.Math.Between(250, 700), () => scene.sound.play('trueno', { volume: 0.55 }));
                 scene.time.delayedCall(200, () => scene.cameras.main.flash(80, 60, 70, 110));
             }

@@ -13,6 +13,11 @@
 //   🩸 sangre    luna de sangre: un rato los enemigos corren más
 //   🪨 caen      cosas que caen del techo (rocas, estalactitas, libros, carámbanos): su sombra avisa
 //   🌊 agua      más cuevas inundadas (niveles.js: tieneAgua)
+//   ♨️ geiser    grietas en el suelo que retumban y ERUPCIONAN: el chorro te lanza muy alto (no hace daño:
+//               sirve para llegar a monedas y plataformas altas). Van con el reloj: iguales en todas las pantallas
+//   ⚡ rayos     en la tormenta caen rayos donde vas: el suelo se marca y parpadea, ¡muévete! (si te alcanza,
+//               quedas electrocutado con los huesos a la vista, como el poder del rayo)
+// Bajo el agua no hay viento, ni gravedad baja, ni caen cosas, ni rayos (agua.js manda ahí).
 //
 // Lo que va con el reloj (viento, gravedad, eclipse, luna de sangre, calor) sale de Date.now: en línea pasa
 // a la vez en todas las pantallas. Los charcos y hongos salen de la semilla del nivel: iguales para todos.
@@ -20,12 +25,15 @@
 // api (la da game.js): { killgesi(scene, causa, origenX), mensaje(scene, texto, ms) }
 
 import { SUELO_Y } from "./alcance.js"
+import { rafagaViento, humo } from "./nubes.js"
+import { electrocutar } from "./electrocutar.js"
 
 const MECANICAS = {
+    'Las Ruinas Olvidadas': [{ tipo: 'caen', que: 'roca' }],
     'Las Grutas Rojas': [{ tipo: 'caen', que: 'estalactita' }],
     'Los Pantanos Muertos': [{ tipo: 'barro' }],
     'Las Forjas del Troll': [{ tipo: 'calor' }],
-    'Las Torres del Cielo': [{ tipo: 'viento', fuerza: 1 }],
+    'Las Torres del Cielo': [{ tipo: 'viento', fuerza: 1 }, { tipo: 'rayos' }],
     'El Abismo sin Fondo': [{ tipo: 'gravedad' }],
     'El Bosque Helado': [{ tipo: 'hielo' }],
     'Las Minas de Oro': [{ tipo: 'caen', que: 'roca' }],
@@ -37,20 +45,20 @@ const MECANICAS = {
     'El Glaciar Eterno': [{ tipo: 'hielo' }, { tipo: 'caen', que: 'carambano' }],
     'El Mar de Niebla': [{ tipo: 'eclipse', niebla: true }],
     'La Ciudad Hundida': [{ tipo: 'agua' }],
-    'El Volcán Dormido': [{ tipo: 'calor' }],
+    'El Volcán Dormido': [{ tipo: 'geiser' }],
     'La Biblioteca Maldita': [{ tipo: 'caen', que: 'libro' }],
     'La Selva Embrujada': [{ tipo: 'pegajoso', que: 'enredadera' }],
     'El Nido de Arañas': [{ tipo: 'pegajoso', que: 'telarana' }],
     'El Bosque Otoñal': [{ tipo: 'viento', fuerza: 0.6 }],
     'La Cueva de los Ecos': [{ tipo: 'caen', que: 'estalactita' }],
     'El Templo del Sol Negro': [{ tipo: 'eclipse' }],
-    'El Corazón del Volcán': [{ tipo: 'calor' }, { tipo: 'caen', que: 'roca' }],
+    'El Corazón del Volcán': [{ tipo: 'calor' }, { tipo: 'geiser' }],
     'El Reino de Caramelo Podrido': [{ tipo: 'rebote', que: 'gelatina' }],
     'El Cementerio de Barcos': [{ tipo: 'agua' }, { tipo: 'viento', fuerza: 0.8 }],
-    'Las Cumbres de la Tormenta': [{ tipo: 'viento', fuerza: 1.3 }],
+    'Las Cumbres de la Tormenta': [{ tipo: 'viento', fuerza: 1.3 }, { tipo: 'rayos' }],
     'El Fin del Mundo': [{ tipo: 'gravedad' }],
     // (los niveles medievales 5-7)
-    'El Volcán': [{ tipo: 'calor' }],
+    'El Volcán': [{ tipo: 'calor' }, { tipo: 'geiser' }],
     'El Reino de las Nubes': [{ tipo: 'viento', fuerza: 0.8 }],
     'Las Ruinas del Abismo': [{ tipo: 'gravedad' }],
 };
@@ -66,6 +74,8 @@ const AVISOS = {
     eclipse: '🌑 ECLIPSES: llega la oscuridad',
     sangre: '🩸 LUNA DE SANGRE',
     caen: '🪨 CUIDADO ARRIBA: mira las sombras',
+    geiser: '♨️ GÉISERES: te lanzan muy alto',
+    rayos: '⚡ TORMENTA: si el suelo brilla, ¡muévete!',
 };
 const AVISO_PEGAJOSO = { enredadera: '🌿 ENREDADERAS: te atrapan' };
 const AVISO_ECLIPSE = '🌫 NIEBLA: llega la niebla';
@@ -87,6 +97,9 @@ const CICLO = {
     sangre: [22000, 15000, 16000, 22000],
 };
 const CALOR = [4200, 2200, 3200]; // [ciclo, se pone naranja, quema]
+const GEISER = [5200, 3500, 4300]; // [ciclo, empieza a retumbar, erupción (hasta el final del ciclo)]
+const GEISER_ALTO = 300, GEISER_SALTO = 1.65; // px de la columna · el impulso (por el salto del personaje)
+const RAYO_AVISO = 1100, RAYO_RADIO = 34;
 
 let api = null;
 export const configurarMecanicas = a => { api = a; };
@@ -129,17 +142,22 @@ function texturas(scene) {
 }
 
 // los lugares del suelo donde va un charco, una baldosa o un hongo (sin trampas, agua ni puntos de control)
-function lugaresDelSuelo(scene, nivel, r, ancho, separacion) {
+function lugaresDelSuelo(scene, nivel, r, ancho, separacion, despejado = 70) {
     const ocupados = [];
     ['pinchos', 'locuras', 'mordedoras', 'emboscadas', 'rocas', 'cebos', 'monedasTrampa', 'estatuasFalsas', 'plantas']
         .forEach(k => (nivel[k] || []).forEach(v => { const x = Array.isArray(v) ? v[0] : v; if (typeof x === 'number') ocupados.push(x); }));
     (nivel.checkpoints || []).forEach(x => ocupados.push(x));
     const agua = nivel.agua || [];
+    // (ni sobre un suelo falso ni pegado a la lava: el charco o el géiser quedarían flotando)
+    const huecos = [...(nivel.falsos || []), ...(nivel.lava || []), ...(nivel.grietasFalsas || []).map(x => [x - 50, x + 50])];
     const fin = (nivel.meta || 1e9) - 1800; // (ni en la arena del jefe ni cerca de la meta)
     const libre = x => x > 600 && x + ancho < fin && !ocupados.some(o => o > x - 110 && o < x + ancho + 110) &&
         !agua.some(([a, b]) => x + ancho > a - 60 && x < b + 60) &&
-        !solidos.some(c => c.right > x - 20 && c.left < x + ancho + 20 && c.bottom > SUELO_Y - 70 && c.top < SUELO_Y - 8); // (ni pegado a un muro o un bloque)
-    const solidos = (scene.floor?.getChildren() || []).map(o => o.body).filter(Boolean);
+        !huecos.some(([a, b]) => x + ancho > a - 40 && x < b + 40) &&
+        !solidos.some(c => c.right > x - 20 && c.left < x + ancho + 20 && c.bottom > SUELO_Y - despejado && c.top < SUELO_Y - 8); // (ni pegado a un muro o un bloque; despejado: cuánto aire libre necesita arriba)
+    // (todo lo sólido del nivel: suelo, muros, bloques, plataformas)
+    // (lo sólido del nivel: suelo, muros, bloques y plataformas; los bloques invisibles y los de premio también)
+    const solidos = [scene.floor, scene.invisibles, scene.premios].flatMap(gr => gr?.getChildren?.() || []).map(o => o.body).filter(Boolean);
     const lugares = [];
     (nivel.suelo || []).forEach(([a, b]) => {
         for (let x = a + 120 + r() * 160; x + ancho < b - 120; x += separacion * (0.8 + r() * 0.6)) if (libre(x)) lugares.push(x);
@@ -189,10 +207,22 @@ export function crearMecanicas(scene, nivel) {
             m.parches.push({ tipo: 'calor', x0: x, x1: x + 110, alto: 20, dibujo, brasas, desfase: (i * 1300) % CALOR[0] });
         });
     }
+    // géiseres: una grieta con brillo; el vapor sale con el reloj (cada uno con su desfase)
+    if (de('geiser')) {
+        lugaresDelSuelo(scene, nivel, r, 60, 760, GEISER_ALTO + 160).forEach((x, i) => {
+            const dibujo = scene.add.graphics().setDepth(34.5);
+            dibujo.fillStyle(0x2a1a14, 1).fillEllipse(x + 30, SUELO_Y + 1, 60, 12);
+            dibujo.fillStyle(0xff7a30, 0.9).fillEllipse(x + 30, SUELO_Y, 26, 5);
+            const chorro = scene.add.particles(0, 0, 'mec_punto', { x: { min: x + 18, max: x + 42 }, y: SUELO_Y - 4, speedY: { min: -520, max: -380 },
+                speedX: { min: -25, max: 25 }, lifespan: 750, scale: { start: 2.2, end: 0.4 }, alpha: { start: 0.85, end: 0 },
+                tint: [0xffffff, 0xd8e8f0, 0xffc890], frequency: 18, emitting: false }).setDepth(34.7);
+            m.parches.push({ tipo: 'geiser', x0: x, x1: x + 60, alto: GEISER_ALTO, dibujo, chorro, desfase: (i * 1700) % GEISER[0] });
+        });
+    }
     // hongos, calabazas y gelatina que hacen saltar
     if (de('rebote')) {
         const tex = `mec_${de('rebote').que}`;
-        lugaresDelSuelo(scene, nivel, r, 54, 520).forEach(x => {
+        lugaresDelSuelo(scene, nivel, r, 54, 520, 260).forEach(x => {
             const dibujo = scene.add.image(x + 27, SUELO_Y + 2, tex).setOrigin(0.5, 1).setDepth(34.5);
             m.parches.push({ tipo: 'rebote', x0: x + 2, x1: x + 52, alto: 40, dibujo });
         });
@@ -243,11 +273,30 @@ export function animarMecanicas(scene) {
         p.dibujo.setFillStyle(estado === 'quema' ? 0xff3010 : estado === 'calienta' ? 0xff9a30 : 0x5a2a20).setAlpha(1);
         p.brasas.emitting = estado === 'quema';
     });
+    // géiseres: retumban (vapor chico y la grieta brilla) y erupcionan (el chorro alto y humo)
+    m.parches.forEach(p => {
+        if (p.tipo !== 'geiser') return;
+        const t = (Date.now() + p.desfase) % GEISER[0];
+        const estado = t >= GEISER[2] ? 'erupcion' : t >= GEISER[1] ? 'retumba' : 'calma';
+        if (estado === 'retumba') p.dibujo.setAlpha(0.7 + 0.3 * Math.abs(Math.sin(Date.now() / 60)));
+        if (estado === p.estado) return;
+        p.estado = estado;
+        p.dibujo.setAlpha(1);
+        p.chorro.emitting = estado !== 'calma';
+        p.chorro.frequency = estado === 'erupcion' ? 14 : 120;
+        p.chorro.speedY = estado === 'erupcion' ? { min: -560, max: -420 } : { min: -120, max: -60 };
+        if (estado === 'erupcion' && Math.abs(p.x0 - vista.centerX) < vista.width) {
+            humo(scene, (p.x0 + p.x1) / 2, SUELO_Y - 30, 1.2);
+            scene.sound.play('bump', { volume: 0.25, rate: 0.6 });
+        }
+    });
     // viento
     if (m.lineas) {
         const [f] = fase('viento'), dir = vueltaDe('viento') % 2 ? -1 : 1;
         m.dirViento = dir;
         m.vientoSopla = f === 'efecto';
+        // (jirones de nube cruzando la pantalla mientras sopla)
+        if (m.vientoSopla && scene.time.now > (m.proxRafaga || 0)) { m.proxRafaga = scene.time.now + 700; rafagaViento(scene, dir); }
         m.lineas.emitting = f !== 'calma';
         if (f !== 'calma') {
             m.lineas.speedX = dir * (f === 'efecto' ? 700 : 300);
@@ -330,6 +379,12 @@ export function moverConMecanicas(scene, time, delta, enSuelo) {
         else if (p.tipo === 'pegajoso' && libre) { g.setVelocityX(v.x * PEGAJOSO); if (v.y > 90) g.setVelocityY(90); }
         else if (p.tipo === 'movediza' && enSuelo) { enArena = true; if (libre) g.setVelocityX(v.x * MOVEDIZA); }
         else if (p.tipo === 'calor' && enSuelo && p.estado === 'quema') api?.killgesi(scene, 'fuego', (p.x0 + p.x1) / 2);
+        else if (p.tipo === 'geiser' && p.estado === 'erupcion' && time > (m.geiserHasta || 0)) {
+            // el chorro te lanza muy alto (una vez por erupción)
+            m.geiserHasta = time + 900;
+            g.setVelocityY(-scene.pj.salto * GEISER_SALTO);
+            scene.sound.play('salto', { volume: 0.4, rate: 0.6 });
+        }
         else if (p.tipo === 'rebote' && v.y >= 0 && g.body.bottom > SUELO_Y - 8 && time > (m.reboteHasta || 0)) {
             m.reboteHasta = time + 250;
             g.setVelocityY(-scene.pj.salto * REBOTE);
@@ -347,23 +402,60 @@ export function moverConMecanicas(scene, time, delta, enSuelo) {
 
     // viento: empuja (más en el aire)
     if (m.vientoSopla && libre) g.setVelocityX(v.x + m.dirViento * (enSuelo ? VIENTO_SUELO : VIENTO_AIRE) * m.lista.find(x => x.tipo === 'viento').fuerza);
-    // gravedad baja
+    // gravedad baja (bajo el agua, la normal: el nado tiene la suya)
     if (m.tipos.has('gravedad')) {
-        const quiere = m.gravedadBaja ? GRAVEDAD_BAJA : m.gravedadNormal;
+        const quiere = m.gravedadBaja && !scene.bajoAgua ? GRAVEDAD_BAJA : m.gravedadNormal;
         if (g.body.gravity.y !== quiere) g.setGravityY(quiere);
     }
     // cosas que caen del techo: la sombra avisa dónde
-    if (m.caen && time > m.proximaCaida && !scene.peleaJefe && !scene.nivelTerminado) {
+    if (m.caen && time > m.proximaCaida && !scene.peleaJefe && !scene.nivelTerminado && !scene.bajoAgua && !scene.cinematica) {
         m.proximaCaida = time + 4500 + Math.random() * 3500;
         soltar(scene, m.caen, g.x + v.x * 0.9 + (Math.random() - 0.5) * 80, enSuelo ? g.body.bottom : SUELO_Y);
     }
+
+    // rayos de la tormenta: el suelo se marca donde vas y, al rato, cae el rayo
+    if (m.tipos.has('rayos') && time > (m.proximoRayo ?? (m.proximoRayo = time + 5000)) && !scene.peleaJefe && !scene.nivelTerminado && !scene.bajoAgua && !scene.cinematica) {
+        m.proximoRayo = time + 5500 + Math.random() * 4000;
+        rayoAlSuelo(scene, g.x + v.x * 0.8 + (Math.random() - 0.5) * 90, enSuelo ? g.body.bottom : SUELO_Y);
+    }
+}
+
+function rayoAlSuelo(scene, x, piso) {
+    const marca = scene.add.ellipse(x, piso, RAYO_RADIO * 2.4, 10, 0xfff06a, 0.25).setStrokeStyle(2, 0xfff6b0, 0.9).setDepth(34.6);
+    scene.tweens.add({ targets: marca, alpha: { from: 0.25, to: 0.9 }, yoyo: true, repeat: 4, duration: RAYO_AVISO / 10 });
+    scene.time.delayedCall(RAYO_AVISO, () => {
+        marca.destroy();
+        if (!scene.sys?.isActive()) return;
+        const g = scene.mascotaGesi;
+        const alcanza = g.active && !g.isDead && Math.abs(g.x - x) < RAYO_RADIO && g.body.bottom > piso - 90;
+        if (alcanza) {
+            // el mismo rayo cómico del poder: lo deja quieto con los huesos a la vista
+            electrocutar(scene, g, () => ({ x: g.x, y: g.body.center.y }), { propio: true });
+            api?.killgesi(scene, 'rayo', x);
+        } else {
+            const cam = scene.cameras.main, arriba = cam.worldView.y - 20;
+            const linea = scene.add.graphics().setDepth(36).setBlendMode('ADD');
+            let px = x, py = arriba;
+            linea.lineStyle(4, 0xfff6b0, 1).beginPath().moveTo(px, py);
+            while (py < piso) { py = Math.min(piso, py + 26 + Math.random() * 22); px = x + (Math.random() - 0.5) * 30; linea.lineTo(px, py); }
+            linea.strokePath();
+            scene.tweens.add({ targets: linea, alpha: 0, duration: 260, onComplete: () => linea.destroy() });
+        }
+        scene.cameras.main.flash(90, 255, 250, 200);
+        scene.cameras.main.shake(140, 0.004);
+        humo(scene, x, piso - 10, 0.8);
+        try { scene.sound.play(scene.cache.audio.exists('trueno') ? 'trueno' : 'bump', { volume: 0.4 }); } catch (_e) { /* sin sonido */ }
+    });
 }
 
 function soltar(scene, que, x, piso) {
     const sombra = scene.add.image(x, piso, 'mec_sombra').setDepth(34.4).setAlpha(0.15).setScale(0.4);
     scene.tweens.add({ targets: sombra, alpha: 0.55, scaleX: 1, scaleY: 1, duration: 1000 });
     const vista = scene.cameras.main.worldView;
-    const cosa = scene.add.image(x, Math.min(vista.y - 30, piso - 300), `mec_${que}`).setOrigin(0.5, 1).setDepth(34.8);
+    // (las estalactitas y carámbanos: las del paquete de CraftPix si están cargadas; los carámbanos, azulados)
+    const real = (que === 'estalactita' || que === 'carambano') && scene.textures.exists('obj_estalactita1');
+    const cosa = scene.add.image(x, Math.min(vista.y - 30, piso - 300), real ? `obj_estalactita${1 + Math.floor(Math.random() * 4)}` : `mec_${que}`).setOrigin(0.5, 1).setDepth(34.8);
+    if (real) { cosa.setFlipY(false).setScale(0.8); if (que === 'carambano') cosa.setTint(0xbfe8ff); }
     if (que === 'libro' || que === 'roca') scene.tweens.add({ targets: cosa, angle: 360, duration: 1100 });
     scene.tweens.add({ targets: cosa, y: piso, duration: 420, delay: 680, ease: 'Quad.in', onComplete: () => {
         sombra.destroy();

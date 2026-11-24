@@ -33,6 +33,7 @@
 import { CREAR_TROLLADAS, ACTUALIZAR_TROLLADAS, TROLLADAS_DE_CADA_JUGADOR } from "./trolladas.js"
 
 import { crearAntorcha, colgarRoca } from "./mazmorra.js"
+import { rafagaViento } from "./nubes.js"
 
 const SUELO_Y = 332;
 const PROFUNDIDAD = 41; // por encima de la oscuridad
@@ -399,7 +400,7 @@ const ACTUALIZAR = {
             lineasDeViento(scene, l, 700);
             if (!l.avisado) { l.avisado = true; api.mostrarMensaje(scene, '¡VIENTO!', 700); }
         } else if (l.fase === 'aviso') {
-            if (ahora >= l.hasta) { l.fase = 'sopla'; l.hasta = ahora + 1200; lineasDeViento(scene, l, 1200); }
+            if (ahora >= l.hasta) { l.fase = 'sopla'; l.hasta = ahora + 1200; lineasDeViento(scene, l, 1200); rafagaViento(scene, l.dir); scene.time.delayedCall(600, () => rafagaViento(scene, l.dir)); }
         } else if (l.fase === 'sopla') {
             if (cerca) g.x += l.dir * EMPUJE_VIENTO * dt;
             if (ahora >= l.hasta) { l.fase = 'calma'; l.hasta = ahora + 2000; }

@@ -39,6 +39,7 @@
 // efecto (congelar, explotar, ralentizar...: efectos.js), igual que en la carrera.
 
 import { enLinea, enviarEvento } from "./red.js"
+import { humo } from "./nubes.js"
 
 const CLAVE = 'troll-night-poderes';
 const RUTA = 'assets/poderes';
@@ -52,18 +53,35 @@ const EFECTOS = {
     agua10: [120, 89, 8], corte1: [110, 108, 8], corte2: [66, 90, 8], corte3: [90, 70, 8], corte4: [140, 134, 8],
     corte5: [100, 110, 8], corte6: [120, 54, 8], corte7: [100, 77, 6], corte8: [62, 110, 8], corte9: [150, 41, 8],
     corte10: [110, 77, 8],
+    // CraftPix "Free Pixel Magic Sprite Effects" (cuadros chicos de 72: se dibujan más grandes con 'fx')
+    magia_pinchos: [72, 72, 8], magia_humo: [72, 72, 8], magia_grieta: [72, 72, 8], magia_runa: [72, 72, 8],
+    magia_grieta2: [72, 72, 8], magia_haz: [72, 72, 8], magia_tajo: [72, 72, 8], magia_bala: [72, 72, 4], magia_meteorito: [72, 72, 4],
+    magia_chispa: [72, 72, 4], magia_corazones: [72, 72, 8], magia_llama: [72, 72, 4], magia_llamarada: [72, 72, 4],
+    magia_veneno: [72, 72, 8], magia_arcano: [72, 72, 6],
 };
 // cuadros que se repiten mientras el efecto dura (proyectiles, auras, trampas); sin dato: todos
 const BUCLE = { fuego10: [0, 5], corte7: [0, 3], agua1: [2, 7], agua9: [4, 9], fuego5: [2, 9] };
 
 export const RAREZAS = {
-    comun: { nombre: 'Común', color: '#a7b0c4', precio: 50, peso: 60 },
-    raro: { nombre: 'Raro', color: '#5aa9ff', precio: 100, peso: 28 },
-    epico: { nombre: 'Épico', color: '#b77bff', precio: 180, peso: 10 },
-    // legendario: caro en la tienda y solo desde el nivel 20 del jugador (progreso.js); como premio de
-    // nivel sigue saliendo cada 25 niveles. Subirlo de nivel ★ cuesta como antes (precioMejora)
-    legendario: { nombre: 'Legendario', color: '#ffb347', precio: 1800, precioMejora: 300, nivelMinimo: 20, peso: 2 },
+    // (CAROS a propósito: las monedas solo salen de premios; los mejores poderes cuestan semanas de juego)
+    comun: { nombre: 'Común', color: '#a7b0c4', precio: 400, peso: 60 },
+    raro: { nombre: 'Raro', color: '#5aa9ff', precio: 1200, peso: 28 },
+    epico: { nombre: 'Épico', color: '#b77bff', precio: 3000, peso: 10 },
+    // legendario: caro en la tienda y cada uno se abre en su nivel del jugador (NIVEL_LEGENDARIO, progreso.js);
+    // como premio de nivel sigue saliendo cada 25 niveles. Subirlo de nivel ★ cuesta como antes (precioMejora)
+    legendario: { nombre: 'Legendario', color: '#ffb347', precio: 8000, precioMejora: 2500, nivelMinimo: 20, peso: 2 },
 };
+// los épicos se compran desde el nivel 8 del jugador; los legendarios, de a uno cada 7 niveles (del 20 al 90):
+// así siempre hay uno nuevo por desbloquear. (El que ya lo tiene, lo conserva)
+RAREZAS.epico.nivelMinimo = 8;
+const NIVEL_LEGENDARIO = {
+    renacer: 20, galaxia: 27, tormenta: 34, supernova: 41, agujero_negro: 48, detener_tiempo: 55,
+    aliento_dragon: 62, eclipse: 69, ventisca_eterna: 76, fenix: 83, juicio: 90,
+};
+// nivel del jugador desde el que se puede comprar un poder (0: desde el principio)
+export const nivelMinimoDe = p => NIVEL_LEGENDARIO[p.id] ?? RAREZAS[p.rareza].nivelMinimo ?? 0;
+// precio en la tienda: el de su rareza; los legendarios, más caros cuanto más tarde se abren (◉ 8.000 en el nivel 20 → ◉ 15.000 en el 90)
+export const precioDe = p => (p.rareza === 'legendario' && NIVEL_LEGENDARIO[p.id] ? 8000 + Math.round((NIVEL_LEGENDARIO[p.id] - 20) * 100 / 500) * 500 : RAREZAS[p.rareza].precio);
 
 const C = { fuego: 0xff7a3a, hielo: 0x9fe8ff, rayo: 0xfff06a, cian: 0x6fe8ff, verde: 0x7fe06a, arcano: 0xc77dff,
     rosa: 0xff7ad9, luz: 0xffe08a, tierra: 0xd09a5a, sombra: 0x8a5cff, sangre: 0xff4a4a, oro: 0xffc94a };
@@ -76,6 +94,7 @@ export const ELEMENTOS = {
 // de qué elemento es un poder (sale de cómo se ve y qué hace)
 export function elementoDe(p) {
     const t = p.tinte;
+    if (p.elemento) return p.elemento; // (los que usan una magia de color propio, sin tinte)
     if (p.congela || t === C.hielo) return 'hielo';
     if (p.sonido === 'rayo' || t === C.rayo) return 'rayo';
     if (t === C.verde || t === 0x6a8a3a) return 'naturaleza';
@@ -199,31 +218,41 @@ export const PODERES = [
     { id: 'chispazo', nuevo: true, icono: 2, matiz: 40, nombre: 'Chispazo', rareza: 'comun', tipo: 'proyectil', efecto: 'fuego7b', tinte: C.rayo, impacto: 'corte3', vel: 600, vida: 900, daño: 1, aturde: 400, enfriamiento: 2300, sonido: 'rayo', descripcion: 'Una chispa veloz que deja aturdido un instante.' },
     { id: 'hacha_giratoria', nuevo: true, icono: 36, matiz: 200, nombre: 'Hacha giratoria', rareza: 'comun', tipo: 'proyectil', efecto: 'corte7', impacto: 'corte3', vel: 440, vida: 1200, daño: 2, perfora: true, enfriamiento: 2900, sonido: 'latigo', descripcion: 'Un hacha que gira y atraviesa a todos los de la fila.' },
     { id: 'puno_roca', nuevo: true, icono: 39, matiz: 20, nombre: 'Puño de roca', rareza: 'comun', tipo: 'frente', efecto: 'corte5', tinte: C.tierra, distancia: 70, ancho: 80, alto: 80, daño: 2, empuje: 220, enfriamiento: 2800, sonido: 'romper', descripcion: 'Un puño de piedra sale del suelo y empuja lejos.' },
-    { id: 'semillas', nuevo: true, icono: 16, matiz: 90, nombre: 'Semillas explosivas', rareza: 'comun', tipo: 'rafaga', efecto: 'fuego7b', tinte: C.verde, impacto: 'fuego8', cantidad: 3, vel: 380, vida: 800, daño: 1, enfriamiento: 3000, sonido: 'disparo', descripcion: 'Tres semillas en abanico que revientan al tocar.' },
+    { id: 'semillas', nuevo: true, icono: 16, matiz: 90, impacto: 'magia_humo', nombre: 'Semillas explosivas', rareza: 'comun', tipo: 'rafaga', efecto: 'fuego7b', tinte: C.verde, cantidad: 3, vel: 380, vida: 800, daño: 1, enfriamiento: 3000, sonido: 'disparo', descripcion: 'Tres semillas en abanico que revientan al tocar.' },
     { id: 'escupitajo_acido', nuevo: true, icono: 31, matiz: 30, nombre: 'Escupitajo ácido', rareza: 'comun', tipo: 'proyectil', efecto: 'agua8', tinte: 0x9be04a, impacto: 'agua10', vel: 470, vida: 1000, daño: 1, enfriamiento: 2400, sonido: 'disparo', descripcion: 'Un chorro ácido que deja lento a quien toca.' },
     { id: 'chorro_agua', nuevo: true, icono: 30, matiz: 40, nombre: 'Chorro a presión', rareza: 'comun', tipo: 'frente', efecto: 'agua3', distancia: 80, ancho: 60, alto: 110, daño: 1, empuje: 320, enfriamiento: 2700, sonido: 'aparece', descripcion: 'Un chorro de agua que manda a volar hacia atrás.' },
     { id: 'patada_viento', nuevo: true, icono: 50, matiz: 120, nombre: 'Patada de viento', rareza: 'comun', tipo: 'tajo', efecto: 'corte9', tinte: C.verde, alcance: 110, alto: 50, daño: 1, empuje: 260, enfriamiento: 2200, sonido: 'salto', descripcion: 'Una patada que corta el aire y empuja lejos.' },
     { id: 'brasas', nuevo: true, icono: 14, matiz: 20, nombre: 'Lluvia de brasas', rareza: 'comun', tipo: 'lluvia', efecto: 'fuego10', impacto: 'fuego8', cantidad: 3, ancho: 220, daño: 1, enfriamiento: 4200, sonido: 'fuego', descripcion: 'Tres brasas caen del cielo delante de ti.' },
-    { id: 'trampa_espinas', nuevo: true, icono: 40, matiz: 100, nombre: 'Trampa de espinas', rareza: 'comun', tipo: 'trampa', efecto: 'corte6', tinte: C.verde, distancia: 60, ancho: 90, alto: 50, daño: 1, duracion: 4000, enfriamiento: 6000, sonido: 'aparece', descripcion: 'Espinas en el suelo: quien las pisa se lastima y va lento.' },
+    { id: 'trampa_espinas', nuevo: true, icono: 107, efecto: 'magia_pinchos', fx: 2.6, elemento: 'naturaleza', nombre: 'Trampa de espinas', rareza: 'comun', tipo: 'trampa', distancia: 60, ancho: 90, alto: 50, daño: 1, duracion: 4000, enfriamiento: 6000, sonido: 'aparece', descripcion: 'Espinas en el suelo: quien las pisa se lastima y va lento.' },
     // raros
     { id: 'lanza_rayo', nuevo: true, icono: 48, matiz: 30, nombre: 'Lanza del trueno', rareza: 'raro', tipo: 'proyectil', efecto: 'fuego7c', tinte: C.rayo, impacto: 'fuego7a', vel: 650, vida: 1100, daño: 2, perfora: true, aturde: 700, enfriamiento: 3400, sonido: 'rayo', descripcion: 'Una lanza eléctrica que atraviesa y aturde a todos.' },
     { id: 'remolino_fuego', nuevo: true, icono: 47, matiz: 15, nombre: 'Remolino de fuego', rareza: 'raro', tipo: 'aura', efecto: 'fuego3', tinte: C.fuego, radio: 70, daño: 1, duracion: 3500, enfriamiento: 7500, sonido: 'fuego', descripcion: 'Un remolino de llamas te rodea y quema a quien se acerca.' },
     { id: 'cristales', nuevo: true, icono: 26, matiz: 160, nombre: 'Lluvia de cristales', rareza: 'raro', tipo: 'lluvia', efecto: 'fuego7b', tinte: C.hielo, impacto: 'corte3', cantidad: 4, ancho: 260, daño: 1, congela: 1200, enfriamiento: 6000, sonido: 'magia', descripcion: 'Caen cuatro cristales de hielo que congelan.' },
-    { id: 'salto_meteoro', nuevo: true, icono: 12, matiz: 330, nombre: 'Salto meteoro', rareza: 'raro', tipo: 'salto', efecto: 'fuego2', tinte: C.fuego, fuerza: 600, radio: 80, daño: 2, enfriamiento: 4200, sonido: 'fuego', descripcion: 'Un supersalto en llamas que quema a los de abajo.' },
+    { id: 'salto_meteoro', nuevo: true, icono: 12, matiz: 330, efecto: 'magia_grieta', fx: 3.2, nombre: 'Salto meteoro', rareza: 'raro', tipo: 'salto', fuerza: 600, radio: 80, daño: 2, enfriamiento: 4200, sonido: 'fuego', descripcion: 'Un supersalto en llamas que quema a los de abajo.' },
     { id: 'ola_sombras', nuevo: true, icono: 32, matiz: 250, nombre: 'Ola de sombras', rareza: 'raro', tipo: 'ola', efecto: 'agua2', tinte: C.sombra, vel: 300, vida: 1500, daño: 2, aturde: 600, enfriamiento: 5000, sonido: 'magia', descripcion: 'Una ola oscura que confunde a todos a su paso.' },
     { id: 'cadena_fuego', nuevo: true, icono: 2, matiz: 330, nombre: 'Cadena de llamas', rareza: 'raro', tipo: 'cadena', efecto: 'fuego7a', tinte: C.fuego, alcance: 240, saltos: 3, daño: 1, enfriamiento: 3800, sonido: 'fuego', descripcion: 'Una llama que salta de un enemigo a otros tres.' },
-    { id: 'espejo', nuevo: true, icono: 43, matiz: 60, nombre: 'Escudo espejo', rareza: 'raro', tipo: 'escudo', efecto: 'fuego8', tinte: C.luz, duracion: 4000, enfriamiento: 9000, sonido: 'magia', descripcion: 'Un escudo dorado que para el próximo golpe (4 s).' },
+    { id: 'espejo', nuevo: true, icono: 109, efecto: 'magia_runa', fx: 1.5, elemento: 'arcano', nombre: 'Escudo espejo', rareza: 'raro', tipo: 'escudo', duracion: 4000, enfriamiento: 9000, sonido: 'magia', descripcion: 'Un círculo de runas que para el próximo golpe (4 s).' },
     { id: 'paso_sombrio', nuevo: true, icono: 11, matiz: 230, nombre: 'Paso sombrío', rareza: 'raro', tipo: 'impulso', efecto: 'corte9', tinte: C.sombra, duracion: 260, vel: 620, daño: 2, aturde: 500, enfriamiento: 3200, sonido: 'salto', descripcion: 'Te vuelves sombra: atraviesas y aturdes a quien tocas.' },
     // épicos
     { id: 'tifon', nuevo: true, icono: 46, matiz: 160, nombre: 'Tifón', rareza: 'epico', tipo: 'iman', efecto: 'agua9', tinte: C.cian, distancia: 150, radio: 180, daño: 2, duracion: 2000, enfriamiento: 8500, sonido: 'aparece', descripcion: 'Un tifón que chupa a los enemigos y los revuelca.' },
     { id: 'cometa_hielo', nuevo: true, icono: 29, matiz: 180, nombre: 'Cometa de hielo', rareza: 'epico', tipo: 'meteoro', efecto: 'fuego10', tinte: C.hielo, impacto: 'fuego1', escala: 1.5, radio: 110, daño: 3, congela: 2000, enfriamiento: 8000, sonido: 'magia', descripcion: 'Un cometa helado cae y congela a todos alrededor.' },
-    { id: 'jardin', nuevo: true, icono: 16, matiz: 40, nombre: 'Jardín espinoso', rareza: 'epico', tipo: 'lluvia', efecto: 'corte6', tinte: C.verde, enSuelo: true, cantidad: 5, ancho: 320, daño: 2, enfriamiento: 8500, sonido: 'aparece', descripcion: 'Brotan cinco matas de espinas del suelo.' },
+    { id: 'jardin', nuevo: true, icono: 107, matiz: 60, efecto: 'magia_pinchos', fx: 2.6, elemento: 'naturaleza', nombre: 'Jardín espinoso', rareza: 'epico', tipo: 'lluvia', enSuelo: true, cantidad: 5, ancho: 320, daño: 2, enfriamiento: 8500, sonido: 'aparece', descripcion: 'Brotan cinco matas de espinas del suelo.' },
     { id: 'aura_rayo', nuevo: true, icono: 48, matiz: 300, nombre: 'Armadura de rayos', rareza: 'epico', tipo: 'aura', efecto: 'fuego7a', tinte: C.rayo, radio: 75, daño: 1, aturde: 500, duracion: 5000, enfriamiento: 10000, sonido: 'rayo', descripcion: 'Te cubren rayos: quien se acerca queda electrocutado (5 s).' },
     { id: 'puno_sismico', nuevo: true, icono: 38, matiz: 200, nombre: 'Puño sísmico', rareza: 'epico', tipo: 'frente', efecto: 'corte9', tinte: C.tierra, escala: 2, distancia: 0, ancho: 420, alto: 60, daño: 3, aturde: 1000, temblor: true, enfriamiento: 8000, sonido: 'romper', descripcion: 'Golpeas el suelo: la onda aturde a todos los que pisan.' },
     // legendarios
     { id: 'fenix', nuevo: true, icono: 10, matiz: 330, nombre: 'Fénix', rareza: 'legendario', tipo: 'proyectil', efecto: 'fuego10', tinte: C.oro, impacto: 'fuego2', escala: 2, vel: 420, vida: 1800, daño: 4, perfora: true, enfriamiento: 12000, sonido: 'fuego', descripcion: 'Un ave de fuego dorado que arrasa todo a su paso.' },
     { id: 'ventisca_eterna', nuevo: true, icono: 34, matiz: 260, nombre: 'Ventisca eterna', rareza: 'legendario', tipo: 'tormenta', efecto: 'fuego7a', tinte: C.hielo, cantidad: 7, alcance: 440, daño: 2, congela: 2500, enfriamiento: 14000, sonido: 'magia', descripcion: 'Hielo cae sobre hasta 7 enemigos y los congela.' },
     { id: 'juicio', nuevo: true, icono: 37, matiz: 300, nombre: 'Juicio celestial', rareza: 'legendario', tipo: 'lluvia', efecto: 'fuego4', tinte: C.luz, enSuelo: true, cantidad: 7, ancho: 480, daño: 4, temblor: true, enfriamiento: 15000, sonido: 'magia', descripcion: 'Siete columnas de luz caen del cielo: casi nada sobrevive.' },
+    // ---------- magias en pixel art (CraftPix "Free Pixel Magic Sprite Effects": efectos e íconos) ----------
+    { id: 'chispa_estelar', nuevo: true, icono: 106, nombre: 'Chispa estelar', rareza: 'comun', tipo: 'proyectil', efecto: 'magia_bala', impacto: 'magia_chispa', escala: 3.4, vel: 560, vida: 900, daño: 1, enfriamiento: 2000, sonido: 'disparo', descripcion: 'Una chispa de estrella que estalla en destellos.' },
+    { id: 'veneno_pantano', nuevo: true, icono: 108, nombre: 'Veneno del pantano', rareza: 'comun', tipo: 'trampa', efecto: 'magia_veneno', fx: 3, elemento: 'naturaleza', distancia: 60, ancho: 110, alto: 40, daño: 1, duracion: 4500, enfriamiento: 5500, sonido: 'aparece', descripcion: 'Un charco de veneno en el suelo: quien lo pisa se lastima y va lento.' },
+    { id: 'haz_luz', nuevo: true, icono: 103, nombre: 'Haz de luz', rareza: 'raro', tipo: 'frente', efecto: 'magia_haz', tinte: C.luz, escala: 3, distancia: 130, ancho: 220, alto: 40, daño: 2, empuje: 160, enfriamiento: 3800, sonido: 'magia', descripcion: 'Un rayo de luz recto que atraviesa todo lo que tienes delante.' },
+    { id: 'tajo_lunar', nuevo: true, icono: 110, nombre: 'Tajo lunar', rareza: 'raro', tipo: 'tajo', efecto: 'magia_tajo', tinte: C.hielo, escala: 2.4, alcance: 120, alto: 70, daño: 2, congela: 900, enfriamiento: 3200, sonido: 'magia', descripcion: 'Un corte de luz de luna en diagonal que congela un momento.' },
+    { id: 'llamarada', nuevo: true, icono: 47, matiz: 340, nombre: 'Llamarada', rareza: 'raro', tipo: 'rafaga', efecto: 'magia_llama', impacto: 'magia_llamarada', escala: 2.5, cantidad: 3, vel: 400, vida: 750, daño: 1, enfriamiento: 3200, sonido: 'fuego', descripcion: 'Tres llamitas en abanico que estallan al tocar.' },
+    { id: 'estallido_arcano', nuevo: true, icono: 102, nombre: 'Estallido arcano', rareza: 'raro', tipo: 'explosion', efecto: 'magia_arcano', escala: 3.6, radio: 90, daño: 2, aturde: 700, enfriamiento: 6000, sonido: 'magia', descripcion: 'Una explosión de cristal morado a tu alrededor que aturde.' },
+    { id: 'grieta_ardiente', nuevo: true, icono: 101, nombre: 'Grieta ardiente', rareza: 'raro', tipo: 'frente', efecto: 'magia_grieta2', escala: 2.6, distancia: 90, ancho: 130, alto: 45, daño: 2, temblor: true, enfriamiento: 4200, sonido: 'romper', descripcion: 'El suelo se agrieta en llamas delante de ti.' },
+    { id: 'lluvia_estrellas', nuevo: true, icono: 104, nombre: 'Lluvia de estrellas', rareza: 'epico', tipo: 'lluvia', efecto: 'magia_meteorito', impacto: 'magia_chispa', fx: 4.2, cantidad: 5, ancho: 300, daño: 2, enfriamiento: 7500, sonido: 'magia', descripcion: 'Cinco estrellas fugaces caen del cielo delante de ti.' },
+    { id: 'abrazo_hada', nuevo: true, icono: 105, nombre: 'Abrazo del hada', rareza: 'epico', tipo: 'cura', vida: true, efecto: 'magia_corazones', fx: 3.2, enfriamiento: 45000, sonido: 'punto_control', descripcion: 'Corazones de hada: recuperas un corazón y tu escudo.' },
 ];
 
 export const poderPorId = id => PODERES.find(p => p.id === id);
@@ -687,13 +716,13 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
                 const x = cx + dir * (60 + (i + Math.random() * 0.6) * p.ancho / p.cantidad);
                 scene.time.delayedCall(i * 230, () => {
                     if (p.enSuelo) {
-                        efecto(scene, claveEfecto(p), x, pie + 6, { tinte, origenY: 1, escala: 0.9 });
+                        efecto(scene, claveEfecto(p), x, pie + 6, { tinte, origenY: 1, escala: p.fx || 0.9 });
                         scene.time.delayedCall(150, () => golpearZona(scene, p, new Phaser.Geom.Rectangle(x - 30, pie - 120, 60, 120), remoto));
                     } else {
                         proyectil(scene, p, x - dir * 80, pie - 300, dir * 120, 460, remoto, {
-                            vida: 1500, sueloY: pie, escala: 0.6,
+                            vida: 1500, sueloY: pie, escala: 0.6 * (p.fx || 1),
                             alLlegar: (lx) => {
-                                if (p.impacto) efecto(scene, `pd_${p.impacto}`, lx, pie - 20, { escala: 0.6 });
+                                if (p.impacto) efecto(scene, `pd_${p.impacto}`, lx, pie - 20, { escala: 0.6 * (p.fx || 1) });
                                 golpearRadio(scene, p, lx, pie - 20, 55, remoto);
                             },
                         });
@@ -735,7 +764,7 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
         }
         case 'trampa': {
             const x = cx + dir * p.distancia;
-            const s = efecto(scene, claveEfecto(p), x, pie + 6, { tinte, origenY: 1, bucle: true, escala: p.escala || 0.9 });
+            const s = efecto(scene, claveEfecto(p), x, pie + 6, { tinte, origenY: 1, bucle: true, escala: p.fx || p.escala || 0.9 });
             if (!s) break;
             scene.zonasPoderes.push({ s, p, remoto, hasta: scene.time.now + p.duracion, prox: 0,
                 zona: () => new Phaser.Geom.Rectangle(x - p.ancho / 2, pie - p.alto, p.ancho, p.alto + 4) });
@@ -760,16 +789,16 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
         case 'escudo': {
             if (!remoto) {
                 api.habilidadBase(scene, { tipo: 'escudo', duracion: p.duracion });
-                const s = efecto(scene, claveEfecto(p), cx, cy, { tinte, bucle: true, escala: 0.9 });
+                const s = efecto(scene, claveEfecto(p), cx, cy, { tinte, bucle: true, escala: p.fx || 0.9 });
                 if (s) { s.setAlpha(0.8); scene.escudoFx?.destroy(); scene.escudoFx = s; }
             } else {
-                const s = efecto(scene, claveEfecto(p), cx, cy, { tinte, bucle: true, escala: 0.9 });
+                const s = efecto(scene, claveEfecto(p), cx, cy, { tinte, bucle: true, escala: p.fx || 0.9 });
                 if (s) scene.zonasPoderes.push({ s, p, remoto, sigue: sprite, hasta: scene.time.now + p.duracion, prox: Infinity });
             }
             break;
         }
         case 'cura':
-            efecto(scene, claveEfecto(p), cx, pie + 6, { tinte, origenY: 1 });
+            efecto(scene, claveEfecto(p), cx, pie + 6, { tinte, origenY: 1, escala: p.fx || 1 });
             if (!remoto) {
                 const escudo = api.recuperarEscudo(scene);
                 const vida = p.vida && api.curarVida(scene);
@@ -808,7 +837,7 @@ function lanzar(scene, p, dir, remoto, sprite = scene.mascotaGesi) {
         }
         case 'salto':
             if (!remoto) sprite.setVelocityY(-p.fuerza);
-            efecto(scene, claveEfecto(p), cx, pie + 6, { tinte, origenY: 1, escala: 0.8 });
+            efecto(scene, claveEfecto(p), cx, pie + 6, { tinte, origenY: 1, escala: p.fx || 0.8 });
             golpearRadio(scene, p, cx, pie - 10, p.radio, remoto);
             break;
         case 'cadena': {
@@ -875,6 +904,7 @@ function explotar(scene, p, x, y, remoto) {
     if (p.tipo === 'meteoro') efecto(scene, `pd_${p.impacto}`, x, y, { escala: p.escala || 1 });
     else efecto(scene, claveEfecto(p), x, y, { tinte: p.tinte, escala: p.escala || 1 });
     if (p.temblor || p.tipo === 'meteoro') scene.cameras.main.shake(300, 0.008);
+    humo(scene, x, y, Math.min(2, (p.radio || 80) / 80)); // (el humo que queda)
     golpearRadio(scene, p, x, y, p.radio, remoto);
 }
 

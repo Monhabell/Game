@@ -32,7 +32,44 @@ const alien = (color, extra = {}) => ({
     ...extra,
 });
 
+// hombres lobo (CraftPix "Free Werewolf Sprite Sheets", pixel art 128x128): corren en cuatro patas y
+// se paran a dar zarpazos. El negro es el común; el rojo, rápido y furioso; el blanco, el más duro
+const lobo = (color, extra = {}) => ({
+    carpeta: `assets/enemigos/lobo_${color}`, ancho: 128,
+    hojas: {
+        walk: ['Walk', 11, 12, -1], run: ['Run', 9, 14, -1], dead: ['Dead', 2, 4, 0], hurt: ['Hurt', 2, 8, 0], attack: ['Attack_1', 6, 14, 0],
+        jump: ['Jump', 11, 17, 0],
+    },
+    // salta: [fuerza, distancia a la que se lanza, ms entre saltos] (se lanza de un salto hacia ti: game.js)
+    cuerpo: [34, 60, 47, 68], vida: 2, vel: 1.5, tipo: 'espadachin', corre: true, soltar: 3, cadencia: 1200, alcance: 62, salta: [330, 240, 2600],
+    ...extra,
+});
+// slimes (CraftPix "Free Slime Sprite Sheets", pixel art 128x128): lentos y bajitos; saltan a morderte
+const slime = (color, extra = {}) => ({
+    carpeta: `assets/enemigos/slime_${color}`, ancho: 128,
+    hojas: {
+        walk: ['Walk', 8, 9, -1], dead: ['Dead', 3, 8, 0], hurt: ['Hurt', 6, 14, 0], attack: ['Attack_1', 4, 10, 0],
+        jump: ['Jump', 13, 20, 0],
+    },
+    // (da saltitos hacia ti)
+    cuerpo: [40, 30, 44, 98], vida: 1, vel: 0.6, tipo: 'espadachin', soltar: 2, cadencia: 1600, alcance: 46, salta: [250, 200, 1900],
+    ...extra,
+});
+
 export const ENEMIGOS = {
+    // planta carnívora (CraftPix "Free Platformer Game Tileset"): quieta, se gira hacia ti y muerde lejos;
+    // pisarla pincha (espinas)
+    carnivora: {
+        carpeta: 'assets/enemigos/carnivora', ancho: 192, alto: 128,
+        hojas: { walk: ['Idle', 3, 5, -1], hurt: ['Idle', 2, 10, 0], attack: ['Attack', 6, 12, 0], dead: ['Dead', 3, 6, 0] },
+        cuerpo: [30, 66, 81, 62], vida: 2, vel: 0, tipo: 'espadachin', gira: true, espinas: true, soltar: 2, cadencia: 1300, alcance: 100,
+    },
+    lobo_negro: lobo('negro'),
+    lobo_rojo: lobo('rojo', { vel: 1.8, cadencia: 950 }),
+    lobo_blanco: lobo('blanco', { vida: 3, vel: 1.3 }),
+    slime_verde: slime('verde'),
+    slime_azul: slime('azul', { vida: 2 }),
+    slime_rojo: slime('rojo', { vida: 2, vel: 0.8, cadencia: 1300 }),
     zombie1: zombie(1, 6),
     zombie2: zombie(2, 6),
     zombie3: zombie(3, 5),

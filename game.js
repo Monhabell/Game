@@ -3,11 +3,13 @@ import { monedas } from "./monedas.js"
 import { NIVELES, SUELO_Y, nivelPorIndice, esInfinito, TOTAL_NIVELES } from "./niveles.js"
 import { PERSONAJES, MANA_MAXIMO, cargarPersonajes, crearAnimacionesPersonajes, resDe } from "./personajes.js"
 import { ENEMIGOS, cargarEnemigos, crearAnimacionesEnemigos, enemigosDelNivel } from "./enemigos.js"
-import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSeleccion, moverNieblaSeleccion } from "./ambiente.js"
+import { crearAmbiente, crearFondoAtmosferico, actualizarAmbiente, crearNieblaSeleccion, moverNieblaSeleccion, cargarPaisaje } from "./ambiente.js"
 import { cargarCastillos, crearCastilloMeta } from "./castillos.js"
+import { cargarNubes } from "./nubes.js"
+import { cargarTesoros, crearTesoros, actualizarTesoros, configurarTesoros } from "./tesoros.js"
 import {
     cargarMazmorra, crearAnimacionesMazmorra, vestirSuelo, vestirMuro, vestirTecho, crearLava, moverLava,
-    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero, sueloDeTema
+    decorarNivel, crearEstatua, encenderEstatua, crearAntorcha, crearMuroGotero, sueloDeTema, cargarCristales
 } from "./mazmorra.js"
 import { iniciarTactil, esTactil } from "./tactil.js"
 import { iniciarMenus } from "./menu.js"
@@ -17,7 +19,7 @@ import { crearMecanismos, actualizarMecanismos } from "./mecanismos.js"
 import { crearCadena, actualizarCadena, sostenerEnCadena } from "./cadena.js"
 import { iniciarSala, pistaParaRevancha, arenaParaRevancha, empezarCopa } from "./sala.js"
 import { revisarHitos, mostrarHitos, tituloActual, proximoHito } from "./hitos.js"
-import { configurarAgua, crearAgua, actualizarNado } from "./agua.js"
+import { configurarAgua, crearAgua, actualizarNado, cargarMar } from "./agua.js"
 import { turboCarrera, saltoCarrera } from "./cajas.js"
 import { dibujarDescenso, actualizarDescenso, configurarDescenso } from "./descenso.js"
 import { crearMinimapa, actualizarMinimapa } from "./minimapa.js"
@@ -432,6 +434,7 @@ configurarAgua({
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
 });
 configurarDescenso({ killgesi: (scene, causa, origenX) => killgesi(scene, causa, 20, origenX) }); // (los retos de los pisos: lava, pinchos…)
+configurarTesoros({ mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms) });
 configurarMecanicas({
     killgesi: (scene, causa, origenX) => killgesi(scene, causa, 20, origenX),
     mensaje: (scene, texto, ms) => mostrarMensaje(scene, texto, ms),
@@ -692,6 +695,9 @@ function preload() {
     this.load.audio('romper', 'assets/sound/aventura/romper.mp3');
     this.load.audio('aparece', 'assets/sound/aventura/aparece.mp3');
     cargarEscudo(this);
+    cargarNubes(this); // (nubes de tormenta, rayos, humo y ráfagas: nubes.js)
+    cargarMar(this); // (las criaturas del agua y la salpicadura: agua.js)
+    cargarTesoros(this); // (llave y cofre, hadas, piedras voladoras: tesoros.js)
     cargarJefes(this, trollDelNivel(nivelPorIndice(Phaser.Math.Clamp(nivelActual, 0, TOTAL_NIVELES - 1)))); // (solo el troll del jefe de este nivel)
     cargarSonidos(this);
 
@@ -703,6 +709,9 @@ function preload() {
 // al entrar a un nivel: carga solo los enemigos que usa y suelta los demás (memoria en celulares)
 function precargarNivel() {
     cargarEnemigos(this, arenaActiva() ? [] : enemigosDelNivel(nivelPorIndice(nivelActual))); // (en la arena no hay enemigos)
+    // el paisaje de imagen del tema o de la arena (ambiente.js: PAISAJES)
+    try { cargarPaisaje(this, arenaActiva() ? nivelArena() : nivelPorIndice(nivelActual)); } catch (_e) { /* sin paisaje: el fondo de siempre */ }
+    if (!arenaActiva()) try { cargarCristales(this, nivelPorIndice(nivelActual)); } catch (_e) { /* sin cristales */ }
     // solo los efectos de los poderes equipados (en la arena, también los de los orbes)
     cargarPoderes(this, [...equipados(personajeId).filter(Boolean), ...(arenaActiva() ? PODERES_ORBE : []),
         ...(!arenaActiva() && nivelPorIndice(nivelActual)?.estilo === 'minas' ? ['supernova'] : [])]); // (nivel 3: el cofre secreto)
@@ -1013,6 +1022,7 @@ function create() {
     crearAmbiente(this, nivel, arena ? 0 : nivelActual, nivel1 ? [[1350, 2310]] : []);
     crearAgua(this, nivel); // (las cuevas inundadas: nadar, aire y burbujas)
     crearMecanicas(this, nivel); // (lo que cambia cada tema: hielo, barro, viento, gravedad baja, eclipses…)
+    crearTesoros(this, nivel); // (llave y cofre, hadas, piedras voladoras)
     crearLuz(this, nivel, ZOOM, nivelActual); // (niveles oscuros: antorcha, braseros y enemigos sombra; los demás, oscuros solo en los túneles; sombras bajo los pies)
 
     // HUD (en el celular, más chico y con íconos en vez de palabras: deja ver el juego, como en los
@@ -2454,6 +2464,21 @@ function actualizarEnemigo(scene, enemy, time) {
         if (dir && !pisoEn(scene, dir > 0 ? eb.right + 8 : eb.left - 8, eb.bottom)) enemy.setVelocityX(-dir * enemy.velBase);
     }
     if (Math.abs(eb.velocity.x) > 1) enemy.flipX = eb.velocity.x < 0;
+    // los que se giran hacia ti aunque no caminen (la planta carnívora)
+    if (def.gira && gesiVivo && Math.abs(dx) < 320) enemy.flipX = dx < 0;
+    // los que saltan hacia ti: el hombre lobo se lanza de un salto; el slime da saltitos
+    if (def.salta && gesiVivo && eb.blocked.down && time > (enemy.proxSalto || 0) && Math.abs(dx) > 50 && Math.abs(dx) < def.salta[1]) {
+        const [fuerza, , cada] = def.salta, dir = Math.sign(dx) || 1;
+        enemy.proxSalto = time + cada;
+        enemy.flipX = dir < 0;
+        enemy.setVelocity(dir * Math.max(60, enemy.velBase) * 2.4, -fuerza);
+        if (scene.anims.exists(`${enemy.tipoId}-jump`)) {
+            enemy.anims.play(`${enemy.tipoId}-jump`, true);
+            enemy.atacandoHasta = time + 600;
+            scene.time.delayedCall(600, () => volverACaminar(enemy));
+        }
+        return;
+    }
 
     if (!gesiVivo || time < enemy.proxAtaque || Math.abs(dy) > 60) return;
     const delante = enemy.flipX ? -dx : dx;
@@ -3492,6 +3517,7 @@ function actualizarJugador(time, delta) {
         !g.anims.currentAnim?.key.endsWith('-fall')) animar(this, 'fall');
 
     moverConMecanicas(this, time, delta, enSuelo); // (el tema: resbala, frena, empuja, hace rebotar…)
+    actualizarTesoros(this);
 
     const deathThreshold = 90;
 
