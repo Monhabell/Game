@@ -1229,7 +1229,7 @@ function quitarCompensacion(scene) {
 }
 
 // pixel art nítido: cada píxel se dibuja como un bloque limpio, sin desenfoque
-const PIXEL_ART = /^(arquera|espadachin|mago|hechicera|caballera|mosquetera|hielo|esqueleto|planta|espiritu|bola|mz_|coins|misterio|vacio|ladrillo|bloque_duro|flecha_pj|onda|magia|mastil|bandera|suelo|piso|door|arbol|arbusto|indicacion|lava|malo|cloud)/;
+const PIXEL_ART = /^(arquera|espadachin|mago|hechicera|caballera|mosquetera|hielo|esqueleto|planta|espiritu|bola|mz_|coins|misterio|vacio|ladrillo|bloque_duro|flecha_pj|onda|magia|mastil|bandera|suelo|piso|door|arbol|arbusto|indicacion|lava|malo|cloud|troll)/;
 function pixelArtNitido(scene) {
     scene.textures.getTextureKeys().forEach(k => {
         if (PIXEL_ART.test(k) && !k.startsWith('mz_fondo')) scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);

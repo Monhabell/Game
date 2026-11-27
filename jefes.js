@@ -1,4 +1,4 @@
-// El jefe: el Rey Troll (CraftPix "2D Game Troll Free Character Sprites").
+// El jefe: el Rey Troll (hecho con PixelLab; antes el de CraftPix "2D Game Troll Free Character Sprites").
 //
 // Antes de la bandera hay una arena. Al entrar se cierran dos muros de roca, el troll cae
 // del cielo y aparece su barra de vida. Hay que quitarle toda la vida para poder llegar a la meta.
@@ -39,7 +39,9 @@ const ZOOM_ARENA = 1.3;           // zoom de la cámara durante la pelea (~1200 
 const PISOTON_ESPERA = 900;       // ms entre pisotones que hacen daño
 const PISOTONES_PARA_SACUDIR = 2; // pisotones seguidos antes de que se sacuda
 // (cuadros de cada hoja: Walk tiene 9; la cuadrícula es de 5 x 2 y su último lugar está vacío)
-const ANIMS = { idle: ['Idle', 10, 10, -1], walk: ['Walk', 9, 12, -1], run: ['Run', 10, 16, -1], attack: ['Attack', 10, 15, 0], hurt: ['Hurt', 10, 20, 0], dead: ['Dead', 10, 10, 0], jump: ['Jump', 10, 12, 0] };
+// el Rey Troll nuevo (hecho con PixelLab, al doble): mismos cuadros de 600 x 440 y en el mismo lugar que el
+// de CraftPix; cada animación dura lo mismo que antes (el ritmo de la pelea no cambia)
+const ANIMS = { idle: ['Idle', 6, 5, -1], walk: ['Walk', 14, 14, -1], run: ['Run', 7, 14, -1], attack: ['Attack', 8, 12, 0], hurt: ['Hurt', 9, 18, 0], dead: ['Dead', 8, 8, 0], jump: ['Jump', 8, 10, 0] };
 
 // un encuentro por nivel con el mismo Rey Troll (se repite el último si hay más niveles)
 //   ataques: especiales que ya sabe usar ('terremoto' solo cuando está furioso)
