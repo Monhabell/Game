@@ -87,7 +87,16 @@ const HIELO_MS = 380;          // lo que tarda en llegar a la velocidad (o en fr
 const BARRO = 0.5, PEGAJOSO = 0.5, MOVEDIZA = 0.4; // velocidad dentro
 const TRAGA_MS = 2600;         // lo que aguanta la arena movediza antes de tragarte
 const REBOTE = 1.55;           // el salto de un hongo (por el salto del personaje)
-const VIENTO_SUELO = 40, VIENTO_AIRE = 95;  // px/s que empuja una ráfaga
+// el viento empuja SUAVE y solo con los pies en el suelo (en el aire, el salto es tuyo: nunca te tira a la
+// lava a mitad de un salto) y nunca si hacia donde empuja no hay piso (no te arrastra a un hueco)
+const VIENTO_SUELO = 30;  // px/s que empuja una ráfaga
+// ¿hay piso firme un poco más allá, a la altura de los pies? (suelo, plataformas, bloques)
+export function pisoAdelante(scene, x, pie) {
+    return [scene.floor, scene.invisibles, scene.premios].some(gr => (gr?.getChildren?.() || []).some(o => {
+        const b = o.body;
+        return b && b.enable !== false && b.left <= x && b.right >= x && Math.abs(b.top - pie) < 8;
+    }));
+}
 const GRAVEDAD_BAJA = 130;     // la gravedad propia del personaje en gravedad baja (normal: 480)
 // los ciclos (ms): [largo, empieza el aviso, empieza el efecto, termina]
 const CICLO = {
@@ -401,7 +410,9 @@ export function moverConMecanicas(scene, time, delta, enSuelo) {
     } else if (m.tragado) { m.tragado = 0; m.avisoArena = false; g.clearTint(); }
 
     // viento: empuja (más en el aire)
-    if (m.vientoSopla && libre) g.setVelocityX(v.x + m.dirViento * (enSuelo ? VIENTO_SUELO : VIENTO_AIRE) * m.lista.find(x => x.tipo === 'viento').fuerza);
+    if (m.vientoSopla && libre && enSuelo && pisoAdelante(scene, g.body.center.x + m.dirViento * 30, g.body.bottom)) {
+        g.setVelocityX(v.x + m.dirViento * VIENTO_SUELO * Math.min(1, m.lista.find(x => x.tipo === 'viento').fuerza));
+    }
     // gravedad baja (bajo el agua, la normal: el nado tiene la suya)
     if (m.tipos.has('gravedad')) {
         const quiere = m.gravedadBaja && !scene.bajoAgua ? GRAVEDAD_BAJA : m.gravedadNormal;
@@ -414,7 +425,8 @@ export function moverConMecanicas(scene, time, delta, enSuelo) {
     }
 
     // rayos de la tormenta: el suelo se marca donde vas y, al rato, cae el rayo
-    if (m.tipos.has('rayos') && time > (m.proximoRayo ?? (m.proximoRayo = time + 5000)) && !scene.peleaJefe && !scene.nivelTerminado && !scene.bajoAgua && !scene.cinematica) {
+    // (nunca al empezar el nivel: el primero, a los 12 s y lejos de la salida)
+    if (m.tipos.has('rayos') && g.x > 900 && time > (m.proximoRayo ?? (m.proximoRayo = time + 12000)) && !scene.peleaJefe && !scene.nivelTerminado && !scene.bajoAgua && !scene.cinematica) {
         m.proximoRayo = time + 5500 + Math.random() * 4000;
         rayoAlSuelo(scene, g.x + v.x * 0.8 + (Math.random() - 0.5) * 90, enSuelo ? g.body.bottom : SUELO_Y);
     }

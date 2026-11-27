@@ -55,7 +55,7 @@ const esArena = modo => modo === 'duelo' || modo === 'equipos';
 const ARENAS = new Set(['bosque', 'cueva', 'volcan', 'castillo', 'abismo', 'cementerio', 'ruinas', 'criptas']); // (en la Noche del Troll: el mapa)
 const MAX_ARENA = 4; // jugadores en una batalla de la arena
 const APUESTAS = new Set([0, 10, 25, 50, 100]);
-const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera', 'paladina', 'asesina', 'elfa']);
+const PERSONAJES = new Set(['arquera', 'espadachin', 'mago', 'hechicera', 'caballera', 'mosquetera', 'ninja', 'paladina', 'asesina', 'elfa']);
 
 /** @type {Map<string, {codigo: string, jugadores: Map<number, any>, anfitrion: number, empezada: boolean, siguienteId: number}>} */
 const salas = new Map();

@@ -34,6 +34,7 @@ import { CREAR_TROLLADAS, ACTUALIZAR_TROLLADAS, TROLLADAS_DE_CADA_JUGADOR } from
 
 import { crearAntorcha, colgarRoca } from "./mazmorra.js"
 import { rafagaViento } from "./nubes.js"
+import { pisoAdelante } from "./mecanicas.js"
 
 const SUELO_Y = 332;
 const PROFUNDIDAD = 41; // por encima de la oscuridad
@@ -402,7 +403,9 @@ const ACTUALIZAR = {
         } else if (l.fase === 'aviso') {
             if (ahora >= l.hasta) { l.fase = 'sopla'; l.hasta = ahora + 1200; lineasDeViento(scene, l, 1200); rafagaViento(scene, l.dir); scene.time.delayedCall(600, () => rafagaViento(scene, l.dir)); }
         } else if (l.fase === 'sopla') {
-            if (cerca) g.x += l.dir * EMPUJE_VIENTO * dt;
+            // (suave, solo en el suelo y nunca hacia un hueco: ver mecanicas.js)
+            const enSuelo = g.body.blocked.down || g.body.touching.down;
+            if (cerca && enSuelo && pisoAdelante(scene, g.body.center.x + l.dir * 30, g.body.bottom)) g.x += l.dir * EMPUJE_VIENTO * 0.45 * dt;
             if (ahora >= l.hasta) { l.fase = 'calma'; l.hasta = ahora + 2000; }
         }
     },

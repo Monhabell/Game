@@ -52,6 +52,7 @@ export const PERSONAJES = [
             shot1: ['Shot_1', 14, 32, 0],
             shot2: ['Shot_2', 13, 30, 0],
             atk1: ['Attack_1', 4, 14, 0],
+            swim: ['Swim', 8, 10, -1], // (nadando: pose de Gemini animada con PixelLab, con su paleta)
         },
         velocidad: 1,
         salto: 520,
@@ -81,6 +82,7 @@ export const PERSONAJES = [
             atk1: ['Attack_1', 6, 20, 0],
             atk2: ['Attack_2', 3, 12, 0],
             atk3: ['Attack_3', 4, 16, 0],
+            swim: ['Swim', 9, 10, -1], // (nadando: pose de Gemini animada con PixelLab, con su paleta)
         },
         velocidad: 1.2,
         salto: 480,
@@ -110,6 +112,10 @@ export const PERSONAJES = [
             atk1: ['Attack_1', 10, 26, 0],
             atk2: ['Attack_2', 4, 10, 0],
             atk3: ['Attack_3', 7, 18, 0],
+            // nadando (agua.js): pose de Gemini animada con PixelLab (8 cuadros de crol, con su misma paleta:
+            // así el vestidor también le cambia los colores) · dive: el clavado al caer al agua (una vez)
+            swim: ['Swim', 8, 10, -1],
+            dive: ['Dive', 7, 16, 0],
         },
         velocidad: 1,
         salto: 480,
@@ -139,6 +145,7 @@ export const PERSONAJES = [
             atk1: ['Attack_1', 6, 16, 0],
             atk2: ['Attack_2', 3, 10, 0],
             atk4: ['Attack_4', 10, 24, 0],
+            swim: ['Swim', 8, 10, -1], // (nadando: pose de Gemini animada con PixelLab, con su paleta)
         },
         velocidad: 1,
         salto: 500,
@@ -168,6 +175,7 @@ export const PERSONAJES = [
             atk1: ['Attack_1', 5, 16, 0],
             atk2: ['Attack_2', 2, 10, 0],
             atk3: ['Attack_3', 5, 16, 0],
+            swim: ['Swim', 9, 10, -1], // (nadando: pose de Gemini animada con PixelLab, con su paleta)
         },
         velocidad: 0.95,
         salto: 470,

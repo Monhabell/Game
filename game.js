@@ -127,7 +127,7 @@ iniciarPoderes({
         const anim = scene.anims.get(`${scene.pj.anim}-${nombre}`);
         if (!anim) return;
         scene.atacando = true;
-        scene.mascotaGesi.anims.play(anim.key, true);
+        if (!brazadaBajoAgua(scene, 420)) scene.mascotaGesi.anims.play(anim.key, true);
         scene.time.delayedCall(Math.min(420, anim.frames.length / anim.frameRate * 1000), () => { scene.atacando = false; });
     },
     mensaje: (scene, texto) => mostrarMensaje(scene, texto, 900),
@@ -561,10 +561,19 @@ iniciarMultijugador(juego, {
     jefeFx: (scene, m) => efectoJefe(scene, m, apiJefe),
 });
 
+// los botones táctiles según el alto de la pantalla: a 470 px o más, el tamaño elegido; menos, más chicos
+function escalaPantalla() {
+    const alto = document.getElementById('game')?.clientHeight || window.innerHeight || 470;
+    return Math.max(0.66, Math.min(1, alto / 470));
+}
+window.addEventListener('resize', () => document.documentElement.style.setProperty('--t-escala', (BOTONES[ajustes.botones].escala * escalaPantalla()).toFixed(3)));
+
 // aplica lo que cambia al momento (la dificultad se aplica al empezar o reiniciar un nivel)
 function aplicarAjustes() {
     if (juego.sound) juego.sound.volume = ajustes.volumen / 100;
-    document.documentElement.style.setProperty('--t-escala', BOTONES[ajustes.botones].escala);
+    // (el tamaño elegido, achicado en las pantallas bajas: en un celular acostado los botones "normales"
+    // tapaban medio juego. Como en los juegos de celular: chicos y transparentes, el juego primero)
+    document.documentElement.style.setProperty('--t-escala', (BOTONES[ajustes.botones].escala * escalaPantalla()).toFixed(3));
     if (!juego.scene.isActive('juego') && !juego.scene.isPaused('juego')) return;
     const nivel = juego.scene.getScene('juego');
     // en la pelea con el jefe la cámara la maneja jefes.js (vuelve al zoom elegido al ganar)
@@ -1254,7 +1263,9 @@ function prepararAnimaciones(scene) {
 const HEROE = { x: 318, pie: 306, escala: 3.1 };
 const LISTA = { x: 14, y: 56, w: 150, h: 29, paso: 31 };
 // las tarjetas de los héroes (izquierda): 2 columnas, retrato grande arriba y el nombre en una franja abajo
-const TARJ = { x: 14, y: 58, w: 72, h: 86, gx: 6, gy: 6, cols: 2, foto: 62 };
+// (con más de 6 héroes las tarjetas se achican para que todas las filas quepan en la pantalla)
+const FILAS_TARJ = Math.ceil(PERSONAJES.length / 2), ALTO_TARJ = Math.min(86, Math.floor((300 - 6 * (FILAS_TARJ - 1)) / FILAS_TARJ));
+const TARJ = { x: 14, y: 58, w: 72, h: ALTO_TARJ, gx: 6, gy: 6, cols: 2, foto: ALTO_TARJ - 24 };
 // la letra pixel no tiene mayúsculas con tilde (RUBÍ salía mal): para los textos en pixel
 const sinTildes = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
 const PANEL = { x: 484, y: 56, w: 292, h: 276 };
@@ -2774,6 +2785,29 @@ function actualizarRecurso(scene) {
     if (scene.recursoText.text !== texto) scene.recursoText.setText(texto);
 }
 
+// BAJO EL AGUA no se pone de pie para atacar: sigue nadando y da una BRAZADA rápida (la animación de nado
+// acelera, un empujoncito hacia adelante y un chorro de burbujas). Solo los héroes con animación de nado.
+// Devuelve true si la hizo (entonces no se pone la animación de ataque)
+function brazadaBajoAgua(scene, ms) {
+    const g = scene.mascotaGesi;
+    if (!scene.bajoAgua || !scene.anims.exists(`${scene.pj.anim}-swim`)) return false;
+    g.anims.play(`${scene.pj.anim}-swim`, true);
+    g.anims.timeScale = 2.4;
+    scene.time.delayedCall(Math.min(ms, 450), () => { if (g.active) g.anims.timeScale = 1; });
+    const dir = g.flipX ? -1 : 1, sx = g.scaleX, sy = g.scaleY;
+    scene.tweens.add({ targets: g, scaleX: sx * 1.12, scaleY: sy * 0.92, duration: 90, yoyo: true, onComplete: () => g.setScale(sx, sy) });
+    if (g.body) g.body.velocity.x += dir * 90;
+    if (scene.textures.exists('agua_burbuja')) {
+        for (let i = 0; i < 5; i++) {
+            const bx = g.body.center.x + dir * (14 + i * 7), by = g.body.center.y - 6 + (Math.random() - 0.5) * 10;
+            const p = scene.add.image(bx, by, 'agua_burbuja').setDepth(34.2).setScale(0.4 + Math.random() * 0.3);
+            scene.tweens.add({ targets: p, x: bx + dir * (30 + Math.random() * 30), y: by - 10 - Math.random() * 20, alpha: 0, scale: 0.9,
+                duration: 420 + i * 60, ease: 'Quad.out', onComplete: () => p.destroy() });
+        }
+    }
+    return true;
+}
+
 function animar(scene, clave) {
     if (scene.atacando) return; // no cortar la animación de ataque
     scene.mascotaGesi.anims.play(`${scene.pj.anim}-${clave}`, true);
@@ -2819,8 +2853,8 @@ function usarHabilidad(scene, tecla) {
     const clave = `${scene.pj.anim}-${nombreAnim}`;
     const anim = scene.anims.get(clave);
     scene.atacando = true;
-    g.anims.play(clave, true);
     const duracion = anim.frames.length / anim.frameRate * 1000;
+    if (!brazadaBajoAgua(scene, duracion)) g.anims.play(clave, true);
     scene.time.delayedCall(duracion, () => { scene.atacando = false; });
     scene.time.delayedCall(h.soltar / anim.frameRate * 1000, () => {
         if (!g.isDead && !scene.nivelTerminado) ejecutarHabilidad(scene, h);

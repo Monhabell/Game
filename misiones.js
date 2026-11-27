@@ -1,4 +1,6 @@
-// Misiones de los NIVELES INFINITOS (niveles.js: nivelPorIndice). La meta no se abre hasta cumplirlas.
+// Misiones de los NIVELES INFINITOS (niveles.js: nivelPorIndice). Son un BONUS: la meta está siempre abierta;
+// cumplirlas todas da monedas de la tienda (BONUS_MISIONES). Pocas: 1 o 2 por nivel (y un acertijo de vez en
+// cuando en vez de una), para no cortar el ritmo de avanzar, saltar y esquivar.
 //
 // Cada nivel trae sus misiones (siempre las mismas para ese nivel: salen de su número) y en niveles más
 // altos hay MÁS misiones y cada una es MÁS LARGA (más jaulas, más cristales, viajes más largos, menos tiempo):
@@ -27,6 +29,7 @@
 
 import { SUELO_Y } from "./alcance.js"
 import { texturasMinas } from "./minas.js"
+import { sumarMonedas } from "./tienda.js"
 
 const S = SUELO_Y;
 const PRIMERA = 900;        // nada de misiones al empezar el nivel
@@ -34,6 +37,7 @@ const ANTES_META = 1300;    // ni en la arena del jefe / el final
 const MURO = { alto: 520, ancho: 50 };
 const SIMBOLOS = ['▲', '●', '◆', '★', '✚', '☾', '♥', '✖'];
 const LETRA = '"Press Start 2P", monospace';
+const BONUS_MISIONES = 30; // ◉ al cumplirlas todas
 
 let api = null;
 export const configurarMisiones = a => { api = a; };
@@ -60,7 +64,7 @@ export function planearMisiones(nivel, i, k) {
     const lvl = i + 1;
     const propio = nivel.misiones; // (los niveles hechos a mano: su plan)
     const cuantas = propio ? propio.tipos.length
-        : lvl <= 10 ? 1 : lvl <= 50 ? 2 : lvl <= 200 ? 3 : lvl <= 1000 ? 3 + (r() < 0.5 ? 1 : 0) : 4 + (r() < 0.5 ? 1 : 0);
+        : lvl <= 10 ? 1 : 2;
     const tipos = propio ? [...propio.tipos] : ['rescatar', 'encender', 'romper', 'llevar', 'contrarreloj'];
     if (!propio) for (let j = tipos.length - 1; j > 0; j--) { const m = Math.floor(r() * (j + 1)); [tipos[j], tipos[m]] = [tipos[m], tipos[j]]; }
     // dónde se puede poner algo: suelo firme, lejos de los huecos, de las escaleras y de lo que haya arriba
@@ -80,7 +84,8 @@ export function planearMisiones(nivel, i, k) {
     const plan = [];
     // (los acertijos van primero: necesitan una fila de lugares libres)
     // ---------- acertijos ----------
-    const acertijos = propio ? (propio.acertijos || []).length : lvl <= 20 ? 0 : lvl <= 100 ? 1 : lvl <= 500 ? 1 + (r() < 0.5 ? 1 : 0) : 2;
+    // (un acertijo de vez en cuando, como sorpresa: ocupa el lugar de una misión)
+    const acertijos = propio ? (propio.acertijos || []).length : lvl <= 20 ? 0 : r() < 0.3 ? 1 : 0;
     const tramposa = lvl > 200 && r() < Math.min(0.6, (lvl - 200) / 1000); // (la pista miente: 🙃 al revés)
     const elegir = (n, total) => {
         const bolsa = SIMBOLOS.slice(0, total);
@@ -120,7 +125,8 @@ export function planearMisiones(nivel, i, k) {
     // de a uno: si una misión no cabe en el mapa se prueba con el tipo siguiente (y rescatar/encender
     // pueden repetirse) hasta tener las que le tocan al nivel
     const cola = propio ? [...tipos] : [...tipos, 'rescatar', 'encender', 'rescatar'];
-    while (plan.length < cuantas && cola.length) [cola.shift()].forEach(tipo => {
+    while (plan.length < cuantas - (propio ? 0 : acertijosPlan.length) && cola.length) // (el acertijo ocupa el lugar de una misión)
+    [cola.shift()].forEach(tipo => {
         if (tipo === 'rescatar') {
             const xs = Array.from({ length: cant }, () => tomar()).filter(x => x != null);
             if (xs.length) plan.push({ tipo, icono: '🗝️', texto: 'Rescata a los prisioneros', cosas: xs.map((x, j) => ({ id: `j${j}`, x, y: S - 30 })) });
@@ -296,6 +302,8 @@ function pista(scene, x, texto) {
 
 // ¿la meta sigue cerrada? (game.js: completarNivel)
 export function misionesBloquean(scene) {
+    return false; // (las misiones son un bonus: la meta está siempre abierta)
+    // eslint-disable-next-line no-unreachable
     if (!scene.misionesNivel || !estado) return false;
     const faltan = estado.plan.length - estado.hechas.size;
     if (faltan <= 0) return false;
@@ -401,7 +409,8 @@ function cumplir(scene, m) {
     estado.hechas.add(m.n);
     scene.sound.play('punto_control', { volume: 0.6 });
     const faltan = estado.plan.length - estado.hechas.size;
-    api.mensaje(scene, faltan ? `✔ ¡MISIÓN CUMPLIDA!\nFaltan ${faltan}` : '✔ ¡MISIONES CUMPLIDAS!\nLa meta está abierta', 1600);
+    if (!faltan) sumarMonedas(BONUS_MISIONES);
+    api.mensaje(scene, faltan ? `✔ ¡MISIÓN CUMPLIDA!\nFaltan ${faltan} para el bonus` : `🎯 ¡BONUS COMPLETO!\n◉ +${BONUS_MISIONES}`, 1600);
     pintarLista();
 }
 
@@ -465,6 +474,10 @@ function crearLista() {
     flecha.className = 'noche-flechas';
     flecha.setAttribute('aria-hidden', 'true');
     document.getElementById('game').append(lista, flecha);
+    // (recogida: solo "🎯 Bonus 0/2"; se ve entera 4 s al empezar y al tocarla se abre o se cierra)
+    lista.title = 'Toca para ver las misiones';
+    lista.addEventListener('click', () => lista?.classList.toggle('mini'));
+    setTimeout(() => lista?.classList.add('mini'), 4000);
 }
 function quitarLista() {
     lista?.remove(); flecha?.remove();
@@ -473,7 +486,7 @@ function quitarLista() {
 function pintarLista(reloj) {
     if (!lista || !estado) return;
     const faltan = estado.plan.length - estado.hechas.size;
-    lista.innerHTML = `<b>${faltan ? `🎯 Misiones (abren la meta) ${estado.hechas.size}/${estado.plan.length}` : '✅ Meta abierta'}</b>` + estado.plan.map(m => {
+    lista.innerHTML = `<b>${faltan ? `🎯 Bonus ${estado.hechas.size}/${estado.plan.length}` : '✅ ¡Bonus!'}</b>` + estado.plan.map(m => {
         const hecho = estado.hechas.has(m.n);
         let extra = '';
         if (m.cosas && !hecho) extra = ` ${m.cosas.filter(c => estado.rotos.has(`${m.n}${c.id}`)).length}/${m.cosas.length}`;

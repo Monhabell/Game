@@ -225,10 +225,52 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     // despacio, y abajo una sombra deja leer los botones (que van en fila). Sin la imagen: el título de antes
     if (portada) {
         velo.setVisible(false);
-        const img = scene.add.image(ANCHO / 2, ALTO / 2, 'portada').setDepth(9);
+        // (la imagen va dentro de un contenedor: los ojos del troll se acercan y alejan con ella)
+        const img = scene.add.image(0, 0, 'portada');
+        const portadaC = scene.add.container(ANCHO / 2, ALTO / 2, [img]).setDepth(9);
         const esc = Math.max(ANCHO / img.width, ALTO / img.height) * 1.03;
-        img.setScale(esc);
-        if (!quieto) scene.tweens.add({ targets: img, scale: esc * 1.06, yoyo: true, repeat: -1, duration: 12000, ease: 'Sine.inOut' });
+        portadaC.setScale(esc);
+        if (!quieto) scene.tweens.add({ targets: portadaC, scale: esc * 1.06, yoyo: true, repeat: -1, duration: 12000, ease: 'Sine.inOut' });
+        // LOS OJOS DEL REY TROLL (en la portada, arriba al centro): brillan rojos, laten y a veces parpadean
+        const ojos = [[677, 132], [757, 130]].map(([ox, oy]) => scene.add.image(ox - img.width / 2, oy - img.height / 2, 'resplandor')
+            .setScale(0.75, 0.38).setTint(0xff3030).setAlpha(0.75).setBlendMode('ADD'));
+        portadaC.add(ojos);
+        if (!quieto) {
+            scene.tweens.add({ targets: ojos, alpha: 0.35, yoyo: true, repeat: -1, duration: 1400, ease: 'Sine.inOut' });
+            const parpadeo = () => {
+                if (!ojos[0].active) return;
+                scene.tweens.add({ targets: ojos, scaleY: 0.05, yoyo: true, duration: 90, onComplete: () => scene.time.delayedCall(Phaser.Math.Between(3000, 7000), parpadeo) });
+            };
+            scene.time.delayedCall(2500, parpadeo);
+            // nubes de tormenta que pasan despacio por arriba
+            ['nb_black4_1', 'nb_gray3_1', 'nb_black8_1', 'nb_gray5_1'].forEach((k, i) => {
+                if (!scene.textures.exists(k)) return;
+                const n = scene.add.image(-150 + i * 260, 30 + (i % 2) * 40, k).setDepth(9.12).setAlpha(0.28).setScale(0.9 + (i % 2) * 0.3);
+                const pasar = () => {
+                    if (!n.active) return;
+                    scene.tweens.add({ targets: n, x: ANCHO + 180, duration: (ANCHO + 180 - n.x) * 90, onComplete: () => { n.x = -180; pasar(); } });
+                };
+                pasar();
+            });
+            // relámpagos: un rayo en el cielo, un destello y los ojos que se encienden
+            const destello = scene.add.rectangle(0, 0, ANCHO, ALTO, 0xd8e4ff, 1).setOrigin(0).setDepth(9.14).setAlpha(0).setBlendMode('ADD');
+            const relampago = () => {
+                if (!destello.active) return;
+                const x = Math.random() < 0.5 ? Phaser.Math.Between(30, ANCHO * 0.28) : Phaser.Math.Between(ANCHO * 0.72, ANCHO - 30);
+                const rayo = scene.add.graphics().setDepth(9.15).setBlendMode('ADD');
+                let px = x, py = -10;
+                rayo.lineStyle(3, 0xe8f0ff, 1).beginPath().moveTo(px, py);
+                while (py < 150) { py += Phaser.Math.Between(14, 26); px += Phaser.Math.Between(-16, 16); rayo.lineTo(px, py); }
+                rayo.strokePath();
+                rayo.lineStyle(8, 0x8fb4ff, 0.25).strokePath();
+                scene.tweens.add({ targets: rayo, alpha: 0, duration: 380, delay: 80, onComplete: () => rayo.destroy() });
+                scene.tweens.add({ targets: destello, alpha: { from: 0.18, to: 0 }, duration: 450 });
+                ojos.forEach(o => o.setAlpha(1));
+                if (scene.cache.audio.exists('trueno')) scene.time.delayedCall(300, () => scene.sound.play('trueno', { volume: 0.18 }));
+                scene.time.delayedCall(Phaser.Math.Between(6000, 11000), relampago);
+            };
+            scene.time.delayedCall(3500, relampago);
+        }
         scene.add.graphics().setDepth(9.1)
             .fillGradientStyle(0x03040a, 0x03040a, 0x03040a, 0x03040a, 0, 0, 0.95, 0.95).fillRect(0, ALTO - 130, ANCHO, 130);
         // brillos que suben por delante de la imagen
@@ -345,12 +387,11 @@ export function crearTitulo(scene, { zoom, alJugar, alHistoria, alAmigos }) {
     } else {
         mostrarHeroe();
     }
-    // con la portada: el héroe por delante de la imagen (sin su nombre: lo dice el menú)
+    // con la portada: en vez de un héroe solo, EL GRUPO entero sale a la aventura (grupoDeHeroes)
     if (portada) {
-        luz.setDepth(9.3).setScale(1.9).setAlpha(0.35); piso.setDepth(9.3).setScale(1.1, 0.22); sombraHeroe.setDepth(9.3).setScale(0.6);
-        heroe.setDepth(9.4); nombreHeroe.setVisible(false);
-        // (en el celular la fila de botones llega hasta el borde y lo taparía: ahí no va)
-        if (globalThis.matchMedia?.('(pointer: coarse)').matches) [heroe, luz, piso, sombraHeroe].forEach(o => o.setVisible(false));
+        [heroe, luz, piso, sombraHeroe, nombreHeroe].forEach(o => o.setVisible(false));
+        heroe.setActive(false);
+        grupoDeHeroes(scene, quieto);
     }
 
     // profundidad: las capas se corren un poco según dónde esté el mouse
@@ -414,6 +455,7 @@ function menuTitulo(opciones, { alElegir, alMarcar }) {
             <span class="tp-dato" title="Monedas"><i class="moneda" aria-hidden="true"></i>${saldo()}</span>
             ${racha ? `<span class="tp-dato tp-racha" title="Días seguidos">${ICONOS.racha}${racha}</span>` : ''}
         </div>
+        <p class="titulo-novedad" aria-label="Novedades"><b>NUEVO</b><span>Kraken · Lobos · Géiseres · 9 poderes</span></p>
         <nav class="titulo-menu" aria-label="Menú principal">
             <div class="tm-lado izq">${secundario(1)}</div>
             <button type="button" class="tm-principal" data-i="0">${iconoDe(opciones[0][0])}<span>${opciones[0][0].toUpperCase()}</span></button>
@@ -438,6 +480,88 @@ function menuTitulo(opciones, { alElegir, alMarcar }) {
         quitar() { caja.remove(); },
     };
 }
+// ---------- EL GRUPO DE HÉROES (pantalla de título con portada) ----------
+// Los héroes entran corriendo, SALTAN en arco por el medio, por delante del logo, y aterrizan a los lados
+// de los botones levantando polvo; se lucen con su ataque y quedan formados, listos para la aventura. Después,
+// cada tanto, uno salta o ataca (la pantalla nunca queda quieta). Con los colores de cada uno (vestidor).
+// En el celular van 4 (dos por lado) para no tapar los botones.
+function grupoDeHeroes(scene, quieto) {
+    const tactil = !!globalThis.matchMedia?.('(pointer: coarse)').matches;
+    const PIE = tactil ? ALTO - 66 : ALTO - 76; // (justo arriba de la fila de botones)
+    const escala = tactil ? 1.1 : 1.25;
+    const lados = tactil ? [[42, 82], [ANCHO - 82, ANCHO - 42]] : [[46, 84, 122], [ANCHO - 122, ANCHO - 84, ANCHO - 46]];
+    const puestos = [...lados[0].map(x => ({ x, izq: true })), ...lados[1].map(x => ({ x, izq: false }))];
+    const lista = PERSONAJES.slice(0, puestos.length);
+    const heroes = lista.map((pj, i) => {
+        const a = prepararVariante(scene, animDe(pj));
+        const p = puestos[i];
+        const sombra = scene.add.ellipse(p.x, PIE + 2, 30, 7, 0x000000, 0.45).setDepth(9.35).setAlpha(0);
+        const s = scene.add.sprite(p.x, PIE + 4, `${a}-idle`).setOrigin(0.5, 1).setScale(escala / resDe(pj)).setDepth(9.4 + i * 0.01);
+        s.setFlipX(!p.izq); // (los de la izquierda miran al centro, a la derecha; los de la derecha, a la izquierda)
+        s.anims.play(`${a}-idle`);
+        s.anims.setProgress(Math.random());
+        return { pj, a, p, s, sombra };
+    });
+    const ataqueDe = h => (h.pj.hojas.atk1 ? 'atk1' : h.pj.hojas.slash ? 'slash' : null);
+    const lucirse = h => {
+        const k = ataqueDe(h);
+        if (!k || !h.s.active) return;
+        h.s.anims.play(`${h.a}-${k}`, true);
+        h.s.once('animationcomplete', () => { if (h.s.active) h.s.anims.play(`${h.a}-idle`, true); });
+    };
+    const sonar = (k, v) => { try { if (scene.cache.audio.exists(k)) scene.sound.play(k, { volume: v }); } catch (_e) { /* sin sonido */ } };
+    if (quieto) { heroes.forEach(h => h.sombra.setAlpha(1)); return; }
+
+    // la entrada: uno tras otro, corren desde el lado contrario y saltan por el medio hasta su puesto
+    heroes.forEach((h, i) => {
+        const { s, p } = h;
+        const desde = p.izq ? ANCHO + 40 : -40, despegue = p.izq ? ANCHO * 0.66 : ANCHO * 0.34;
+        s.setVisible(false).setPosition(desde, PIE + 4).setFlipX(p.izq);
+        scene.time.delayedCall(1300 + i * 650, () => {
+            if (!s.active) return;
+            s.setVisible(true).anims.play(`${h.a}-run`, true);
+            scene.tweens.add({ targets: s, x: despegue, duration: 420, ease: 'Linear', onComplete: () => {
+                // el salto: un arco alto por delante del logo
+                s.anims.play(h.pj.hojas.jump ? `${h.a}-jump` : `${h.a}-run`, true);
+                sonar('salto', 0.25);
+                const x0 = s.x, alto = PIE - 120;
+                scene.tweens.addCounter({ from: 0, to: 1, duration: 950, ease: 'Linear',
+                    onUpdate: tw => { const t = tw.getValue(); s.x = x0 + (p.x - x0) * t; s.y = PIE + 4 - alto * 4 * t * (1 - t); },
+                    onComplete: () => {
+                        // aterriza: polvo, un golpecito de cámara y se luce
+                        s.setPosition(p.x, PIE + 4).setFlipX(!p.izq);
+                        h.sombra.setAlpha(1);
+                        polvo(scene, p.x, PIE);
+                        scene.cameras.main.shake(90, 0.002);
+                        sonar('bump', 0.2);
+                        lucirse(h);
+                    } });
+            } });
+        });
+    });
+    // después: cada tanto uno salta en su lugar o se luce
+    const despues = () => {
+        const h = heroes[Math.floor(Math.random() * heroes.length)];
+        if (!h?.s.active) return;
+        if (Math.random() < 0.5) {
+            if (h.pj.hojas.jump) h.s.anims.play(`${h.a}-jump`, true);
+            scene.tweens.add({ targets: h.s, y: PIE + 4 - 36, yoyo: true, duration: 280, ease: 'Quad.out',
+                onComplete: () => { if (h.s.active) { h.s.anims.play(`${h.a}-idle`, true); polvo(scene, h.p.x, PIE); } } });
+        } else lucirse(h);
+        scene.time.delayedCall(Phaser.Math.Between(2200, 4200), despues);
+    };
+    scene.time.delayedCall(1300 + heroes.length * 650 + 2200, despues);
+}
+// polvo al aterrizar: bocanadas que se abren a los lados
+function polvo(scene, x, y) {
+    for (let i = 0; i < 6; i++) {
+        const lado = i % 2 ? 1 : -1;
+        const b = scene.add.circle(x + lado * 6, y, Phaser.Math.FloatBetween(2.5, 4.5), 0xc8c0d8, 0.7).setDepth(9.39);
+        scene.tweens.add({ targets: b, x: x + lado * Phaser.Math.Between(16, 34), y: y - Phaser.Math.Between(4, 14), alpha: 0, scale: 1.8,
+            duration: Phaser.Math.Between(380, 560), ease: 'Quad.out', onComplete: () => b.destroy() });
+    }
+}
+
 // racha de la recompensa diaria (diario.js) para el perfil: los días seguidos que llevas (0 si no hay)
 function racha_hoy() {
     try {

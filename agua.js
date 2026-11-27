@@ -271,6 +271,11 @@ export function actualizarNado(scene, time, delta) {
     const antes = scene.bajoAgua;
     scene.bajoAgua = !!agua;
     if (scene.bajoAgua !== antes) chapuzon(scene, b.center.x, (agua || scene.ultimaAgua)?.sup ?? b.top, !!agua);
+    // al caer al agua, el héroe que tiene clavado (dive) lo hace una vez y después nada
+    if (agua && !antes && !scene.atacando && scene.anims.exists(`${scene.pj.anim}-dive`)) {
+        g.setAngle(0).anims.play(`${scene.pj.anim}-dive`, true);
+        scene.clavadoHasta = time + 450;
+    }
     if (agua) scene.ultimaAgua = agua;
     // (al subir nadando, el cuerpo se asoma del agua un instante: si ↑ llega justo ahí, igual sale de un salto)
     if (antes && !agua) scene.recienAsomado = time + 300;
@@ -366,12 +371,17 @@ function ahogarse(scene, delta) {
 // la animación de nadar: patalea despacio (la de correr, lenta), se inclina hacia donde va y suelta burbujitas
 function animarNado(scene, time) {
     const g = scene.mascotaGesi, b = g.body;
+    // (los héroes con animación de nado la usan: más rápida si avanzan; los demás patalean con la de correr)
+    const nado = scene.anims.exists(`${scene.pj.anim}-swim`);
+    if (time < (scene.clavadoHasta || 0)) return; // (todavía en el clavado)
     if (!scene.atacando) {
         const moviendo = Math.abs(b.velocity.x) > 20 || b.velocity.y < -40;
-        g.anims.play(`${scene.pj.anim}-${moviendo ? 'run' : 'idle'}`, true);
-        g.anims.timeScale = moviendo ? 0.55 : 0.6;
+        g.anims.play(`${scene.pj.anim}-${nado ? 'swim' : moviendo ? 'run' : 'idle'}`, true);
+        g.anims.timeScale = nado ? (moviendo ? 1 : 0.45) : moviendo ? 0.55 : 0.6;
     }
-    const meta = Math.abs(b.velocity.x) > 20 ? (b.velocity.x > 0 ? 9 : -9) : Math.sin(time / 500) * 3;
+    // (inclinado: el de nado ya viene acostado, apenas sube o baja la cabeza)
+    const meta = nado ? Phaser.Math.Clamp(-b.velocity.y / 25, -10, 10) * (g.flipX ? -1 : 1)
+        : Math.abs(b.velocity.x) > 20 ? (b.velocity.x > 0 ? 9 : -9) : Math.sin(time / 500) * 3;
     g.setAngle(g.angle + (meta - g.angle) * 0.15);
     if (time > (scene.proxBurbujita || 0)) {
         scene.proxBurbujita = time + 500 + Math.random() * 500;
